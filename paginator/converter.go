@@ -15,7 +15,7 @@ func ConverterStringToOperator(str string) pagination.Operator {
 	switch str {
 	case "eq", "equal", "equals":
 		return pagination.Operator_EQ
-	case "ne", "neq", "not_equal", "not_equals", "not-equal":
+	case "ne", "neq", "not", "not_equal", "not_equals", "not-equal":
 		return pagination.Operator_NEQ
 	case "gt", "greater_than", "greater-than":
 		return pagination.Operator_GT

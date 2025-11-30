@@ -754,7 +754,7 @@ func TestFilterJsonbField(t *testing.T) {
 		query, args := s.Query()
 		require.Equal(t, "SELECT * FROM \"users\" WHERE NOT \"users\".\"meta\" ->> 'title' = $1", query)
 		require.NotEmpty(t, args)
-		require.Equal(t, args[0], "'tom'")
+		require.Equal(t, args[0], "tom")
 	})
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -770,7 +770,7 @@ func TestFilterJsonbField(t *testing.T) {
 		query, args := s.Query()
 		require.Equal(t, "SELECT * FROM `users` WHERE NOT DATE(JSON_EXTRACT(`users`.`meta`, '$.title')) = ?", query)
 		require.NotEmpty(t, args)
-		require.Equal(t, args[0], "'2023-01-01'")
+		require.Equal(t, args[0], "2023-01-01")
 	})
 	t.Run("PostgreSQL_JsonbField_Not_Date", func(t *testing.T) {
 		s := sql.Dialect(dialect.Postgres).Select("*").From(sql.Table("users"))
@@ -783,6 +783,6 @@ func TestFilterJsonbField(t *testing.T) {
 		query, args := s.Query()
 		require.Equal(t, "SELECT * FROM \"users\" WHERE NOT EXTRACT('DATE' FROM \"users\".\"meta\" ->> 'title') = $1", query)
 		require.NotEmpty(t, args)
-		require.Equal(t, args[0], "'2023-01-01'")
+		require.Equal(t, args[0], "2023-01-01")
 	})
 }
