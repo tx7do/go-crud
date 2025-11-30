@@ -37,7 +37,7 @@ func ConverterStringToOperator(str string) pagination.Operator {
 		return pagination.Operator_NIN
 	case "is_null", "isnull":
 		return pagination.Operator_IS_NULL
-	case "is_not_null", "isnot_null", "isnotnull":
+	case "is_not_null", "isnot_null", "isnotnull", "not_isnull":
 		return pagination.Operator_IS_NOT_NULL
 	case "between", "range":
 		return pagination.Operator_BETWEEN
