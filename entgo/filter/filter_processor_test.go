@@ -32,31 +32,31 @@ func TestProcessor_BasicOperators(t *testing.T) {
 	})
 
 	t.Run("In_ValidJSON", func(t *testing.T) {
-		if got := proc.In(s, p, "name", `["a","b"]`); got == nil {
+		if got := proc.In(s, p, "name", `["a","b"]`, nil); got == nil {
 			t.Fatalf("In returned nil for valid JSON array")
 		}
 	})
 
 	t.Run("In_InvalidJSON", func(t *testing.T) {
-		if got := proc.In(s, p, "name", `notjson`); got != nil {
+		if got := proc.In(s, p, "name", `notjson`, nil); got != nil {
 			t.Fatalf("In returned non-nil for invalid JSON, want nil")
 		}
 	})
 
 	t.Run("NotIn_ValidJSON", func(t *testing.T) {
-		if got := proc.NotIn(s, p, "name", `["a","b"]`); got == nil {
+		if got := proc.NotIn(s, p, "name", `["a","b"]`, nil); got == nil {
 			t.Fatalf("NotIn returned nil for valid JSON array")
 		}
 	})
 
 	t.Run("Range_Valid", func(t *testing.T) {
-		if got := proc.Range(s, p, "created_at", `["2020-01-01","2021-01-01"]`); got == nil {
+		if got := proc.Range(s, p, "created_at", `["2020-01-01","2021-01-01"]`, nil); got == nil {
 			t.Fatalf("Range returned nil for valid range")
 		}
 	})
 
 	t.Run("Range_InvalidLength", func(t *testing.T) {
-		if got := proc.Range(s, p, "created_at", `["only"]`); got != nil {
+		if got := proc.Range(s, p, "created_at", `["only"]`, nil); got != nil {
 			t.Fatalf("Range returned non-nil for invalid range length")
 		}
 	})
@@ -135,7 +135,7 @@ func TestProcessor_ProcessDispatcher(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := proc.Process(s, p, c.op, c.field, c.value)
+		got := proc.Process(s, p, c.op, c.field, c.value, nil)
 		if (got != nil) != c.want {
 			t.Fatalf("Process(op=%v) returned nil=%v, want non-nil=%v", c.op, got == nil, c.want)
 		}

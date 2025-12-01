@@ -1,17 +1,19 @@
 package filter
 
 import (
-	"encoding/json"
 	"regexp"
 	"strings"
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
-	"github.com/tx7do/go-curd/paginator"
+
+	"github.com/go-kratos/kratos/v2/encoding"
+	_ "github.com/go-kratos/kratos/v2/encoding/json"
 
 	"github.com/tx7do/go-utils/stringcase"
 
 	pagination "github.com/tx7do/go-curd/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-curd/paginator"
 )
 
 // escapeSQLString 对 SQL 字面量做最小转义，双写单引号并转义反斜杠，降低注入风险。
@@ -26,23 +28,26 @@ var jsonKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_\.]+$`)
 
 // Processor 过滤处理器接口
 type Processor struct {
+	codec encoding.Codec
 }
 
 func NewProcessor() *Processor {
-	return &Processor{}
+	return &Processor{
+		codec: encoding.GetCodec("json"),
+	}
 }
 
 // Process 处理过滤条件
-func (poc Processor) Process(s *sql.Selector, p *sql.Predicate, op pagination.Operator, field, value string) *sql.Predicate {
+func (poc Processor) Process(s *sql.Selector, p *sql.Predicate, op pagination.Operator, field, value string, values []string) *sql.Predicate {
 	switch op {
 	case pagination.Operator_EQ:
 		return poc.Equal(s, p, field, value)
 	case pagination.Operator_NEQ:
 		return poc.NotEqual(s, p, field, value)
 	case pagination.Operator_IN:
-		return poc.In(s, p, field, value)
+		return poc.In(s, p, field, value, values)
 	case pagination.Operator_NIN:
-		return poc.NotIn(s, p, field, value)
+		return poc.NotIn(s, p, field, value, values)
 	case pagination.Operator_GTE:
 		return poc.GTE(s, p, field, value)
 	case pagination.Operator_GT:
@@ -52,7 +57,7 @@ func (poc Processor) Process(s *sql.Selector, p *sql.Predicate, op pagination.Op
 	case pagination.Operator_LT:
 		return poc.LT(s, p, field, value)
 	case pagination.Operator_BETWEEN:
-		return poc.Range(s, p, field, value)
+		return poc.Range(s, p, field, value, values)
 	case pagination.Operator_IS_NULL:
 		return poc.IsNull(s, p, field, value)
 	case pagination.Operator_IS_NOT_NULL:
@@ -100,31 +105,49 @@ func (poc Processor) NotEqual(s *sql.Selector, p *sql.Predicate, field, value st
 
 // In IN操作
 // SQL: WHERE name IN ("tom", "jimmy")
-func (poc Processor) In(s *sql.Selector, p *sql.Predicate, field, value string) *sql.Predicate {
-	var values []any
-	if err := json.Unmarshal([]byte(value), &values); err == nil {
-		return p.In(s.C(field), values...)
+func (poc Processor) In(s *sql.Selector, p *sql.Predicate, field, value string, values []string) *sql.Predicate {
+	if len(value) > 0 {
+		var jsonValues []any
+		if err := poc.codec.Unmarshal([]byte(value), &jsonValues); err == nil {
+			return p.In(s.C(field), jsonValues...)
+		}
+	} else if len(values) > 0 {
+		var anyValues []any
+		for _, v := range values {
+			anyValues = append(anyValues, v)
+		}
+		return p.In(s.C(field), anyValues...)
 	}
+
 	return nil
 }
 
 // NotIn NOT IN操作
 // SQL: WHERE name NOT IN ("tom", "jimmy")`
-func (poc Processor) NotIn(s *sql.Selector, p *sql.Predicate, field, value string) *sql.Predicate {
-	var values []any
-	if err := json.Unmarshal([]byte(value), &values); err == nil {
-		return p.NotIn(s.C(field), values...)
+func (poc Processor) NotIn(s *sql.Selector, p *sql.Predicate, field, value string, values []string) *sql.Predicate {
+	if len(value) > 0 {
+		var jsonValues []any
+		if err := poc.codec.Unmarshal([]byte(value), &jsonValues); err == nil {
+			return p.NotIn(s.C(field), jsonValues...)
+		}
+	} else if len(values) > 0 {
+		var anyValues []any
+		for _, v := range values {
+			anyValues = append(anyValues, v)
+		}
+		return p.NotIn(s.C(field), anyValues...)
 	}
+
 	return nil
 }
 
-// GTE GTE (Greater Than or Equal) 大于等于 >=操作
+// GTE (Greater Than or Equal) 大于等于 >= 操作
 // SQL: WHERE "create_time" >= "2023-10-25"
 func (poc Processor) GTE(s *sql.Selector, p *sql.Predicate, field, value string) *sql.Predicate {
 	return p.GTE(s.C(field), value)
 }
 
-// GT GT (Greater than) 大于 >操作
+// GT (Greater than) 大于 > 操作
 // SQL: WHERE "create_time" > "2023-10-25"
 func (poc Processor) GT(s *sql.Selector, p *sql.Predicate, field, value string) *sql.Predicate {
 	return p.GT(s.C(field), value)
@@ -136,7 +159,7 @@ func (poc Processor) LTE(s *sql.Selector, p *sql.Predicate, field, value string)
 	return p.LTE(s.C(field), value)
 }
 
-// LT LT (Less than) 小于 <操作
+// LT (Less than) 小于 <操作
 // SQL: WHERE "create_time" < "2023-10-25"
 func (poc Processor) LT(s *sql.Selector, p *sql.Predicate, field, value string) *sql.Predicate {
 	return p.LT(s.C(field), value)
@@ -145,13 +168,20 @@ func (poc Processor) LT(s *sql.Selector, p *sql.Predicate, field, value string) 
 // Range 在值域之中 BETWEEN操作
 // SQL: WHERE "create_time" BETWEEN "2023-10-25" AND "2024-10-25"
 // 或者： WHERE "create_time" >= "2023-10-25" AND "create_time" <= "2024-10-25"
-func (poc Processor) Range(s *sql.Selector, _ *sql.Predicate, field, value string) *sql.Predicate {
-	var values []any
-	if err := json.Unmarshal([]byte(value), &values); err == nil {
-		if len(values) != 2 {
-			return nil
-		}
+func (poc Processor) Range(s *sql.Selector, _ *sql.Predicate, field, value string, values []string) *sql.Predicate {
+	if len(value) > 0 {
+		var jsonValues []any
+		if err := poc.codec.Unmarshal([]byte(value), &jsonValues); err == nil {
+			if len(jsonValues) != 2 {
+				return nil
+			}
 
+			return sql.And(
+				sql.GTE(s.C(field), jsonValues[0]),
+				sql.LTE(s.C(field), jsonValues[1]),
+			)
+		}
+	} else if len(values) == 2 {
 		return sql.And(
 			sql.GTE(s.C(field), values[0]),
 			sql.LTE(s.C(field), values[1]),

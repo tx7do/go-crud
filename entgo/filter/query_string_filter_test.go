@@ -75,7 +75,7 @@ func TestFilter(t *testing.T) {
 
 		p := sql.P()
 
-		p = processor.In(s, p, "name", "[\"tom\", \"jimmy\", 123]")
+		p = processor.In(s, p, "name", "[\"tom\", \"jimmy\", 123]", nil)
 		s.Where(p)
 
 		query, args := s.Query()
@@ -90,7 +90,7 @@ func TestFilter(t *testing.T) {
 
 		p := sql.P()
 
-		p = processor.In(s, p, "name", "[\"tom\", \"jimmy\", 123]")
+		p = processor.In(s, p, "name", "[\"tom\", \"jimmy\", 123]", nil)
 		s.Where(p)
 
 		query, args := s.Query()
@@ -108,7 +108,7 @@ func TestFilter(t *testing.T) {
 
 		p := sql.P()
 
-		p = processor.NotIn(s, p, "name", "[\"tom\", \"jimmy\", 123]")
+		p = processor.NotIn(s, p, "name", "[\"tom\", \"jimmy\", 123]", nil)
 		s.Where(p)
 
 		query, args := s.Query()
@@ -123,7 +123,7 @@ func TestFilter(t *testing.T) {
 
 		p := sql.P()
 
-		p = processor.NotIn(s, p, "name", "[\"tom\", \"jimmy\", 123]")
+		p = processor.NotIn(s, p, "name", "[\"tom\", \"jimmy\", 123]", nil)
 		s.Where(p)
 
 		query, args := s.Query()
@@ -257,7 +257,7 @@ func TestFilter(t *testing.T) {
 
 		p := sql.P()
 
-		p = processor.Range(s, p, "create_time", "[\"2023-10-25\", \"2024-10-25\"]")
+		p = processor.Range(s, p, "create_time", "[\"2023-10-25\", \"2024-10-25\"]", nil)
 		s.Where(p)
 
 		query, args := s.Query()
@@ -271,7 +271,7 @@ func TestFilter(t *testing.T) {
 
 		p := sql.P()
 
-		p = processor.Range(s, p, "create_time", "[\"2023-10-25\", \"2024-10-25\"]")
+		p = processor.Range(s, p, "create_time", "[\"2023-10-25\", \"2024-10-25\"]", nil)
 		s.Where(p)
 
 		query, args := s.Query()
@@ -690,7 +690,7 @@ func TestFilter(t *testing.T) {
 
 func TestFilterJsonbField(t *testing.T) {
 	processor := NewProcessor()
-	sf := NewStringlyFilter()
+	sf := NewQueryStringFilter()
 
 	t.Run("Postgres_JsonbField", func(t *testing.T) {
 		s := sql.Dialect(dialect.Postgres).Select("*").From(sql.Table("app_profile"))

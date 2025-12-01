@@ -400,11 +400,15 @@ func (x *Sorting) GetOrder() Sorting_Order {
 
 // 单个条件
 type Condition struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Field         string                 `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
-	Op            Operator               `protobuf:"varint,2,opt,name=op,proto3,enum=pagination.Operator" json:"op,omitempty"`
-	Value         string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	Values        []string               `protobuf:"bytes,4,rep,name=values,proto3" json:"values,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 过滤字段名
+	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
+	// 过滤操作符
+	Op Operator `protobuf:"varint,2,opt,name=op,proto3,enum=pagination.Operator" json:"op,omitempty"`
+	// 过滤值（单值）
+	Value *string `protobuf:"bytes,3,opt,name=value,proto3,oneof" json:"value,omitempty"`
+	// 过滤值（多值，如IN操作符）
+	Values        []string `protobuf:"bytes,4,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -454,8 +458,8 @@ func (x *Condition) GetOp() Operator {
 }
 
 func (x *Condition) GetValue() string {
-	if x != nil {
-		return x.Value
+	if x != nil && x.Value != nil {
+		return *x.Value
 	}
 	return ""
 }
@@ -1284,12 +1288,13 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x05order\x18\x02 \x01(\x0e2\x19.pagination.Sorting.OrderR\x05order\"\x1a\n" +
 	"\x05Order\x12\a\n" +
 	"\x03ASC\x10\x00\x12\b\n" +
-	"\x04DESC\x10\x01\"u\n" +
+	"\x04DESC\x10\x01\"\x84\x01\n" +
 	"\tCondition\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12$\n" +
-	"\x02op\x18\x02 \x01(\x0e2\x14.pagination.OperatorR\x02op\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\tR\x05value\x12\x16\n" +
-	"\x06values\x18\x04 \x03(\tR\x06values\"\x9d\x01\n" +
+	"\x02op\x18\x02 \x01(\x0e2\x14.pagination.OperatorR\x02op\x12\x19\n" +
+	"\x05value\x18\x03 \x01(\tH\x00R\x05value\x88\x01\x01\x12\x16\n" +
+	"\x06values\x18\x04 \x03(\tR\x06valuesB\b\n" +
+	"\x06_value\"\x9d\x01\n" +
 	"\n" +
 	"FilterExpr\x12(\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x14.pagination.ExprTypeR\x04type\x125\n" +
@@ -1515,6 +1520,7 @@ func file_pagination_v1_pagination_proto_init() {
 	if File_pagination_v1_pagination_proto != nil {
 		return
 	}
+	file_pagination_v1_pagination_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pagination_v1_pagination_proto_msgTypes[7].OneofWrappers = []any{}
 	file_pagination_v1_pagination_proto_msgTypes[8].OneofWrappers = []any{}
 	file_pagination_v1_pagination_proto_msgTypes[9].OneofWrappers = []any{}

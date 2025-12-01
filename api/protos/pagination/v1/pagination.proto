@@ -113,9 +113,15 @@ enum DatePart {
 
 // 单个条件
 message Condition {
+  // 过滤字段名
   string field = 1;
+
+  // 过滤操作符
   Operator op = 2;
-  string value = 3;
+
+  // 过滤值（单值）
+  optional string value = 3;
+  // 过滤值（多值，如IN操作符）
   repeated string values = 4;
 }
 
