@@ -142,13 +142,13 @@ func TestNewStructuredFilter(t *testing.T) {
 func TestBuildFilterSelectors_NilExpr(t *testing.T) {
 	sf := NewStructuredFilter()
 
-	sels, err := sf.BuildFilterSelectors(nil)
+	sels, err := sf.BuildSelectors(nil)
 	if err != nil {
 		t.Fatalf("unexpected error for nil expr: %v", err)
 	}
 	if sels == nil {
 		// code returns an empty slice; allow either empty or nil but prefer empty
-		t.Log(" BuildFilterSelectors(nil) returned nil slice (acceptable)")
+		t.Log(" BuildSelectors(nil) returned nil slice (acceptable)")
 	} else if len(sels) != 0 {
 		t.Fatalf("expected 0 selectors for nil expr, got %d", len(sels))
 	}
@@ -160,7 +160,7 @@ func TestBuildFilterSelectors_UnspecifiedExpr(t *testing.T) {
 	expr := &pagination.FilterExpr{
 		Type: pagination.ExprType_EXPR_TYPE_UNSPECIFIED,
 	}
-	sels, err := sf.BuildFilterSelectors(expr)
+	sels, err := sf.BuildSelectors(expr)
 	if err != nil {
 		t.Fatalf("unexpected error for unspecified expr: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestBuildFilterSelectors_SimpleAnd(t *testing.T) {
 		},
 	}
 
-	sels, err := sf.BuildFilterSelectors(expr)
+	sels, err := sf.BuildSelectors(expr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestStructuredFilter_VariousConditions(t *testing.T) {
 				Conditions: []*pagination.Condition{cond},
 			}
 
-			sels, err := sf.BuildFilterSelectors(expr)
+			sels, err := sf.BuildSelectors(expr)
 			if err != nil {
 				t.Fatalf("operator %s: unexpected error: %v", tc.name, err)
 			}

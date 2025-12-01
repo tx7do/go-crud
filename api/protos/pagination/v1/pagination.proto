@@ -258,6 +258,14 @@ message PagingRequest {
     }
   ];
 
+  // 是否不分页，如果为true，则page和pageSize参数无效。
+  optional bool no_paging = 6 [
+    json_name = "noPaging",
+    (gnostic.openapi.v3.property) = {
+      description: "是否不分页，如果为true，则page和pageSize参数无效。"
+    }
+  ];
+
   // 排序条件，其语法为JSON字符串，例如：{"val1", "-val2"}。字段名前加'-'为降序，否则为升序。
   repeated string order_by = 10 [
     json_name = "orderBy",

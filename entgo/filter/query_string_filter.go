@@ -31,8 +31,8 @@ func NewQueryStringFilter() *QueryStringFilter {
 	}
 }
 
-// BuildFilterSelectors 构建过滤选择器
-func (sf QueryStringFilter) BuildFilterSelectors(andFilterJsonString, orFilterJsonString string) ([]func(s *sql.Selector), error) {
+// BuildSelectors 构建过滤选择器
+func (sf QueryStringFilter) BuildSelectors(andFilterJsonString, orFilterJsonString string) ([]func(s *sql.Selector), error) {
 	var err error
 	var queryConditions []func(s *sql.Selector)
 

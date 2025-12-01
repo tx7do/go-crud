@@ -752,6 +752,8 @@ type PagingRequest struct {
 	Limit *uint32 `protobuf:"varint,4,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
 	Token *string `protobuf:"bytes,5,opt,name=token,proto3,oneof" json:"token,omitempty"`
+	// 是否不分页，如果为true，则page和pageSize参数无效。
+	NoPaging *bool `protobuf:"varint,6,opt,name=no_paging,json=noPaging,proto3,oneof" json:"no_paging,omitempty"`
 	// 排序条件，其语法为JSON字符串，例如：{"val1", "-val2"}。字段名前加'-'为降序，否则为升序。
 	OrderBy []string `protobuf:"bytes,10,rep,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
 	// 排序规则（可选，建议必传以保证分页结果稳定）
@@ -831,6 +833,13 @@ func (x *PagingRequest) GetToken() string {
 		return *x.Token
 	}
 	return ""
+}
+
+func (x *PagingRequest) GetNoPaging() bool {
+	if x != nil && x.NoPaging != nil {
+		return *x.NoPaging
+	}
+	return false
 }
 
 func (x *PagingRequest) GetOrderBy() []string {
@@ -1312,28 +1321,31 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tBW\xbaGT\x92\x02Q上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）R\x05token\x12d\n" +
 	"\tpage_size\x18\x02 \x01(\rBG\xbaGD\x8a\x02\t\t\x00\x00\x00\x00\x00\x00$@\x92\x025每页条数（默认10，建议设置上限如100）R\bpageSize\"\n" +
 	"\n" +
-	"\bNoPaging\"\xdb\f\n" +
+	"\bNoPaging\"\xd6\r\n" +
 	"\rPagingRequest\x12Q\n" +
 	"\x04page\x18\x01 \x01(\rB8\xbaG5\x8a\x02\t\t\x00\x00\x00\x00\x00\x00\xf0?\x92\x02&当前页码（从1开始，默认1）H\x00R\x04page\x88\x01\x01\x12i\n" +
 	"\tpage_size\x18\x02 \x01(\rBG\xbaGD\x8a\x02\t\t\x00\x00\x00\x00\x00\x00$@\x92\x025每页条数（默认10，建议设置上限如100）H\x01R\bpageSize\x88\x01\x01\x12[\n" +
 	"\x06offset\x18\x03 \x01(\x04B>\xbaG;\x8a\x02\t\t\x00\x00\x00\x00\x00\x00\x00\x00\x92\x02,跳过的记录数（从0开始，默认0）H\x02R\x06offset\x88\x01\x01\x12n\n" +
 	"\x05limit\x18\x04 \x01(\rBS\xbaGP\x8a\x02\t\t\x00\x00\x00\x00\x00\x00$@\x92\x02A最多返回的记录数（默认10，建议设置上限如100）H\x03R\x05limit\x88\x01\x01\x12r\n" +
-	"\x05token\x18\x05 \x01(\tBW\xbaGT\x92\x02Q上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）H\x04R\x05token\x88\x01\x01\x12\xb0\x01\n" +
+	"\x05token\x18\x05 \x01(\tBW\xbaGT\x92\x02Q上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）H\x04R\x05token\x88\x01\x01\x12k\n" +
+	"\tno_paging\x18\x06 \x01(\bBI\xbaGF\x92\x02C是否不分页，如果为true，则page和pageSize参数无效。H\x05R\bnoPaging\x88\x01\x01\x12\xb0\x01\n" +
 	"\border_by\x18\n" +
 	" \x03(\tB\x94\x01\xbaG\x90\x01:\x13\x12\x11{\"val1\", \"-val2\"}\x92\x02x排序条件，其语法为JSON字符串，例如：{\"val1\", \"-val2\"}。字段名前加'-'为降序，否则为升序。R\aorderBy\x12w\n" +
 	"\asorting\x18\v \x03(\v2\x13.pagination.SortingBH\xbaGE\x92\x02B排序规则（可选，建议必传以保证分页结果稳定）R\asorting\x12\xf5\x01\n" +
-	"\x05query\x18\x14 \x01(\tB\xd9\x01\xbaG\xd5\x01:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\xb0\x01AND过滤参数，其语法为json格式的字符串，如：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-utils/tree/main/entgo/query/README.mdH\x05R\x05query\x88\x01\x01\x12P\n" +
-	"\bor_query\x18\x15 \x01(\tB5\xbaG2:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\x0eOR过滤参数H\x06R\x02or\x88\x01\x01\x12Y\n" +
-	"\vfilter_expr\x18\x16 \x01(\v2\x16.pagination.FilterExprB\x1b\xbaG\x18\x92\x02\x15复杂过滤表达式H\aR\n" +
+	"\x05query\x18\x14 \x01(\tB\xd9\x01\xbaG\xd5\x01:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\xb0\x01AND过滤参数，其语法为json格式的字符串，如：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-utils/tree/main/entgo/query/README.mdH\x06R\x05query\x88\x01\x01\x12P\n" +
+	"\bor_query\x18\x15 \x01(\tB5\xbaG2:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\x0eOR过滤参数H\aR\x02or\x88\x01\x01\x12Y\n" +
+	"\vfilter_expr\x18\x16 \x01(\v2\x16.pagination.FilterExprB\x1b\xbaG\x18\x92\x02\x15复杂过滤表达式H\bR\n" +
 	"filterExpr\x88\x01\x01\x12\x8d\x02\n" +
 	"\n" +
-	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\bR\tfieldMask\x88\x01\x01B\a\n" +
+	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\tR\tfieldMask\x88\x01\x01B\a\n" +
 	"\x05_pageB\f\n" +
 	"\n" +
 	"_page_sizeB\t\n" +
 	"\a_offsetB\b\n" +
 	"\x06_limitB\b\n" +
-	"\x06_tokenB\b\n" +
+	"\x06_tokenB\f\n" +
+	"\n" +
+	"_no_pagingB\b\n" +
 	"\x06_queryB\v\n" +
 	"\t_or_queryB\x0e\n" +
 	"\f_filter_exprB\r\n" +

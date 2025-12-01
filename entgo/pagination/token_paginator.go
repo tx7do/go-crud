@@ -24,39 +24,39 @@ func NewTokenPaginator() *TokenPaginator {
 	}
 }
 
-func (p *TokenPaginator) BuildSelector(token string, limit int) func(*sql.Selector) {
+func (p *TokenPaginator) BuildSelector(token string, pageSize int) func(*sql.Selector) {
 	p.impl.
 		WithToken(token).
-		WithLimit(limit)
+		WithPage(pageSize)
 
 	type cursor struct {
 		LastID int64 `json:"last_id"`
 	}
 
-	// 无 token 或解码失败时只应用 limit
+	// 无 token 或解码失败时只应用 pageSize
 	if token == "" {
 		return func(s *sql.Selector) {
-			s.Limit(p.impl.Limit())
+			s.Limit(p.impl.Size())
 		}
 	}
 
 	b, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
 		return func(s *sql.Selector) {
-			s.Limit(p.impl.Limit())
+			s.Limit(p.impl.Size())
 		}
 	}
 
 	var c cursor
 	if err = p.codec.Unmarshal(b, &c); err != nil {
 		return func(s *sql.Selector) {
-			s.Limit(p.impl.Limit())
+			s.Limit(p.impl.Size())
 		}
 	}
 
 	lastID := c.LastID
 	return func(s *sql.Selector) {
 		s.Where(sql.GT("id", lastID))
-		s.Limit(p.impl.Limit())
+		s.Limit(p.impl.Size())
 	}
 }

@@ -23,8 +23,8 @@ func NewStructuredFilter() *StructuredFilter {
 	}
 }
 
-// BuildFilterSelectors 构建过滤选择器
-func (sf StructuredFilter) BuildFilterSelectors(expr *pagination.FilterExpr) ([]func(s *sql.Selector), error) {
+// BuildSelectors 构建过滤选择器
+func (sf StructuredFilter) BuildSelectors(expr *pagination.FilterExpr) ([]func(s *sql.Selector), error) {
 	var queryConditions []func(s *sql.Selector)
 
 	if expr == nil {
