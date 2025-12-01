@@ -8,70 +8,106 @@ import (
 	pagination "github.com/tx7do/go-curd/api/gen/go/pagination/v1"
 )
 
+var operatorMap = map[string]pagination.Operator{
+	"eq":     pagination.Operator_EQ,
+	"equal":  pagination.Operator_EQ,
+	"equals": pagination.Operator_EQ,
+
+	"ne":         pagination.Operator_NEQ,
+	"neq":        pagination.Operator_NEQ,
+	"not":        pagination.Operator_NEQ,
+	"not_equal":  pagination.Operator_NEQ,
+	"not_equals": pagination.Operator_NEQ,
+	"not-equal":  pagination.Operator_NEQ,
+
+	"gt":           pagination.Operator_GT,
+	"greater_than": pagination.Operator_GT,
+	"greater-than": pagination.Operator_GT,
+
+	"gte":                   pagination.Operator_GTE,
+	"greater_than_or_equal": pagination.Operator_GTE,
+	"greater_equals":        pagination.Operator_GTE,
+	"greater_or_equal":      pagination.Operator_GTE,
+	"greater-or-equal":      pagination.Operator_GTE,
+
+	"lt":        pagination.Operator_LT,
+	"less_than": pagination.Operator_LT,
+	"less-than": pagination.Operator_LT,
+
+	"lte":                pagination.Operator_LTE,
+	"less_than_or_equal": pagination.Operator_LTE,
+	"less_equals":        pagination.Operator_LTE,
+	"less_or_equal":      pagination.Operator_LTE,
+	"less-or-equal":      pagination.Operator_LTE,
+
+	"like": pagination.Operator_LIKE,
+
+	"ilike":  pagination.Operator_ILIKE,
+	"i_like": pagination.Operator_ILIKE,
+
+	"not_like": pagination.Operator_NOT_LIKE,
+	"notlike":  pagination.Operator_NOT_LIKE,
+
+	"in": pagination.Operator_IN,
+
+	"nin":    pagination.Operator_NIN,
+	"not_in": pagination.Operator_NIN,
+	"notin":  pagination.Operator_NIN,
+
+	"is_null": pagination.Operator_IS_NULL,
+	"isnull":  pagination.Operator_IS_NULL,
+
+	"is_not_null": pagination.Operator_IS_NOT_NULL,
+	"isnot_null":  pagination.Operator_IS_NOT_NULL,
+	"isnotnull":   pagination.Operator_IS_NOT_NULL,
+	"not_isnull":  pagination.Operator_IS_NOT_NULL,
+
+	"between": pagination.Operator_BETWEEN,
+	"range":   pagination.Operator_BETWEEN,
+
+	"regexp": pagination.Operator_REGEXP,
+	"regex":  pagination.Operator_REGEXP,
+
+	"iregexp":  pagination.Operator_IREGEXP,
+	"i_regexp": pagination.Operator_IREGEXP,
+	"iregex":   pagination.Operator_IREGEXP,
+
+	"contains": pagination.Operator_CONTAINS,
+
+	"icontains":  pagination.Operator_ICONTAINS,
+	"i_contains": pagination.Operator_ICONTAINS,
+
+	"starts_with": pagination.Operator_STARTS_WITH,
+	"startswith":  pagination.Operator_STARTS_WITH,
+
+	"istarts_with":  pagination.Operator_ISTARTS_WITH,
+	"i_starts_with": pagination.Operator_ISTARTS_WITH,
+	"istartswith":   pagination.Operator_ISTARTS_WITH,
+
+	"ends_with": pagination.Operator_ENDS_WITH,
+	"endswith":  pagination.Operator_ENDS_WITH,
+
+	"iends_with":  pagination.Operator_IENDS_WITH,
+	"i_ends_with": pagination.Operator_IENDS_WITH,
+	"iendswith":   pagination.Operator_IENDS_WITH,
+
+	"json_contains":  pagination.Operator_JSON_CONTAINS,
+	"array_contains": pagination.Operator_ARRAY_CONTAINS,
+	"exists":         pagination.Operator_EXISTS,
+	"search":         pagination.Operator_SEARCH,
+	"exact":          pagination.Operator_EXACT,
+
+	"iexact":  pagination.Operator_IEXACT,
+	"i_exact": pagination.Operator_IEXACT,
+}
+
 // ConverterStringToOperator 将字符串转换为 pagination.Operator 枚举值
 func ConverterStringToOperator(str string) pagination.Operator {
-	str = strings.ToLower(stringcase.ToSnakeCase(str))
-
-	switch str {
-	case "eq", "equal", "equals":
-		return pagination.Operator_EQ
-	case "ne", "neq", "not", "not_equal", "not_equals", "not-equal":
-		return pagination.Operator_NEQ
-	case "gt", "greater_than", "greater-than":
-		return pagination.Operator_GT
-	case "gte", "greater_than_or_equal", "greater_equals", "greater-or-equal":
-		return pagination.Operator_GTE
-	case "lt", "less_than", "less-than":
-		return pagination.Operator_LT
-	case "lte", "less_than_or_equal", "less_equals", "less-or-equal":
-		return pagination.Operator_LTE
-	case "like":
-		return pagination.Operator_LIKE
-	case "ilike", "i_like":
-		return pagination.Operator_ILIKE
-	case "not_like", "notlike":
-		return pagination.Operator_NOT_LIKE
-	case "in":
-		return pagination.Operator_IN
-	case "nin", "not_in", "notin":
-		return pagination.Operator_NIN
-	case "is_null", "isnull":
-		return pagination.Operator_IS_NULL
-	case "is_not_null", "isnot_null", "isnotnull", "not_isnull":
-		return pagination.Operator_IS_NOT_NULL
-	case "between", "range":
-		return pagination.Operator_BETWEEN
-	case "regexp", "regex":
-		return pagination.Operator_REGEXP
-	case "iregexp", "i_regexp", "iregex":
-		return pagination.Operator_IREGEXP
-	case "contains":
-		return pagination.Operator_CONTAINS
-	case "icontains", "i_contains":
-		return pagination.Operator_ICONTAINS
-	case "starts_with", "startswith":
-		return pagination.Operator_STARTS_WITH
-	case "istarts_with", "i_starts_with", "istartswith":
-		return pagination.Operator_ISTARTS_WITH
-	case "ends_with", "endswith":
-		return pagination.Operator_ENDS_WITH
-	case "iends_with", "i_ends_with", "iendswith":
-		return pagination.Operator_IENDS_WITH
-	case "json_contains":
-		return pagination.Operator_JSON_CONTAINS
-	case "array_contains":
-		return pagination.Operator_ARRAY_CONTAINS
-	case "exists":
-		return pagination.Operator_EXISTS
-	case "search":
-		return pagination.Operator_SEARCH
-	case "exact":
-		return pagination.Operator_EXACT
-	case "iexact", "i_exact":
-		return pagination.Operator_IEXACT
-	default:
-		return pagination.Operator_OPERATOR_UNSPECIFIED
+	key := strings.ToLower(stringcase.ToSnakeCase(str))
+	if v, ok := operatorMap[key]; ok {
+		return v
 	}
+	return pagination.Operator_OPERATOR_UNSPECIFIED
 }
 
 // IsValidOperatorString 检查字符串是否为有效的 pagination.Operator 枚举值
@@ -80,42 +116,46 @@ func IsValidOperatorString(str string) bool {
 	return op != pagination.Operator_OPERATOR_UNSPECIFIED
 }
 
+var datePartMap = map[string]pagination.DatePart{
+	"date": pagination.DatePart_DATE,
+
+	"year": pagination.DatePart_YEAR,
+	"yr":   pagination.DatePart_YEAR,
+
+	"iso_year": pagination.DatePart_ISO_YEAR,
+	"iso-year": pagination.DatePart_ISO_YEAR,
+
+	"quarter": pagination.DatePart_QUARTER,
+	"month":   pagination.DatePart_MONTH,
+	"week":    pagination.DatePart_WEEK,
+
+	"week_day": pagination.DatePart_WEEK_DAY,
+	"week-day": pagination.DatePart_WEEK_DAY,
+	"weekday":  pagination.DatePart_WEEK_DAY,
+
+	"iso_week_day": pagination.DatePart_ISO_WEEK_DAY,
+	"iso-week-day": pagination.DatePart_ISO_WEEK_DAY,
+
+	"day":  pagination.DatePart_DAY,
+	"time": pagination.DatePart_TIME,
+	"hour": pagination.DatePart_HOUR,
+
+	"minute": pagination.DatePart_MINUTE,
+	"min":    pagination.DatePart_MINUTE,
+
+	"second": pagination.DatePart_SECOND,
+	"sec":    pagination.DatePart_SECOND,
+
+	"microsecond": pagination.DatePart_MICROSECOND,
+}
+
 // ConverterStringToDatePart 将字符串转换为 pagination.DatePart 枚举
 func ConverterStringToDatePart(s string) pagination.DatePart {
-	s = strings.ToLower(stringcase.ToSnakeCase(s))
-
-	switch s {
-	case "date":
-		return pagination.DatePart_DATE
-	case "year", "yr":
-		return pagination.DatePart_YEAR
-	case "iso_year", "iso-year":
-		return pagination.DatePart_ISO_YEAR
-	case "quarter":
-		return pagination.DatePart_QUARTER
-	case "month":
-		return pagination.DatePart_MONTH
-	case "week":
-		return pagination.DatePart_WEEK
-	case "week_day", "week-day", "weekday":
-		return pagination.DatePart_WEEK_DAY
-	case "iso_week_day", "iso-week-day":
-		return pagination.DatePart_ISO_WEEK_DAY
-	case "day":
-		return pagination.DatePart_DAY
-	case "time":
-		return pagination.DatePart_TIME
-	case "hour":
-		return pagination.DatePart_HOUR
-	case "minute", "min":
-		return pagination.DatePart_MINUTE
-	case "second", "sec":
-		return pagination.DatePart_SECOND
-	case "microsecond":
-		return pagination.DatePart_MICROSECOND
-	default:
-		return pagination.DatePart_DATE_PART_UNSPECIFIED
+	key := strings.ToLower(stringcase.ToSnakeCase(s))
+	if v, ok := datePartMap[key]; ok {
+		return v
 	}
+	return pagination.DatePart_DATE_PART_UNSPECIFIED
 }
 
 // IsValidDatePartString 检查字符串是否为有效的 pagination.DatePart 枚举值
