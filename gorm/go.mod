@@ -5,6 +5,7 @@ go 1.25.3
 require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-kratos/kratos/v2 v2.9.1
+	github.com/tx7do/go-utils/mapper v0.0.3
 	gorm.io/driver/clickhouse v0.7.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
@@ -15,6 +16,7 @@ require (
 )
 
 require (
+	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 // indirect
 )
