@@ -175,8 +175,8 @@ github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tx7do/go-curd v0.0.1 h1:AWqb72oIat4Pvn2e+2w0tNA86+AXyzvR8SDsc2q0enQ=
 github.com/tx7do/go-curd v0.0.1/go.mod h1:EiCC2frgsyUtF9xGHkq3C7gSO3ypirZpoBn/C2PFkqk=
-github.com/tx7do/go-utils v1.1.32 h1:oDiPYDnDUS9oegb4zyA0Z1LsN9X/YzXb/yyWmBi56aE=
-github.com/tx7do/go-utils v1.1.32/go.mod h1:IQI7cJBSa/K0O9G+lgrcvIaZMIayXx1IMyIhpdM9o3A=
+github.com/tx7do/go-utils v1.1.34 h1:pE37CWljZkuqT1xs3nHsmg1SFXxJVAPXfbhUPXAo3fA=
+github.com/tx7do/go-utils v1.1.34/go.mod h1:h4l7qbtVr1MCDtgue/FGimhdPxwfR9UIL91U3CKnQSk=
 github.com/tx7do/go-utils/mapper v0.0.3 h1:Z7YoPVsa6I3lfWGSUoa9atujHWeF3kP+yKfS6Rkx5SM=
 github.com/tx7do/go-utils/mapper v0.0.3/go.mod h1:zziBbtoqCt8pRw+jmK9Ic9sRD7a2yCLWG40Hy2UCSCs=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=

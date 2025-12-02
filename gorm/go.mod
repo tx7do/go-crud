@@ -55,7 +55,7 @@ require (
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/tx7do/go-curd v0.0.1
-	github.com/tx7do/go-utils v1.1.32
+	github.com/tx7do/go-utils v1.1.34
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
