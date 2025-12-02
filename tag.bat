@@ -1,4 +1,4 @@
-git tag entgo/v0.0.4 --force
+git tag entgo/v0.0.5 --force
 git tag gorm/v0.0.2 --force
 
 git tag v0.0.1
