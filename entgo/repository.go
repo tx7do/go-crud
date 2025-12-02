@@ -46,7 +46,7 @@ type QueryBuilder[ENTQ any, ENTS any, ENTITY any] interface {
 }
 
 // Repository Ent查询器
-type Repository[ENTQ any, ENTS any, DTO proto.Message, ENTITY any] struct {
+type Repository[ENTQ any, ENTS any, DTO any, ENTITY any] struct {
 	mapper *mapper.CopierMapper[DTO, ENTITY]
 
 	queryStringSorting *sorting.QueryStringSorting
@@ -62,7 +62,7 @@ type Repository[ENTQ any, ENTS any, DTO proto.Message, ENTITY any] struct {
 	fieldSelector *field.Selector
 }
 
-func NewRepository[ENTQ any, ENTS any, DTO proto.Message, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[ENTQ, ENTS, DTO, ENTITY] {
+func NewRepository[ENTQ any, ENTS any, DTO any, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[ENTQ, ENTS, DTO, ENTITY] {
 	return &Repository[ENTQ, ENTS, DTO, ENTITY]{
 		mapper: mapper,
 
@@ -170,7 +170,7 @@ func (r *Repository[ENTQ, ENTS, DTO, ENTITY]) ListWithPaging(
 	}
 
 	// select fields
-	if len(req.GetFieldMask().Paths) > 0 {
+	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		selectSelector, err = r.fieldSelector.BuildSelector(req.GetFieldMask().GetPaths())
 		if err != nil {
 			log.Errorf("build field select selector failed: %s", err.Error())
@@ -278,7 +278,7 @@ func (r *Repository[ENTQ, ENTS, DTO, ENTITY]) ListWithPagination(
 	}
 
 	// select fields
-	if len(req.GetFieldMask().Paths) > 0 {
+	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		selectSelector, err = r.fieldSelector.BuildSelector(req.GetFieldMask().GetPaths())
 		if err != nil {
 			log.Errorf("build field select selector failed: %s", err.Error())
@@ -398,7 +398,13 @@ func (r *Repository[ENTQ, ENTS, DTO, ENTITY]) Create(
 		return nil, errors.New("query builder is nil")
 	}
 
-	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(proto.Message(*dto)), createMask); err != nil {
+	if dto == nil {
+		return nil, errors.New("dto is nil")
+	}
+
+	var dtoAny any = dto
+	var dtoProto = dtoAny.(proto.Message)
+	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), createMask); err != nil {
 		log.Errorf("invalid field mask [%v], error: %s", createMask, err.Error())
 		return nil, err
 	}
@@ -428,7 +434,13 @@ func (r *Repository[ENTQ, ENTS, DTO, ENTITY]) CreateX(
 		return errors.New("query builder is nil")
 	}
 
-	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(proto.Message(*dto)), createMask); err != nil {
+	if dto == nil {
+		return errors.New("dto is nil")
+	}
+
+	var dtoAny any = dto
+	var dtoProto = dtoAny.(proto.Message)
+	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), createMask); err != nil {
 		log.Errorf("invalid field mask [%v], error: %s", createMask, err.Error())
 		return err
 	}
@@ -462,7 +474,9 @@ func (r *Repository[ENTQ, ENTS, DTO, ENTITY]) BatchCreate(
 
 	res := make([]*DTO, 0, len(dtos))
 	for _, dto := range dtos {
-		if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(proto.Message(*dto)), createMask); err != nil {
+		var dtoAny any = dto
+		var dtoProto = dtoAny.(proto.Message)
+		if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), createMask); err != nil {
 			log.Errorf("invalid field mask [%v], error: %s", createMask, err.Error())
 			return nil, err
 		}
@@ -492,7 +506,17 @@ func (r *Repository[ENTQ, ENTS, DTO, ENTITY]) Update(
 	updateMask *fieldmaskpb.FieldMask,
 	doUpdateFieldFunc func(builder QueryBuilder[ENTQ, ENTS, ENTITY], dto *DTO),
 ) (*DTO, error) {
-	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(proto.Message(*dto)), updateMask); err != nil {
+	if builder == nil {
+		return nil, errors.New("query builder is nil")
+	}
+
+	if dto == nil {
+		return nil, errors.New("dto is nil")
+	}
+
+	var dtoAny any = dto
+	var dtoProto = dtoAny.(proto.Message)
+	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), updateMask); err != nil {
 		log.Errorf("invalid field mask [%v], error: %s", updateMask, err.Error())
 		return nil, err
 	}
@@ -517,7 +541,17 @@ func (r *Repository[ENTQ, ENTS, DTO, ENTITY]) UpdateX(
 	updateMask *fieldmaskpb.FieldMask,
 	doUpdateFieldFunc func(builder QueryBuilder[ENTQ, ENTS, ENTITY], dto *DTO),
 ) error {
-	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(proto.Message(*dto)), updateMask); err != nil {
+	if builder == nil {
+		return errors.New("query builder is nil")
+	}
+
+	if dto == nil {
+		return errors.New("dto is nil")
+	}
+
+	var dtoAny any = dto
+	var dtoProto = dtoAny.(proto.Message)
+	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), updateMask); err != nil {
 		log.Errorf("invalid field mask [%v], error: %s", updateMask, err.Error())
 		return err
 	}
