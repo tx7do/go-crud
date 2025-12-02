@@ -29,7 +29,7 @@ func createTestEntClient(t *testing.T) *ent.Client {
 	return client
 }
 
-func createUserRepo(m *mapper.CopierMapper[User, ent.User]) *Repository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, ent.UserUpdateOne, predicate.User, User, ent.User] {
+func createUserRepo(m *mapper.CopierMapper[User, ent.User]) *Repository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserUpdateOne, ent.UserDelete, predicate.User, User, ent.User] {
 	return NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserUpdateOne, ent.UserDelete, predicate.User, User, ent.User](m)
 }
 

@@ -137,8 +137,8 @@ type Repository[ENT_QUERY any, ENT_SELECT any, ENT_CREATE any, ENT_CREATE_BULK a
 	fieldSelector *field.Selector
 }
 
-func NewRepository[ENT_QUERY any, ENT_SELECT any, ENT_CREATE any, ENT_CREATE_BULK any, ENT_UPDATE any, ENT_UPDATE_ONE any, ENT_DELETE any, PREDICATE any, DTO any, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY] {
-	return &Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]{
+func NewRepository[ENT_QUERY any, ENT_SELECT any, ENT_CREATE any, ENT_CREATE_BULK any, ENT_UPDATE any, ENT_UPDATE_ONE any, ENT_DELETE any, PREDICATE any, DTO any, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY] {
+	return &Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]{
 		mapper: mapper,
 
 		queryStringSorting: sorting.NewQueryStringSorting(),
@@ -162,7 +162,7 @@ type PagingResult[E any] struct {
 }
 
 // Count 计算符合条件的记录数
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) Count(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Count(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	whereCond []func(s *sql.Selector),
@@ -185,7 +185,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Exists 检查是否存在符合条件的记录，使用 builder.Exist 避免额外 Count 查询
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) Exists(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Exists(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	whereCond []func(s *sql.Selector),
@@ -208,7 +208,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // ListWithPaging 使用分页请求查询列表
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) ListWithPaging(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) ListWithPaging(
 	ctx context.Context,
 	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	countBuilder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
@@ -324,7 +324,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // ListWithPagination 使用通用的分页请求参数进行列表查询
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) ListWithPagination(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) ListWithPagination(
 	ctx context.Context,
 	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	countBuilder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
@@ -436,7 +436,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Get 根据查询条件获取单条记录
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) Get(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Get(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	whereCond []func(s *sql.Selector),
@@ -465,7 +465,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Only 根据查询条件获取单条记录
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) Only(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Only(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	whereCond []func(s *sql.Selector),
@@ -475,7 +475,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Create 根据 DTO 创建一条记录，返回创建后的 DTO
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) Create(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Create(
 	ctx context.Context,
 	builder CreateBuilder[ENTITY],
 	dto *DTO,
@@ -515,7 +515,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // CreateX 仅执行创建操作，不返回创建后的数据
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) CreateX(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) CreateX(
 	ctx context.Context,
 	builder CreateBuilder[ENTITY],
 	dto *DTO,
@@ -555,7 +555,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // BatchCreate 批量创建记录，返回创建后的 DTO 列表
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) BatchCreate(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) BatchCreate(
 	ctx context.Context,
 	builder CreateBulkBuilder[ENT_CREATE_BULK, ENTITY],
 	dtos []*DTO,
@@ -605,7 +605,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // UpdateOne 根据查询条件更新单条记录，返回更新后的 DTO
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) UpdateOne(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) UpdateOne(
 	ctx context.Context,
 	builder UpdateOneBuilder[ENT_UPDATE_ONE, PREDICATE, ENTITY],
 	dto *DTO,
@@ -654,7 +654,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // applyUpdateOneNilFieldMask 应用字段掩码以设置字段为NULL
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) applyUpdateOneNilFieldMask(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) applyUpdateOneNilFieldMask(
 	msg proto.Message,
 	updateMask *fieldmaskpb.FieldMask,
 	builder UpdateOneBuilder[ENT_UPDATE_ONE, PREDICATE, ENTITY],
@@ -676,7 +676,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // applyUpdateNilFieldMask 应用字段掩码以设置字段为NULL
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) applyUpdateNilFieldMask(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) applyUpdateNilFieldMask(
 	msg proto.Message,
 	updateMask *fieldmaskpb.FieldMask,
 	builder UpdateBuilder[ENT_UPDATE, PREDICATE],
@@ -698,7 +698,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // UpdateX 仅执行更新操作，不返回更新后的数据
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) UpdateX(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) UpdateX(
 	ctx context.Context,
 	builder UpdateBuilder[ENT_UPDATE, PREDICATE],
 	dto *DTO,
@@ -745,7 +745,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Delete 根据查询条件删除记录
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_DELETE, ENT_UPDATE_ONE, PREDICATE, DTO, ENTITY]) Delete(
+func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Delete(
 	ctx context.Context,
 	builder DeleteBuilder[ENT_DELETE, PREDICATE],
 	whereCond []PREDICATE,
