@@ -29,11 +29,15 @@ func createTestEntClient(t *testing.T) *ent.Client {
 	return client
 }
 
+func createUserRepo(m *mapper.CopierMapper[User, ent.User]) *Repository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, ent.UserUpdateOne, predicate.User, User, ent.User] {
+	return NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserUpdateOne, ent.UserDelete, predicate.User, User, ent.User](m)
+}
+
 func TestCount_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	//builder := cli.User.Query()
 
@@ -47,7 +51,7 @@ func TestCount_ReturnsNoError(t *testing.T) {
 	ctx := context.Background()
 	cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	builder := cli.User.Query()
 
@@ -61,7 +65,7 @@ func TestExists_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	_, err := r.Exists(ctx, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "query builder is nil") {
@@ -73,7 +77,7 @@ func TestListWithPaging_NilReq_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	_, err := r.ListWithPaging(ctx, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "paging request is nil") {
@@ -85,7 +89,7 @@ func TestListWithPaging_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	req := &paginationV1.PagingRequest{}
 	_, err := r.ListWithPaging(ctx, nil, nil, req)
@@ -98,7 +102,7 @@ func TestGet_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	_, err := r.Get(ctx, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "query builder is nil") {
@@ -110,7 +114,7 @@ func TestCreate_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	_, err := r.Create(ctx, nil, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "query builder is nil") {
@@ -122,7 +126,7 @@ func TestCreate_NilDTO_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	builder := cli.User.Create()
 
@@ -136,7 +140,7 @@ func TestCreateX_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	err := r.CreateX(ctx, nil, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "query builder is nil") {
@@ -148,7 +152,7 @@ func TestCreateX_NilDTO_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	builder := cli.User.Create()
 
@@ -158,29 +162,29 @@ func TestCreateX_NilDTO_ReturnsError(t *testing.T) {
 	}
 }
 
-func TestUpdate_NilBuilder_ReturnsError(t *testing.T) {
+func TestUpdateOne_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	//builder := cli.User.Update()
 
-	_, err := r.Update(ctx, nil, nil, nil, nil, nil)
+	_, err := r.UpdateOne(ctx, nil, nil, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "query builder is nil") {
 		t.Fatalf("expected 'query builder is nil' error, got: %v", err)
 	}
 }
 
-func TestUpdate_NilDTO_ReturnsError(t *testing.T) {
+func TestUpdateOne_NilDTO_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
-	builder := cli.User.Update()
+	builder := cli.User.UpdateOneID(1)
 
-	_, err := r.Update(ctx, builder, nil, nil, nil, nil)
+	_, err := r.UpdateOne(ctx, builder, nil, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "dto is nil") {
 		t.Fatalf("expected 'dto is nil' error, got: %v", err)
 	}
@@ -190,7 +194,7 @@ func TestUpdateX_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	//builder := cli.User.Update()
 
@@ -204,7 +208,7 @@ func TestUpdateX_NilDTO_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	builder := cli.User.Update()
 
@@ -218,7 +222,7 @@ func TestBatchCreate_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	_, err := r.BatchCreate(ctx, nil, nil, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "query builder is nil") {
@@ -230,7 +234,7 @@ func TestDelete_NilBuilder_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	//cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	_, err := r.Delete(ctx, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "query builder is nil") {
@@ -242,7 +246,7 @@ func TestDelete_WithFakeBuilder_NoError(t *testing.T) {
 	ctx := context.Background()
 	cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	builder := cli.User.Delete()
 
@@ -256,7 +260,7 @@ func TestCurd(t *testing.T) {
 	ctx := context.Background()
 	cli := createTestEntClient(t)
 	m := &mapper.CopierMapper[User, ent.User]{}
-	r := NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserDelete, predicate.User, User, ent.User](m)
+	r := createUserRepo(m)
 
 	// 初始 count 应为 0
 	cnt, err := r.Count(ctx, cli.User.Query(), nil)
