@@ -7,6 +7,6 @@ git tag elasticsearch/v0.0.1 --force
 git tag influxdb/v0.0.1 --force
 git tag mongodb/v0.0.1 --force
 
-git tag v0.0.2 --force
+git tag v0.0.5 --force
 
 git push origin --tags

@@ -9,10 +9,7 @@ managed:
     default: github.com/tx7do/go-crud/api/gen/go
     except:
       - 'buf.build/googleapis/googleapis'
-      - 'buf.build/envoyproxy/protoc-gen-validate'
-      - 'buf.build/kratos/apis'
       - 'buf.build/gnostic/gnostic'
-      - 'buf.build/gogo/protobuf'
 
 plugins:
   # generate go struct code
