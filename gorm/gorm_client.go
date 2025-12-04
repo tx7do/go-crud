@@ -2,6 +2,10 @@ package gorm
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/go-kratos/kratos/v2/log"
+	"gorm.io/gorm/logger"
 
 	"gorm.io/gorm"
 
@@ -13,6 +17,26 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/driver/sqlserver"
 )
+
+type gormLoggerWriter struct {
+	helper *log.Helper
+}
+
+func (w gormLoggerWriter) Printf(format string, args ...interface{}) {
+	w.helper.Debugf(format, args...)
+}
+
+func NewGormLogger(l *log.Helper) logger.Interface {
+	w := gormLoggerWriter{helper: l}
+	return logger.New(
+		w,
+		logger.Config{
+			SlowThreshold: time.Millisecond * 100, // 慢 SQL 阈值（超过 100ms 标为慢 SQL）
+			LogLevel:      logger.Info,            // 核心：Info 级别会打印所有 SQL
+			Colorful:      true,                   // 终端彩色输出（文件输出需关闭）
+		},
+	)
+}
 
 type Client struct {
 	*gorm.DB

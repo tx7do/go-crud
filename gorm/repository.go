@@ -868,12 +868,17 @@ func (q *Repository[DTO, ENTITY]) UpsertXWithFilters(ctx context.Context, db *go
 
 // Delete 使用传入的 db（可包含 Where）删除记录
 // 示例调用： `rows, err := q.Delete(ctx, db.Where("id = ?", id))`
-func (q *Repository[DTO, ENTITY]) Delete(ctx context.Context, db *gorm.DB) (int64, error) {
+func (q *Repository[DTO, ENTITY]) Delete(ctx context.Context, db *gorm.DB, notSoftDelete bool) (int64, error) {
 	if db == nil {
 		return 0, errors.New("db is nil")
 	}
 
 	qdb := db.WithContext(ctx).Model(new(ENTITY))
+
+	if notSoftDelete {
+		qdb = qdb.Unscoped()
+	}
+
 	res := qdb.Delete(new(ENTITY))
 	if res.Error != nil {
 		log.Errorf("delete failed: %s", res.Error.Error())
@@ -902,6 +907,14 @@ func (q *Repository[DTO, ENTITY]) DeleteWithFilters(ctx context.Context, db *gor
 		return 0, errors.New("delete failed")
 	}
 	return res.RowsAffected, nil
+}
+
+// SoftDelete 对符合 whereSelectors 的记录执行软删除
+// whereSelectors: 应用到查询的 where scopes（按顺序）
+// doSoftDeleteFunc: 可选回调，接收当前 *gorm.DB 并执行自定义更新操作（应返回执行后的 *gorm.DB）
+// 当 doSoftDeleteFunc 为 nil 时，默认更新 deleted_at 字段为当前时间
+func (q *Repository[DTO, ENTITY]) SoftDelete(ctx context.Context, db *gorm.DB) (int64, error) {
+	return q.Delete(ctx, db, false)
 }
 
 // Exists 使用传入的 db（可包含 Where）检查是否存在记录
@@ -947,34 +960,4 @@ func (q *Repository[DTO, ENTITY]) ExistsWithFilters(ctx context.Context, db *gor
 		return false, errors.New("exists query failed")
 	}
 	return true, nil
-}
-
-// SoftDelete 对符合 whereSelectors 的记录执行软删除
-// whereSelectors: 应用到查询的 where scopes（按顺序）
-// doSoftDeleteFunc: 可选回调，接收当前 *gorm.DB 并执行自定义更新操作（应返回执行后的 *gorm.DB）
-// 当 doSoftDeleteFunc 为 nil 时，默认更新 deleted_at 字段为当前时间
-func (q *Repository[DTO, ENTITY]) SoftDelete(ctx context.Context, db *gorm.DB, whereSelectors []func(*gorm.DB) *gorm.DB, doSoftDeleteFunc func(*gorm.DB) *gorm.DB) (int64, error) {
-	if db == nil {
-		return 0, errors.New("db is nil")
-	}
-
-	qdb := db.WithContext(ctx).Model(new(ENTITY))
-	for _, s := range whereSelectors {
-		if s != nil {
-			qdb = s(qdb)
-		}
-	}
-
-	var res *gorm.DB
-	if doSoftDeleteFunc != nil {
-		res = doSoftDeleteFunc(qdb)
-	} else {
-		res = qdb.Updates(map[string]interface{}{"deleted_at": time.Now()})
-	}
-
-	if res.Error != nil {
-		log.Errorf("soft delete failed: %s", res.Error.Error())
-		return 0, errors.New("soft delete failed")
-	}
-	return res.RowsAffected, nil
 }
