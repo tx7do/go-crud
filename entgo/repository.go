@@ -121,7 +121,13 @@ type DeleteBuilder[ENT_DELETE any, PREDICATE any] interface {
 }
 
 // Repository Ent查询器
-type Repository[ENT_QUERY any, ENT_SELECT any, ENT_CREATE any, ENT_CREATE_BULK any, ENT_UPDATE any, ENT_UPDATE_ONE any, ENT_DELETE any, PREDICATE any, DTO any, ENTITY any] struct {
+type Repository[
+	ENT_QUERY any, ENT_SELECT any,
+	ENT_CREATE any, ENT_CREATE_BULK any,
+	ENT_UPDATE any, ENT_UPDATE_ONE any,
+	ENT_DELETE any,
+	PREDICATE any, DTO any, ENTITY any,
+] struct {
 	mapper *mapper.CopierMapper[DTO, ENTITY]
 
 	queryStringSorting *sorting.QueryStringSorting
@@ -137,8 +143,26 @@ type Repository[ENT_QUERY any, ENT_SELECT any, ENT_CREATE any, ENT_CREATE_BULK a
 	fieldSelector *field.Selector
 }
 
-func NewRepository[ENT_QUERY any, ENT_SELECT any, ENT_CREATE any, ENT_CREATE_BULK any, ENT_UPDATE any, ENT_UPDATE_ONE any, ENT_DELETE any, PREDICATE any, DTO any, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY] {
-	return &Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]{
+func NewRepository[
+	ENT_QUERY any, ENT_SELECT any,
+	ENT_CREATE any, ENT_CREATE_BULK any,
+	ENT_UPDATE any, ENT_UPDATE_ONE any,
+	ENT_DELETE any,
+	PREDICATE any, DTO any, ENTITY any,
+](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+] {
+	return &Repository[
+		ENT_QUERY, ENT_SELECT,
+		ENT_CREATE, ENT_CREATE_BULK,
+		ENT_UPDATE, ENT_UPDATE_ONE,
+		ENT_DELETE,
+		PREDICATE, DTO, ENTITY,
+	]{
 		mapper: mapper,
 
 		queryStringSorting: sorting.NewQueryStringSorting(),
@@ -162,17 +186,23 @@ type PagingResult[E any] struct {
 }
 
 // Count 计算符合条件的记录数
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Count(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) Count(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
-	whereCond []func(s *sql.Selector),
+	predicates ...func(s *sql.Selector),
 ) (int, error) {
 	if builder == nil {
 		return 0, errors.New("query builder is nil")
 	}
 
-	if len(whereCond) != 0 {
-		builder.Modify(whereCond...)
+	if len(predicates) > 0 {
+		builder.Modify(predicates...)
 	}
 
 	count, err := builder.Count(ctx)
@@ -185,17 +215,23 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Exists 检查是否存在符合条件的记录，使用 builder.Exist 避免额外 Count 查询
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Exists(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) Exists(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
-	whereCond []func(s *sql.Selector),
+	predicates ...func(s *sql.Selector),
 ) (bool, error) {
 	if builder == nil {
 		return false, errors.New("query builder is nil")
 	}
 
-	if len(whereCond) != 0 {
-		builder.Modify(whereCond...)
+	if len(predicates) > 0 {
+		builder.Modify(predicates...)
 	}
 
 	exists, err := builder.Exist(ctx)
@@ -208,7 +244,13 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // ListWithPaging 使用分页请求查询列表
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) ListWithPaging(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) ListWithPaging(
 	ctx context.Context,
 	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	countBuilder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
@@ -222,10 +264,62 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 		return nil, errors.New("query builder is nil")
 	}
 
-	var err error
+	whereSelectors, _, err := r.BuildListSelectorWithPaging(builder, req)
+	if err != nil {
+		return nil, err
+	}
 
-	var whereSelectors []func(s *sql.Selector)
-	var querySelectors []func(s *sql.Selector)
+	entities, err := builder.All(ctx)
+	if err != nil {
+		log.Errorf("query list failed: %s", err.Error())
+		return nil, errors.New("query list failed")
+	}
+
+	dtos := make([]*DTO, 0, len(entities))
+	for _, entity := range entities {
+		dto := r.mapper.ToDTO(entity)
+		dtos = append(dtos, dto)
+	}
+
+	var count int
+	if countBuilder != nil {
+		if len(whereSelectors) != 0 {
+			countBuilder.Modify(whereSelectors...)
+		}
+		count, err = countBuilder.Count(ctx)
+		if err != nil {
+			log.Errorf("query count failed: %s", err.Error())
+			return nil, errors.New("query count failed")
+		}
+	}
+
+	res := &PagingResult[DTO]{
+		Items: dtos,
+		Total: uint64(count),
+	}
+
+	return res, nil
+}
+
+// BuildListSelectorWithPaging 使用分页请求查询列表
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) BuildListSelectorWithPaging(
+	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	req *paginationV1.PagingRequest,
+) (whereSelectors []func(s *sql.Selector), querySelectors []func(s *sql.Selector), err error) {
+	if req == nil {
+		return nil, nil, errors.New("paging request is nil")
+	}
+
+	if builder == nil {
+		return nil, nil, errors.New("query builder is nil")
+	}
+
 	var sortingSelector func(s *sql.Selector)
 	var pagingSelector func(s *sql.Selector)
 	var selectSelector func(s *sql.Selector)
@@ -291,6 +385,35 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 		builder.Modify(querySelectors...)
 	}
 
+	return whereSelectors, querySelectors, nil
+}
+
+// ListWithPagination 使用通用的分页请求参数进行列表查询
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) ListWithPagination(
+	ctx context.Context,
+	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	countBuilder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	req *paginationV1.PaginationRequest,
+) (*PagingResult[DTO], error) {
+	if req == nil {
+		return nil, errors.New("paginationV1 request is nil")
+	}
+
+	if builder == nil {
+		return nil, errors.New("query builder is nil")
+	}
+
+	whereSelectors, _, err := r.BuildListSelectorWithPagination(builder, req)
+	if err != nil {
+		return nil, err
+	}
+
 	entities, err := builder.All(ctx)
 	if err != nil {
 		log.Errorf("query list failed: %s", err.Error())
@@ -323,25 +446,25 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 	return res, nil
 }
 
-// ListWithPagination 使用通用的分页请求参数进行列表查询
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) ListWithPagination(
-	ctx context.Context,
+// BuildListSelectorWithPagination 使用分页请求查询列表
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) BuildListSelectorWithPagination(
 	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
-	countBuilder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	req *paginationV1.PaginationRequest,
-) (*PagingResult[DTO], error) {
+) (whereSelectors []func(s *sql.Selector), querySelectors []func(s *sql.Selector), err error) {
 	if req == nil {
-		return nil, errors.New("paginationV1 request is nil")
+		return nil, nil, errors.New("paginationV1 request is nil")
 	}
 
 	if builder == nil {
-		return nil, errors.New("query builder is nil")
+		return nil, nil, errors.New("query builder is nil")
 	}
 
-	var err error
-
-	var whereSelectors []func(s *sql.Selector)
-	var querySelectors []func(s *sql.Selector)
 	var sortingSelector func(s *sql.Selector)
 	var pagingSelector func(s *sql.Selector)
 	var selectSelector func(s *sql.Selector)
@@ -403,51 +526,28 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 		builder.Modify(querySelectors...)
 	}
 
-	entities, err := builder.All(ctx)
-	if err != nil {
-		log.Errorf("query list failed: %s", err.Error())
-		return nil, errors.New("query list failed")
-	}
-
-	dtos := make([]*DTO, 0, len(entities))
-	for _, entity := range entities {
-		dto := r.mapper.ToDTO(entity)
-		dtos = append(dtos, dto)
-	}
-
-	var count int
-	if countBuilder != nil {
-		if len(whereSelectors) != 0 {
-			countBuilder.Modify(whereSelectors...)
-		}
-		count, err = countBuilder.Count(ctx)
-		if err != nil {
-			log.Errorf("query count failed: %s", err.Error())
-			return nil, errors.New("query count failed")
-		}
-	}
-
-	res := &PagingResult[DTO]{
-		Items: dtos,
-		Total: uint64(count),
-	}
-
-	return res, nil
+	return whereSelectors, querySelectors, nil
 }
 
 // Get 根据查询条件获取单条记录
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Get(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) Get(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
-	whereCond []func(s *sql.Selector),
 	viewMask *fieldmaskpb.FieldMask,
+	predicates ...func(s *sql.Selector),
 ) (*DTO, error) {
 	if builder == nil {
 		return nil, errors.New("query builder is nil")
 	}
 
-	if len(whereCond) != 0 {
-		builder.Modify(whereCond...)
+	if len(predicates) > 0 {
+		builder.Modify(predicates...)
 	}
 
 	field.NormalizeFieldMaskPaths(viewMask)
@@ -465,17 +565,29 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Only 根据查询条件获取单条记录
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Only(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) Only(
 	ctx context.Context,
 	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
-	whereCond []func(s *sql.Selector),
 	viewMask *fieldmaskpb.FieldMask,
+	predicates ...func(s *sql.Selector),
 ) (*DTO, error) {
-	return r.Get(ctx, builder, whereCond, viewMask)
+	return r.Get(ctx, builder, viewMask, predicates...)
 }
 
 // Create 根据 DTO 创建一条记录，返回创建后的 DTO
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Create(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) Create(
 	ctx context.Context,
 	builder CreateBuilder[ENTITY],
 	dto *DTO,
@@ -489,6 +601,7 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 	if dto == nil {
 		return nil, errors.New("dto is nil")
 	}
+
 	field.NormalizeFieldMaskPaths(createMask)
 
 	var dtoAny any = dto
@@ -515,7 +628,13 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // CreateX 仅执行创建操作，不返回创建后的数据
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) CreateX(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) CreateX(
 	ctx context.Context,
 	builder CreateBuilder[ENTITY],
 	dto *DTO,
@@ -555,7 +674,13 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // BatchCreate 批量创建记录，返回创建后的 DTO 列表
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) BatchCreate(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) BatchCreate(
 	ctx context.Context,
 	builder CreateBulkBuilder[ENT_CREATE_BULK, ENTITY],
 	dtos []*DTO,
@@ -605,13 +730,19 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // UpdateOne 根据查询条件更新单条记录，返回更新后的 DTO
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) UpdateOne(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) UpdateOne(
 	ctx context.Context,
 	builder UpdateOneBuilder[ENT_UPDATE_ONE, PREDICATE, ENTITY],
 	dto *DTO,
 	updateMask *fieldmaskpb.FieldMask,
-	whereCond []PREDICATE,
 	doUpdateFieldFunc func(dto *DTO),
+	predicates ...PREDICATE,
 ) (*DTO, error) {
 	if builder == nil {
 		return nil, errors.New("query builder is nil")
@@ -621,8 +752,8 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 		return nil, errors.New("dto is nil")
 	}
 
-	if whereCond != nil && len(whereCond) > 0 {
-		builder.Where(whereCond...)
+	if len(predicates) > 0 {
+		builder.Where(predicates...)
 	}
 
 	field.NormalizeFieldMaskPaths(updateMask)
@@ -654,7 +785,13 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // applyUpdateOneNilFieldMask 应用字段掩码以设置字段为NULL
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) applyUpdateOneNilFieldMask(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) applyUpdateOneNilFieldMask(
 	msg proto.Message,
 	updateMask *fieldmaskpb.FieldMask,
 	builder UpdateOneBuilder[ENT_UPDATE_ONE, PREDICATE, ENTITY],
@@ -676,7 +813,13 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // applyUpdateNilFieldMask 应用字段掩码以设置字段为NULL
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) applyUpdateNilFieldMask(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) applyUpdateNilFieldMask(
 	msg proto.Message,
 	updateMask *fieldmaskpb.FieldMask,
 	builder UpdateBuilder[ENT_UPDATE, PREDICATE],
@@ -698,13 +841,19 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // UpdateX 仅执行更新操作，不返回更新后的数据
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) UpdateX(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) UpdateX(
 	ctx context.Context,
 	builder UpdateBuilder[ENT_UPDATE, PREDICATE],
 	dto *DTO,
 	updateMask *fieldmaskpb.FieldMask,
-	whereCond []PREDICATE,
 	doUpdateFieldFunc func(dto *DTO),
+	predicates ...PREDICATE,
 ) error {
 	if builder == nil {
 		return errors.New("query builder is nil")
@@ -714,8 +863,8 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 		return errors.New("dto is nil")
 	}
 
-	if whereCond != nil && len(whereCond) > 0 {
-		builder.Where(whereCond...)
+	if len(predicates) > 0 {
+		builder.Where(predicates...)
 	}
 
 	field.NormalizeFieldMaskPaths(updateMask)
@@ -745,17 +894,23 @@ func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDA
 }
 
 // Delete 根据查询条件删除记录
-func (r *Repository[ENT_QUERY, ENT_SELECT, ENT_CREATE, ENT_CREATE_BULK, ENT_UPDATE, ENT_UPDATE_ONE, ENT_DELETE, PREDICATE, DTO, ENTITY]) Delete(
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) Delete(
 	ctx context.Context,
 	builder DeleteBuilder[ENT_DELETE, PREDICATE],
-	whereCond []PREDICATE,
+	predicates ...PREDICATE,
 ) (int, error) {
 	if builder == nil {
 		return 0, errors.New("query builder is nil")
 	}
 
-	if whereCond != nil && len(whereCond) > 0 {
-		builder.Where(whereCond...)
+	if len(predicates) > 0 {
+		builder.Where(predicates...)
 	}
 
 	var affected int

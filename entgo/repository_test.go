@@ -7,6 +7,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	"github.com/tx7do/go-crud/entgo/ent/predicate"
+
 	"github.com/tx7do/go-utils/mapper"
 	"github.com/tx7do/go-utils/trans"
 
@@ -29,8 +30,20 @@ func createTestEntClient(t *testing.T) *ent.Client {
 	return client
 }
 
-func createUserRepo(m *mapper.CopierMapper[User, ent.User]) *Repository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserUpdateOne, ent.UserDelete, predicate.User, User, ent.User] {
-	return NewRepository[ent.UserQuery, ent.UserSelect, ent.UserCreate, ent.UserCreateBulk, ent.UserUpdate, ent.UserUpdateOne, ent.UserDelete, predicate.User, User, ent.User](m)
+func createUserRepo(m *mapper.CopierMapper[User, ent.User]) *Repository[
+	ent.UserQuery, ent.UserSelect,
+	ent.UserCreate, ent.UserCreateBulk,
+	ent.UserUpdate, ent.UserUpdateOne,
+	ent.UserDelete,
+	predicate.User, User, ent.User,
+] {
+	return NewRepository[
+		ent.UserQuery, ent.UserSelect,
+		ent.UserCreate, ent.UserCreateBulk,
+		ent.UserUpdate, ent.UserUpdateOne,
+		ent.UserDelete,
+		predicate.User, User, ent.User,
+	](m)
 }
 
 func TestCount_NilBuilder_ReturnsError(t *testing.T) {
