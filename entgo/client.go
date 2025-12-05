@@ -186,7 +186,12 @@ func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *E
 		log.Errorf("query child nodes failed: %s", err.Error())
 		return nil, errors.New("query child nodes failed: " + err.Error())
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			log.Errorf("close rows failed: %s", err.Error())
+		}
+	}(rows)
 
 	childIDs := make([]uint32, 0)
 	for rows.Next() {

@@ -249,7 +249,7 @@ func TestRepository_Create_Get_Update_Delete_Exists_Count_Upsert(t *testing.T) {
 	}
 
 	// Delete
-	delRows, err := r.Delete(ctx, db.Where("id = ?", created.Id))
+	delRows, err := r.Delete(ctx, db.Where("id = ?", created.Id), false)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
