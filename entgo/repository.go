@@ -301,6 +301,93 @@ func (r *Repository[
 	return res, nil
 }
 
+// ListTreeWithPaging 使用分页请求查询树形结构列表
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) ListTreeWithPaging(
+	ctx context.Context,
+	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	countBuilder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	req *paginationV1.PagingRequest,
+) (*PagingResult[DTO], error) {
+	if req == nil {
+		return nil, errors.New("paging request is nil")
+	}
+
+	if builder == nil {
+		return nil, errors.New("query builder is nil")
+	}
+
+	whereSelectors, _, err := r.BuildListSelectorWithPaging(builder, req)
+	if err != nil {
+		return nil, err
+	}
+
+	entities, err := builder.All(ctx)
+	if err != nil {
+		log.Errorf("query list failed: %s", err.Error())
+		return nil, errors.New("query list failed")
+	}
+
+	// 先把所有 ENTITY 映射为 DTO 列表
+	allDTOs := make([]*DTO, 0, len(entities))
+	for _, entity := range entities {
+		dto := r.mapper.ToDTO(entity)
+		allDTOs = append(allDTOs, dto)
+	}
+
+	// 建立 id->dto 映射（基于 DTO 的 ID 字段，支持 ID/Id 字段名且为 string 或 *string）
+	idMap := make(map[string]*DTO, len(allDTOs))
+	for _, dto := range allDTOs {
+		if id, ok := getStringField(dto, []string{"ID", "Id"}); ok {
+			idMap[id] = dto
+		}
+	}
+
+	roots := make([]*DTO, 0, len(allDTOs))
+	// 遍历 DTO，将子追加到父的 Children 字段（反射追加），找不到父则作为根
+	for _, dto := range allDTOs {
+		parentID, hasParent := getStringField(dto, []string{"ParentID", "ParentId"})
+		if !hasParent || parentID == "" {
+			roots = append(roots, dto)
+			continue
+		}
+		if parent, found := idMap[parentID]; found {
+			if ok := appendChild(parent, dto); ok {
+				continue
+			}
+			// 如果无法追加到父的 Children 字段，则退回到根列表
+			roots = append(roots, dto)
+			continue
+		}
+		// 父不存在于当前集合，则视为根节点
+		roots = append(roots, dto)
+	}
+
+	var count int
+	if countBuilder != nil {
+		if len(whereSelectors) != 0 {
+			countBuilder.Modify(whereSelectors...)
+		}
+		count, err = countBuilder.Count(ctx)
+		if err != nil {
+			log.Errorf("query count failed: %s", err.Error())
+			return nil, errors.New("query count failed")
+		}
+	}
+
+	res := &PagingResult[DTO]{
+		Items: roots,
+		Total: uint64(count),
+	}
+
+	return res, nil
+}
+
 // BuildListSelectorWithPaging 使用分页请求查询列表
 func (r *Repository[
 	ENT_QUERY, ENT_SELECT,
@@ -367,7 +454,7 @@ func (r *Repository[
 		querySelectors = append(querySelectors, sortingSelector)
 	}
 
-	// paginationV1
+	// pagination
 	if !req.GetNoPaging() {
 		if req.Page != nil && req.PageSize != nil {
 			pagingSelector = r.pagePaginator.BuildSelector(int(req.GetPage()), int(req.GetPageSize()))
@@ -446,6 +533,93 @@ func (r *Repository[
 	return res, nil
 }
 
+// ListTreeWithPagination 使用通用的分页请求参数进行树形结构列表查询
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) ListTreeWithPagination(
+	ctx context.Context,
+	builder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	countBuilder ListBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	req *paginationV1.PaginationRequest,
+) (*PagingResult[DTO], error) {
+	if req == nil {
+		return nil, errors.New("paging request is nil")
+	}
+
+	if builder == nil {
+		return nil, errors.New("query builder is nil")
+	}
+
+	whereSelectors, _, err := r.BuildListSelectorWithPagination(builder, req)
+	if err != nil {
+		return nil, err
+	}
+
+	entities, err := builder.All(ctx)
+	if err != nil {
+		log.Errorf("query list failed: %s", err.Error())
+		return nil, errors.New("query list failed")
+	}
+
+	// 先把所有 ENTITY 映射为 DTO 列表
+	allDTOs := make([]*DTO, 0, len(entities))
+	for _, entity := range entities {
+		dto := r.mapper.ToDTO(entity)
+		allDTOs = append(allDTOs, dto)
+	}
+
+	// 建立 id->dto 映射（基于 DTO 的 ID 字段，支持 ID/Id 字段名且为 string 或 *string）
+	idMap := make(map[string]*DTO, len(allDTOs))
+	for _, dto := range allDTOs {
+		if id, ok := getStringField(dto, []string{"ID", "Id"}); ok {
+			idMap[id] = dto
+		}
+	}
+
+	roots := make([]*DTO, 0, len(allDTOs))
+	// 遍历 DTO，将子追加到父的 Children 字段（反射追加），找不到父则作为根
+	for _, dto := range allDTOs {
+		parentID, hasParent := getStringField(dto, []string{"ParentID", "ParentId"})
+		if !hasParent || parentID == "" {
+			roots = append(roots, dto)
+			continue
+		}
+		if parent, found := idMap[parentID]; found {
+			if ok := appendChild(parent, dto); ok {
+				continue
+			}
+			// 如果无法追加到父的 Children 字段，则退回到根列表
+			roots = append(roots, dto)
+			continue
+		}
+		// 父不存在于当前集合，则视为根节点
+		roots = append(roots, dto)
+	}
+
+	var count int
+	if countBuilder != nil {
+		if len(whereSelectors) != 0 {
+			countBuilder.Modify(whereSelectors...)
+		}
+		count, err = countBuilder.Count(ctx)
+		if err != nil {
+			log.Errorf("query count failed: %s", err.Error())
+			return nil, errors.New("query count failed")
+		}
+	}
+
+	res := &PagingResult[DTO]{
+		Items: roots,
+		Total: uint64(count),
+	}
+
+	return res, nil
+}
+
 // BuildListSelectorWithPagination 使用分页请求查询列表
 func (r *Repository[
 	ENT_QUERY, ENT_SELECT,
@@ -509,7 +683,7 @@ func (r *Repository[
 		querySelectors = append(querySelectors, sortingSelector)
 	}
 
-	// paginationV1
+	// pagination
 	switch req.GetPaginationType().(type) {
 	case *paginationV1.PaginationRequest_OffsetBased:
 		pagingSelector = r.offsetPaginator.BuildSelector(int(req.GetOffsetBased().GetOffset()), int(req.GetOffsetBased().GetLimit()))
