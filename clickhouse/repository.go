@@ -74,7 +74,7 @@ func NewRepository[DTO any, ENTITY any](client *Client, mapper *mapper.CopierMap
 // baseWhere: 可以包含 "WHERE ..." 前缀或只写条件表达式（函数会自动拼接）
 // 示例调用： total, err := q.Count(ctx, "id = ?", id)
 // 支持当只传入一个切片参数时自动展开： q.Count(ctx, "id IN (?)", []int{1,2,3})
-func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, whereArgs ...any) (int64, error) {
+func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, whereArgs ...any) (uint64, error) {
 	if r.client == nil {
 		return 0, errors.New("clickhouse client is nil")
 	}
@@ -117,7 +117,7 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, w
 		}
 	}()
 
-	var cnt int64
+	var cnt uint64
 	if rows.Next() {
 		if scanErr := rows.Scan(&cnt); scanErr != nil {
 			r.log.Errorf("scan count failed: %v", scanErr)
@@ -1395,7 +1395,6 @@ func (r *Repository[DTO, ENTITY]) SoftDelete(ctx context.Context) (int64, error)
 }
 
 // Exists 使用传入的 db（可包含 Where）检查是否存在记录
-// 示例调用： `exists, err := q.Exists(ctx, db.Where("id = ?", id))`
 func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, whereArgs ...any) (bool, error) {
 	if r.client == nil {
 		return false, errors.New("clickhouse client is nil")
@@ -1428,7 +1427,7 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, 
 	sqlStr += " LIMIT 1"
 
 	row := r.client.conn.QueryRow(ctx, sqlStr, whereArgs...)
-	var dummy int
+	var dummy uint8
 	if err := row.Scan(&dummy); err != nil {
 		// 没有行时部分驱动返回 sql.ErrNoRows
 		if errors.Is(err, sql.ErrNoRows) {

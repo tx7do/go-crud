@@ -7,7 +7,19 @@ import (
 
 // isValidIdentifier 验证表名或列名是否合法
 func isValidIdentifier(identifier string) bool {
-	// 仅允许字母、数字、下划线，且不能以数字开头
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return false
+	}
+
+	// 支持用 ` 包裹的标识符：`name`
+	if strings.HasPrefix(identifier, "`") && strings.HasSuffix(identifier, "`") && len(identifier) >= 2 {
+		inner := identifier[1 : len(identifier)-1]
+		matched, _ := regexp.MatchString(`^[a-zA-Z_][a-zA-Z0-9_]*$`, inner)
+		return matched
+	}
+
+	// 普通未包裹的标识符
 	matched, _ := regexp.MatchString(`^[a-zA-Z_][a-zA-Z0-9_]*$`, identifier)
 	return matched
 }

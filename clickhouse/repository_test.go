@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/tx7do/go-utils/mapper"
+	"github.com/tx7do/go-utils/trans"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
@@ -102,4 +105,156 @@ func TestRepository_ErrorBranches(t *testing.T) {
 			t.Fatalf("unexpected error: %v, want: %s", err, expected)
 		}
 	})
+}
+
+func TestRepository_Candle_CRUD(t *testing.T) {
+	ctx := context.Background()
+
+	client := createTestClient()
+	assert.NotNil(t, client)
+
+	// 建表（假定 helper 已存在并创建 name 为 "candles" 的表）
+	createCandlesTable(client)
+
+	logger := log.NewHelper(log.DefaultLogger)
+	candleMapper := mapper.NewCopierMapper[Candle, Candle]()
+
+	repo := NewRepository[Candle, Candle](client, candleMapper, "candles", logger)
+	assert.NotNil(t, repo)
+
+	// 插入一条
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	dto := &Candle{
+		Timestamp: trans.Ptr(now),
+		Symbol:    trans.Ptr("TEST"),
+		Open:      trans.Ptr(1.1),
+		High:      trans.Ptr(2.2),
+		Low:       trans.Ptr(0.9),
+		Close:     trans.Ptr(1.5),
+		Volume:    trans.Ptr(100.0),
+	}
+	created, err := repo.Create(ctx, dto, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, created)
+
+	// Exists 应为 true
+	exists, err := repo.Exists(ctx, "symbol = ?", "TEST")
+	assert.NoError(t, err)
+	assert.True(t, exists)
+
+	// 批量插入
+	batch := []*Candle{
+		{
+			Timestamp: trans.Ptr(time.Now().UTC().Add(1 * time.Minute).Truncate(time.Millisecond)),
+			Symbol:    trans.Ptr("B1"),
+			Open:      trans.Ptr(10.0),
+			High:      trans.Ptr(11.0),
+			Low:       trans.Ptr(9.0),
+			Close:     trans.Ptr(10.5),
+			Volume:    trans.Ptr(500.0),
+		},
+		{
+			Timestamp: trans.Ptr(time.Now().UTC().Add(2 * time.Minute).Truncate(time.Millisecond)),
+			Symbol:    trans.Ptr("B2"),
+			Open:      trans.Ptr(20.0),
+			High:      trans.Ptr(21.0),
+			Low:       trans.Ptr(19.0),
+			Close:     trans.Ptr(20.5),
+			Volume:    trans.Ptr(600.0),
+		},
+	}
+	createdBatch, err := repo.BatchCreate(ctx, batch, nil)
+	assert.NoError(t, err)
+	assert.Len(t, createdBatch, 2)
+
+	// 列表查询（使用 PagingRequest 的简单空请求）
+	pagingReq := &paginationV1.PagingRequest{}
+	res, err := repo.ListWithPaging(ctx, pagingReq)
+	assert.NoError(t, err)
+	// 至少包含我们插入的 3 条记录
+	assert.GreaterOrEqual(t, int(res.Total), 3)
+	assert.GreaterOrEqual(t, len(res.Items), 1)
+
+	// 软删除（依赖 deleted_at 字段存在）
+	//softRes, err := repo.SoftDelete(ctx)
+	//assert.NoError(t, err)
+	//assert.Equal(t, int64(1), softRes)
+
+	// 硬删除（truncate）
+	delRes, err := repo.Delete(ctx, true)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), delRes)
+
+	// 删除后 Exists 应为 false
+	existsAfter, err := repo.Exists(ctx, "symbol = ?", "TEST")
+	assert.NoError(t, err)
+	assert.False(t, existsAfter)
+}
+
+func TestRepository_Candle_ListWithPaging(t *testing.T) {
+	ctx := context.Background()
+
+	client := createTestClient()
+	assert.NotNil(t, client)
+
+	// 确保存在 candles 表并清空
+	createCandlesTable(client)
+
+	logger := log.NewHelper(log.DefaultLogger)
+	candleMapper := mapper.NewCopierMapper[Candle, Candle]()
+	repo := NewRepository[Candle, Candle](client, candleMapper, "candles", logger)
+	assert.NotNil(t, repo)
+
+	// 硬删除（truncate）
+	delRes, err := repo.Delete(ctx, true)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), delRes)
+
+	// 批量插入
+	batch := []*Candle{
+		{
+			Timestamp: trans.Ptr(time.Now().UTC().Add(1 * time.Minute).Truncate(time.Millisecond)),
+			Symbol:    trans.Ptr("B1"),
+			Open:      trans.Ptr(10.0),
+			High:      trans.Ptr(11.0),
+			Low:       trans.Ptr(9.0),
+			Close:     trans.Ptr(10.5),
+			Volume:    trans.Ptr(500.0),
+		},
+		{
+			Timestamp: trans.Ptr(time.Now().UTC().Add(2 * time.Minute).Truncate(time.Millisecond)),
+			Symbol:    trans.Ptr("B2"),
+			Open:      trans.Ptr(20.0),
+			High:      trans.Ptr(21.0),
+			Low:       trans.Ptr(19.0),
+			Close:     trans.Ptr(20.5),
+			Volume:    trans.Ptr(600.0),
+		},
+	}
+	createdBatch, err := repo.BatchCreate(ctx, batch, nil)
+	assert.NoError(t, err)
+	assert.Len(t, createdBatch, 2)
+
+	// 使用 FieldMask 仅选择 symbol 和 close，并按 timestamp 降序（最新在前）
+	req := &paginationV1.PagingRequest{
+		FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"symbol", "close"}},
+		OrderBy:   []string{"timestamp DESC"},
+		// 不显式分页参数 -> 不会强制限制（ListWithPaging 的实现在无分页参数时返回全部）
+	}
+
+	res, err := repo.ListWithPaging(ctx, req)
+	assert.NoError(t, err)
+	// 至少包含我们插入的 2 条
+	assert.GreaterOrEqual(t, int(res.Total), 2)
+	assert.GreaterOrEqual(t, len(res.Items), 2)
+
+	first := res.Items[0]
+	assert.NotNil(t, first)
+	assert.Equal(t, "B1", *first.Symbol)
+
+	assert.Nil(t, first.Open)
+	if first.Close == nil {
+		t.Fatalf("expected Close to be selected by FieldMask, got nil")
+	}
+	assert.Equal(t, 10.5, *first.Close)
 }

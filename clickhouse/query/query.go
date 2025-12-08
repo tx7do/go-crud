@@ -63,13 +63,17 @@ func (qb *Builder) Logger() *log.Helper {
 
 // Select 设置查询的列
 func (qb *Builder) Select(columns ...string) *Builder {
+	if qb.columns == nil {
+		qb.columns = []string{}
+	}
+
 	for _, column := range columns {
 		if !isValidIdentifier(column) {
 			panic("Invalid column name")
 		}
+		qb.columns = append(qb.columns, column)
 	}
 
-	qb.columns = columns
 	return qb
 }
 
@@ -81,6 +85,13 @@ func (qb *Builder) Distinct() *Builder {
 
 // Where 添加查询条件并支持参数化
 func (qb *Builder) Where(condition string, args ...interface{}) *Builder {
+	if qb.conditions == nil {
+		qb.conditions = []string{}
+	}
+	if qb.params == nil {
+		qb.params = []interface{}{}
+	}
+
 	if !isValidCondition(condition) {
 		panic("Invalid condition")
 	}
