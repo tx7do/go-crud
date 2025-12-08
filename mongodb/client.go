@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -28,6 +29,8 @@ func NewClient(opts ...Option) (*Client, error) {
 
 	if opt.Logger != nil {
 		c.log = opt.Logger
+	} else {
+		c.log = log.NewHelper(log.NewStdLogger(os.Stderr))
 	}
 
 	if err := c.createMongodbClient(&opt); err != nil {
@@ -142,6 +145,14 @@ func (c *Client) FindOne(ctx context.Context, collection string, filter interfac
 func (c *Client) Find(ctx context.Context, collection string, filter interface{}, results interface{}) error {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
+
+	// 防御性检查
+	if c.cli == nil {
+		if c.log != nil {
+			c.log.Errorf("mongodb client is not initialized")
+		}
+		return mongoV2.ErrClientDisconnected
+	}
 
 	cursor, err := c.cli.Database(c.database).Collection(collection).Find(ctx, filter)
 	if err != nil {

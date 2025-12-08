@@ -1,4 +1,3 @@
-// go
 package sorting
 
 import (

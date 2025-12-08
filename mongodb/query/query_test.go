@@ -1,72 +1,72 @@
-package mongodb
+package query
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestQueryBuilder(t *testing.T) {
-	// 创建 QueryBuilder 实例
-	qb := NewQuery()
+	qb := NewQueryBuilder()
 
-	// 测试 SetFilter
+	// SetFilter
 	filter := bsonV2.M{"name": "test"}
 	qb.SetFilter(filter)
 	assert.Equal(t, filter, qb.filter)
 
-	// 测试 SetLimit
+	// SetLimit
 	limit := int64(10)
 	qb.SetLimit(limit)
-	assert.NotNil(t, qb.opts.Limit)
-	assert.Equal(t, &limit, qb.opts.Limit)
+	assert.NotNil(t, qb.findOpts.Limit)
+	assert.Equal(t, limit, *qb.findOpts.Limit)
 
-	// 测试 SetSort
+	// SetSort
 	sort := bsonV2.D{{Key: "name", Value: 1}}
 	qb.SetSort(sort)
-	assert.NotNil(t, qb.opts.Sort)
-	assert.Equal(t, sort, qb.opts.Sort)
+	assert.NotNil(t, qb.findOpts.Sort)
+	assert.Equal(t, sort, qb.findOpts.Sort)
 
-	// 测试 Build
+	// Build
 	finalFilter, finalOpts := qb.Build()
 	assert.Equal(t, filter, finalFilter)
-	assert.Equal(t, qb.opts, finalOpts)
+	assert.Equal(t, qb.findOpts, finalOpts)
 }
 
 func TestQueryBuilderMethods(t *testing.T) {
-	qb := NewQuery()
+	qb := NewQueryBuilder()
 
-	// 测试 SetFilter
+	// SetFilter
 	filter := bsonV2.M{"name": "test"}
 	qb.SetFilter(filter)
 	assert.Equal(t, filter, qb.filter)
 
-	// 测试 SetNotEqual
+	// SetNotEqual
 	qb.SetNotEqual("status", "inactive")
 	assert.Equal(t, bsonV2.M{OperatorNe: "inactive"}, qb.filter["status"])
 
-	// 测试 SetGreaterThan
+	// SetGreaterThan
 	qb.SetGreaterThan("age", 18)
 	assert.Equal(t, bsonV2.M{OperatorGt: 18}, qb.filter["age"])
 
-	// 测试 SetLessThan
+	// SetLessThan
 	qb.SetLessThan("age", 30)
 	assert.Equal(t, bsonV2.M{OperatorLt: 30}, qb.filter["age"])
 
-	// 测试 SetExists
+	// SetExists
 	qb.SetExists("email", true)
 	assert.Equal(t, bsonV2.M{OperatorExists: true}, qb.filter["email"])
 
-	// 测试 SetType
+	// SetType
 	qb.SetType("age", "int")
 	assert.Equal(t, bsonV2.M{OperatorType: "int"}, qb.filter["age"])
 
-	// 测试 SetBetween
+	// SetBetween
 	qb.SetBetween("price", 10, 100)
 	assert.Equal(t, bsonV2.M{OperatorGte: 10, OperatorLte: 100}, qb.filter["price"])
 
-	// 测试 SetOr
+	// SetOr
 	orConditions := []bsonV2.M{
 		{"status": "active"},
 		{"status": "pending"},
@@ -74,7 +74,7 @@ func TestQueryBuilderMethods(t *testing.T) {
 	qb.SetOr(orConditions)
 	assert.Equal(t, orConditions, qb.filter[OperatorOr])
 
-	// 测试 SetAnd
+	// SetAnd
 	andConditions := []bsonV2.M{
 		{"age": bsonV2.M{OperatorGt: 18}},
 		{"status": "active"},
@@ -82,57 +82,60 @@ func TestQueryBuilderMethods(t *testing.T) {
 	qb.SetAnd(andConditions)
 	assert.Equal(t, andConditions, qb.filter[OperatorAnd])
 
-	// 测试 SetLimit
+	// SetLimit
 	limit := int64(10)
 	qb.SetLimit(limit)
-	assert.NotNil(t, qb.opts.Limit)
-	assert.Equal(t, &limit, qb.opts.Limit)
+	assert.NotNil(t, qb.findOpts.Limit)
+	assert.Equal(t, limit, *qb.findOpts.Limit)
 
-	// 测试 SetSort
+	// SetSort
 	sort := bsonV2.D{{Key: "name", Value: 1}}
 	qb.SetSort(sort)
-	assert.NotNil(t, qb.opts.Sort)
-	assert.Equal(t, sort, qb.opts.Sort)
+	assert.NotNil(t, qb.findOpts.Sort)
+	assert.Equal(t, sort, qb.findOpts.Sort)
 
-	// 测试 SetSortWithPriority
+	// SetSortWithPriority
 	sortWithPriority := []bsonV2.E{{Key: "priority", Value: -1}, {Key: "name", Value: 1}}
 	qb.SetSortWithPriority(sortWithPriority)
-	assert.Equal(t, bsonV2.D(sortWithPriority), qb.opts.Sort)
+	assert.Equal(t, bsonV2.D(sortWithPriority), qb.findOpts.Sort)
 
-	// 测试 SetProjection
+	// SetProjection
 	projection := bsonV2.M{"name": 1, "age": 1}
 	qb.SetProjection(projection)
-	assert.Equal(t, projection, qb.opts.Projection)
+	assert.Equal(t, projection, qb.findOpts.Projection)
 
-	// 测试 SetSkip
+	// SetSkip
 	skip := int64(5)
 	qb.SetSkip(skip)
-	assert.NotNil(t, qb.opts.Skip)
-	assert.Equal(t, &skip, qb.opts.Skip)
+	assert.NotNil(t, qb.findOpts.Skip)
+	assert.Equal(t, skip, *qb.findOpts.Skip)
 
-	// 测试 SetPage
+	// SetPage
 	page, size := int64(2), int64(10)
 	qb.SetPage(page, size)
-	assert.Equal(t, &size, qb.opts.Limit)
-	assert.Equal(t, int64(10), *qb.opts.Limit)
-	assert.Equal(t, int64(10), *qb.opts.Skip)
+	assert.NotNil(t, qb.findOpts.Limit)
+	assert.NotNil(t, qb.findOpts.Skip)
+	assert.Equal(t, size, *qb.findOpts.Limit)
+	expectedSkip := (page - 1) * size
+	assert.Equal(t, expectedSkip, *qb.findOpts.Skip)
 
-	// 测试 SetRegex
-	qb.SetRegex("name", "^test")
-	assert.Equal(t, bsonV2.M{OperatorRegex: "^test"}, qb.filter["name"])
+	// SetRegex
+	qb.SetRegex("name", "^test", "")
+	expectedRegexDoc := bsonV2.M{OperatorRegex: primitive.Regex{Pattern: "^test", Options: ""}}
+	assert.Equal(t, expectedRegexDoc, qb.filter["name"])
 
-	// 测试 SetIn
+	// SetIn
 	qb.SetIn("tags", []interface{}{"tag1", "tag2"})
 	assert.Equal(t, bsonV2.M{OperatorIn: []interface{}{"tag1", "tag2"}}, qb.filter["tags"])
 
-	// 测试 Build
+	// Build
 	finalFilter, finalOpts := qb.Build()
 	assert.Equal(t, qb.filter, finalFilter)
-	assert.Equal(t, qb.opts, finalOpts)
+	assert.Equal(t, qb.findOpts, finalOpts)
 }
 
 func TestSetGeoWithin(t *testing.T) {
-	qb := NewQuery()
+	qb := NewQueryBuilder()
 
 	field := "location"
 	geometry := bsonV2.M{"type": "Polygon", "coordinates": []interface{}{
@@ -157,7 +160,7 @@ func TestSetGeoWithin(t *testing.T) {
 }
 
 func TestSetGeoIntersects(t *testing.T) {
-	qb := NewQuery()
+	qb := NewQueryBuilder()
 
 	field := "location"
 	geometry := bsonV2.M{"type": "LineString", "coordinates": [][]float64{
@@ -177,7 +180,7 @@ func TestSetGeoIntersects(t *testing.T) {
 }
 
 func TestSetNear(t *testing.T) {
-	qb := NewQuery()
+	qb := NewQueryBuilder()
 
 	field := "location"
 	point := bsonV2.M{"type": "Point", "coordinates": []float64{40.7128, -74.0060}}
@@ -198,7 +201,7 @@ func TestSetNear(t *testing.T) {
 }
 
 func TestSetNearSphere(t *testing.T) {
-	qb := NewQuery()
+	qb := NewQueryBuilder()
 
 	field := "location"
 	point := bsonV2.M{"type": "Point", "coordinates": []float64{40.7128, -74.0060}}
@@ -219,20 +222,74 @@ func TestSetNearSphere(t *testing.T) {
 }
 
 func TestQueryBuilderPipeline(t *testing.T) {
-	// 创建 QueryBuilder 实例
-	qb := NewQuery()
+	qb := NewQueryBuilder()
 
-	// 添加聚合阶段
-	matchStage := bsonV2.M{OperatorMatch: bsonV2.M{"status": "active"}}
-	groupStage := bsonV2.M{OperatorGroup: bsonV2.M{"_id": "$category", "count": bsonV2.M{OperatorSum: 1}}}
-	sortStage := bsonV2.M{OperatorSortAgg: bsonV2.M{"count": -1}}
+	matchStage := bsonV2.D{{Key: OperatorMatch, Value: bsonV2.M{"status": "active"}}}
+	groupStage := bsonV2.D{{Key: OperatorGroup, Value: bsonV2.M{"_id": "$category", "count": bsonV2.M{OperatorSum: 1}}}}
+	sortStage := bsonV2.D{{Key: OperatorSortAgg, Value: bsonV2.M{"count": -1}}}
 
 	qb.AddStage(matchStage).AddStage(groupStage).AddStage(sortStage)
 
-	// 构建 Pipeline
 	pipeline := qb.BuildPipeline()
 
-	// 验证 Pipeline
-	expectedPipeline := []bsonV2.M{matchStage, groupStage, sortStage}
+	expectedPipeline := []bsonV2.D{matchStage, groupStage, sortStage}
 	assert.Equal(t, expectedPipeline, pipeline)
+}
+
+func TestOtherOperators(t *testing.T) {
+	qb := NewQueryBuilder()
+
+	// SetAll
+	qb.SetAll("arr", []interface{}{1, 2, 3})
+	assert.Equal(t, bsonV2.M{OperatorAll: []interface{}{1, 2, 3}}, qb.filter["arr"])
+
+	// SetElemMatch
+	qb.SetElemMatch("arr2", bsonV2.M{"score": bsonV2.M{OperatorGt: 10}})
+	assert.Equal(t, bsonV2.M{OperatorElemMatch: bsonV2.M{"score": bsonV2.M{OperatorGt: 10}}}, qb.filter["arr2"])
+
+	// SetSize
+	qb.SetSize("arr3", 5)
+	assert.Equal(t, bsonV2.M{OperatorSize: 5}, qb.filter["arr3"])
+
+	// SetCurrentDate
+	qb.SetCurrentDate("updatedAt")
+	assert.Equal(t, bsonV2.M{OperatorCurrentDate: true}, qb.filter["updatedAt"])
+
+	// SetTextSearch
+	qb.SetTextSearch("hello world")
+	assert.Equal(t, bsonV2.M{OperatorSearch: "hello world"}, qb.filter[OperatorText])
+
+	// SetMod
+	qb.SetMod("count", 3, 1)
+	assert.Equal(t, bsonV2.M{OperatorMod: bsonV2.A{3, 1}}, qb.filter["count"])
+
+	// SetNotIn
+	qb.SetNotIn("exclude", []interface{}{"a", "b"})
+	assert.Equal(t, bsonV2.M{OperatorNin: []interface{}{"a", "b"}}, qb.filter["exclude"])
+}
+
+func TestBuildImmutability(t *testing.T) {
+	qb := NewQueryBuilder()
+
+	// prepare initial state
+	qb.SetFilter(bsonV2.M{"k": "v"})
+	qb.SetLimit(100)
+	qb.SetSkip(10)
+
+	// build copies
+	beforeFilter, beforeOpts := qb.Build()
+
+	// mutate original builder after build
+	qb.SetFilter(bsonV2.M{"k": "changed"})
+	qb.SetLimit(200)
+	qb.SetSkip(20)
+
+	// ensure built copies unchanged
+	assert.Equal(t, bsonV2.M{"k": "v"}, beforeFilter)
+	if beforeOpts.Limit != nil {
+		assert.Equal(t, int64(100), *beforeOpts.Limit)
+	}
+	if beforeOpts.Skip != nil {
+		assert.Equal(t, int64(10), *beforeOpts.Skip)
+	}
 }

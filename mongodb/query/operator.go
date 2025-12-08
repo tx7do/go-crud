@@ -1,4 +1,4 @@
-package mongodb
+package query
 
 const (
 	// 比较操作符
