@@ -187,7 +187,6 @@ func (poc Processor) NotIn(builder *query.Builder, field, value string, values [
 		var arr []interface{}
 		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
 			if len(arr) == 0 {
-				// 空集合 -> 不追加条件（与 ClickHouse 的实现保持一致）
 				return builder
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": arr}})
