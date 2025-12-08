@@ -9,9 +9,6 @@ import (
 	"strings"
 
 	clickhouseV2 "github.com/ClickHouse/clickhouse-go/v2"
-	driverV2 "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-
-	"github.com/go-kratos/kratos/v2/log"
 )
 
 type Creator func() any
@@ -27,25 +24,22 @@ var compressionMap = map[string]clickhouseV2.CompressionMethod{
 }
 
 type Client struct {
-	log *log.Helper
-
 	conn clickhouseV2.Conn
 	db   *sql.DB
+
+	opt options
 }
 
 func NewClient(opts ...Option) (*Client, error) {
-	c := &Client{}
+	c := &Client{
+		opt: options{},
+	}
 
-	var opt options
 	for _, o := range opts {
-		o(&opt)
+		o(&c.opt)
 	}
 
-	if opt.Logger != nil {
-		c.log = opt.Logger
-	}
-
-	if err := c.createClickHouseClient(&opt); err != nil {
+	if err := c.createClickHouseClient(&c.opt); err != nil {
 		return nil, err
 	}
 
@@ -59,7 +53,7 @@ func (c *Client) createClickHouseClient(opt *options) error {
 	if opt.Dsn != "" {
 		tmp, err := clickhouseV2.ParseDSN(opt.Dsn)
 		if err != nil {
-			c.log.Errorf("failed to parse clickhouse DSN: %v", err)
+			c.opt.Logger.Errorf("failed to parse clickhouse DSN: %v", err)
 			return ErrInvalidDSN
 		}
 		opts = tmp
@@ -121,7 +115,7 @@ func (c *Client) createClickHouseClient(opt *options) error {
 	if opt.HttpProxy != "" {
 		proxyURL, err := url.Parse(opt.HttpProxy)
 		if err != nil {
-			c.log.Errorf("failed to parse HTTP proxy URL: %v", err)
+			c.opt.Logger.Errorf("failed to parse HTTP proxy URL: %v", err)
 			return ErrInvalidProxyURL
 		}
 
@@ -159,7 +153,7 @@ func (c *Client) createClickHouseClient(opt *options) error {
 	// 创建ClickHouse连接
 	conn, err := clickhouseV2.Open(opts)
 	if err != nil {
-		c.log.Errorf("failed to create clickhouse client: %v", err)
+		c.opt.Logger.Errorf("failed to create clickhouse client: %v", err)
 		return ErrConnectionFailed
 	}
 
@@ -171,30 +165,30 @@ func (c *Client) createClickHouseClient(opt *options) error {
 // Close 关闭ClickHouse客户端连接
 func (c *Client) Close() {
 	if c.conn == nil {
-		c.log.Warn("clickhouse client is already closed or not initialized")
+		c.opt.Logger.Warn("clickhouse client is already closed or not initialized")
 		return
 	}
 
 	if err := c.conn.Close(); err != nil {
-		c.log.Errorf("failed to close clickhouse client: %v", err)
+		c.opt.Logger.Errorf("failed to close clickhouse client: %v", err)
 	} else {
-		c.log.Info("clickhouse client closed successfully")
+		c.opt.Logger.Info("clickhouse client closed successfully")
 	}
 }
 
 // GetServerVersion 获取ClickHouse服务器版本
 func (c *Client) GetServerVersion() string {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ""
 	}
 
 	version, err := c.conn.ServerVersion()
 	if err != nil {
-		c.log.Errorf("failed to get server version: %v", err)
+		c.opt.Logger.Errorf("failed to get server version: %v", err)
 		return ""
 	} else {
-		c.log.Infof("ClickHouse server version: %s", version)
+		c.opt.Logger.Infof("ClickHouse server version: %s", version)
 		return version.String()
 	}
 }
@@ -202,53 +196,69 @@ func (c *Client) GetServerVersion() string {
 // CheckConnection 检查ClickHouse客户端连接是否正常
 func (c *Client) CheckConnection(ctx context.Context) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	if err := c.conn.Ping(ctx); err != nil {
-		c.log.Errorf("ping failed: %v", err)
+		c.opt.Logger.Errorf("ping failed: %v", err)
 		return ErrPingFailed
 	}
 
-	c.log.Info("clickhouse client connection is healthy")
+	c.opt.Logger.Info("clickhouse client connection is healthy")
 	return nil
 }
 
 // Query 执行查询并返回结果
 func (c *Client) Query(ctx context.Context, creator Creator, results *[]any, query string, args ...any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 	if creator == nil {
-		c.log.Error("creator function cannot be nil")
+		c.opt.Logger.Error("creator function cannot be nil")
 		return ErrCreatorFunctionNil
+	}
+	if results == nil {
+		c.opt.Logger.Error("results must be a non-nil pointer to a slice")
+		return ErrInvalidArgument
+	}
+
+	// 当只传入一个参数且该参数是切片时，将其展开为单独的参数
+	if len(args) == 1 {
+		v := reflect.ValueOf(args[0])
+		if v.IsValid() && v.Kind() == reflect.Slice {
+			expanded := make([]any, v.Len())
+			for i := 0; i < v.Len(); i++ {
+				expanded[i] = v.Index(i).Interface()
+			}
+			args = expanded
+		}
 	}
 
 	rows, err := c.conn.Query(ctx, query, args...)
 	if err != nil {
-		c.log.Errorf("query failed: %v", err)
+		c.opt.Logger.Errorf("query failed: %v", err)
 		return ErrQueryExecutionFailed
 	}
-	defer func(rows driverV2.Rows) {
-		if err = rows.Close(); err != nil {
-			c.log.Errorf("failed to close rows: %v", err)
+	defer func() {
+		if cerr := rows.Close(); cerr != nil {
+			c.opt.Logger.Errorf("failed to close rows: %v", cerr)
 		}
-	}(rows)
+	}()
 
 	for rows.Next() {
 		row := creator()
-		if err = rows.ScanStruct(row); err != nil {
-			c.log.Errorf("failed to scan row: %v", err)
+		if scanErr := rows.ScanStruct(row); scanErr != nil {
+			c.opt.Logger.Errorf("failed to scan row: %v", scanErr)
 			return ErrRowScanFailed
 		}
 		*results = append(*results, row)
 	}
 
 	// 检查是否有未处理的错误
-	if rows.Err() != nil {
-		c.log.Errorf("Rows iteration error: %v", rows.Err())
+	if iterErr := rows.Err(); iterErr != nil {
+		c.opt.Logger.Errorf("rows iteration error: %v", iterErr)
 		return ErrRowsIterationError
 	}
 
@@ -259,12 +269,12 @@ func (c *Client) Query(ctx context.Context, creator Creator, results *[]any, que
 func (c *Client) QueryRow(ctx context.Context, dest any, query string, args ...any) error {
 	row := c.conn.QueryRow(ctx, query, args...)
 	if row == nil {
-		c.log.Error("query row returned nil")
+		c.opt.Logger.Error("query row returned nil")
 		return ErrRowNotFound
 	}
 
 	if err := row.ScanStruct(dest); err != nil {
-		c.log.Errorf("")
+		c.opt.Logger.Errorf("")
 		return ErrRowScanFailed
 	}
 
@@ -274,13 +284,13 @@ func (c *Client) QueryRow(ctx context.Context, dest any, query string, args ...a
 // Select 封装 SELECT 子句
 func (c *Client) Select(ctx context.Context, dest any, query string, args ...any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	err := c.conn.Select(ctx, dest, query, args...)
 	if err != nil {
-		c.log.Errorf("select failed: %v", err)
+		c.opt.Logger.Errorf("select failed: %v", err)
 		return ErrQueryExecutionFailed
 	}
 
@@ -290,12 +300,12 @@ func (c *Client) Select(ctx context.Context, dest any, query string, args ...any
 // Exec 执行非查询语句
 func (c *Client) Exec(ctx context.Context, query string, args ...any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	if err := c.conn.Exec(ctx, query, args...); err != nil {
-		c.log.Errorf("exec failed: %v", err)
+		c.opt.Logger.Errorf("exec failed: %v", err)
 		return ErrExecutionFailed
 	}
 
@@ -346,13 +356,13 @@ func (c *Client) prepareInsertData(data any) (string, string, []any, error) {
 // Insert 插入数据到指定表
 func (c *Client) Insert(ctx context.Context, tableName string, in any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	columns, placeholders, values, err := c.prepareInsertData(in)
 	if err != nil {
-		c.log.Errorf("prepare insert in failed: %v", err)
+		c.opt.Logger.Errorf("prepare insert in failed: %v", err)
 		return ErrPrepareInsertDataFailed
 	}
 
@@ -365,7 +375,7 @@ func (c *Client) Insert(ctx context.Context, tableName string, in any) error {
 
 	// 执行插入操作
 	if err = c.conn.Exec(ctx, query, values...); err != nil {
-		c.log.Errorf("insert failed: %v", err)
+		c.opt.Logger.Errorf("insert failed: %v", err)
 		return ErrInsertFailed
 	}
 
@@ -374,12 +384,12 @@ func (c *Client) Insert(ctx context.Context, tableName string, in any) error {
 
 func (c *Client) InsertMany(ctx context.Context, tableName string, data []any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	if len(data) == 0 {
-		c.log.Error("data slice is empty")
+		c.opt.Logger.Error("data slice is empty")
 		return ErrInvalidColumnData
 	}
 
@@ -390,14 +400,14 @@ func (c *Client) InsertMany(ctx context.Context, tableName string, data []any) e
 	for _, item := range data {
 		itemColumns, itemPlaceholders, itemValues, err := c.prepareInsertData(item)
 		if err != nil {
-			c.log.Errorf("prepare insert data failed: %v", err)
+			c.opt.Logger.Errorf("prepare insert data failed: %v", err)
 			return ErrPrepareInsertDataFailed
 		}
 
 		if columns == "" {
 			columns = itemColumns
 		} else if columns != itemColumns {
-			c.log.Error("data items have inconsistent columns")
+			c.opt.Logger.Error("data items have inconsistent columns")
 			return ErrInvalidColumnData
 		}
 
@@ -406,7 +416,7 @@ func (c *Client) InsertMany(ctx context.Context, tableName string, data []any) e
 	}
 
 	// 构造 SQL 语句
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
 		tableName,
 		columns,
 		strings.Join(placeholders, ", "),
@@ -414,7 +424,7 @@ func (c *Client) InsertMany(ctx context.Context, tableName string, data []any) e
 
 	// 执行插入操作
 	if err := c.conn.Exec(ctx, query, values...); err != nil {
-		c.log.Errorf("insert many failed: %v", err)
+		c.opt.Logger.Errorf("insert many failed: %v", err)
 		return ErrInsertFailed
 	}
 
@@ -424,14 +434,14 @@ func (c *Client) InsertMany(ctx context.Context, tableName string, data []any) e
 // AsyncInsert 异步插入数据
 func (c *Client) AsyncInsert(ctx context.Context, tableName string, data any, wait bool) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	// 准备插入数据
 	columns, placeholders, values, err := c.prepareInsertData(data)
 	if err != nil {
-		c.log.Errorf("prepare insert data failed: %v", err)
+		c.opt.Logger.Errorf("prepare insert data failed: %v", err)
 		return ErrPrepareInsertDataFailed
 	}
 
@@ -444,7 +454,7 @@ func (c *Client) AsyncInsert(ctx context.Context, tableName string, data any, wa
 
 	// 执行异步插入
 	if err = c.asyncInsert(ctx, query, wait, values...); err != nil {
-		c.log.Errorf("async insert failed: %v", err)
+		c.opt.Logger.Errorf("async insert failed: %v", err)
 		return ErrAsyncInsertFailed
 	}
 
@@ -454,12 +464,12 @@ func (c *Client) AsyncInsert(ctx context.Context, tableName string, data any, wa
 // asyncInsert 异步插入数据
 func (c *Client) asyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	if err := c.conn.AsyncInsert(ctx, query, wait, args...); err != nil {
-		c.log.Errorf("async insert failed: %v", err)
+		c.opt.Logger.Errorf("async insert failed: %v", err)
 		return ErrAsyncInsertFailed
 	}
 
@@ -469,12 +479,12 @@ func (c *Client) asyncInsert(ctx context.Context, query string, wait bool, args 
 // AsyncInsertMany 批量异步插入数据
 func (c *Client) AsyncInsertMany(ctx context.Context, tableName string, data []any, wait bool) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	if len(data) == 0 {
-		c.log.Error("data slice is empty")
+		c.opt.Logger.Error("data slice is empty")
 		return ErrInvalidColumnData
 	}
 
@@ -486,14 +496,14 @@ func (c *Client) AsyncInsertMany(ctx context.Context, tableName string, data []a
 	for _, item := range data {
 		itemColumns, itemPlaceholders, itemValues, err := c.prepareInsertData(item)
 		if err != nil {
-			c.log.Errorf("prepare insert data failed: %v", err)
+			c.opt.Logger.Errorf("prepare insert data failed: %v", err)
 			return ErrPrepareInsertDataFailed
 		}
 
 		if columns == "" {
 			columns = itemColumns
 		} else if columns != itemColumns {
-			c.log.Error("data items have inconsistent columns")
+			c.opt.Logger.Error("data items have inconsistent columns")
 			return ErrInvalidColumnData
 		}
 
@@ -510,7 +520,7 @@ func (c *Client) AsyncInsertMany(ctx context.Context, tableName string, data []a
 
 	// 执行异步插入操作
 	if err := c.asyncInsert(ctx, query, wait, values...); err != nil {
-		c.log.Errorf("batch insert failed: %v", err)
+		c.opt.Logger.Errorf("batch insert failed: %v", err)
 		return err
 	}
 
@@ -520,12 +530,12 @@ func (c *Client) AsyncInsertMany(ctx context.Context, tableName string, data []a
 // BatchInsert 批量插入数据
 func (c *Client) BatchInsert(ctx context.Context, tableName string, data []any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	if len(data) == 0 {
-		c.log.Error("data slice is empty")
+		c.opt.Logger.Error("data slice is empty")
 		return ErrInvalidColumnData
 	}
 
@@ -536,14 +546,14 @@ func (c *Client) BatchInsert(ctx context.Context, tableName string, data []any) 
 	for _, item := range data {
 		itemColumns, _, itemValues, err := c.prepareInsertData(item)
 		if err != nil {
-			c.log.Errorf("prepare insert data failed: %v", err)
+			c.opt.Logger.Errorf("prepare insert data failed: %v", err)
 			return ErrPrepareInsertDataFailed
 		}
 
 		if columns == "" {
 			columns = itemColumns
 		} else if columns != itemColumns {
-			c.log.Error("data items have inconsistent columns")
+			c.opt.Logger.Error("data items have inconsistent columns")
 			return ErrInvalidColumnData
 		}
 
@@ -555,7 +565,7 @@ func (c *Client) BatchInsert(ctx context.Context, tableName string, data []any) 
 
 	// 调用 batchExec 方法执行批量插入
 	if err := c.batchExec(ctx, query, values); err != nil {
-		c.log.Errorf("batch insert failed: %v", err)
+		c.opt.Logger.Errorf("batch insert failed: %v", err)
 		return ErrBatchInsertFailed
 	}
 
@@ -566,19 +576,19 @@ func (c *Client) BatchInsert(ctx context.Context, tableName string, data []any) 
 func (c *Client) batchExec(ctx context.Context, query string, data [][]any) error {
 	batch, err := c.conn.PrepareBatch(ctx, query)
 	if err != nil {
-		c.log.Errorf("failed to prepare batch: %v", err)
+		c.opt.Logger.Errorf("failed to prepare batch: %v", err)
 		return ErrBatchPrepareFailed
 	}
 
 	for _, row := range data {
 		if err = batch.Append(row...); err != nil {
-			c.log.Errorf("failed to append batch data: %v", err)
+			c.opt.Logger.Errorf("failed to append batch data: %v", err)
 			return ErrBatchAppendFailed
 		}
 	}
 
 	if err = batch.Send(); err != nil {
-		c.log.Errorf("failed to send batch: %v", err)
+		c.opt.Logger.Errorf("failed to send batch: %v", err)
 		return ErrBatchSendFailed
 	}
 
@@ -588,28 +598,28 @@ func (c *Client) batchExec(ctx context.Context, query string, data [][]any) erro
 // BatchStructs 批量插入结构体数据
 func (c *Client) BatchStructs(ctx context.Context, query string, data []any) error {
 	if c.conn == nil {
-		c.log.Error("clickhouse client is not initialized")
+		c.opt.Logger.Error("clickhouse client is not initialized")
 		return ErrClientNotInitialized
 	}
 
 	// 准备批量插入
 	batch, err := c.conn.PrepareBatch(ctx, query)
 	if err != nil {
-		c.log.Errorf("failed to prepare batch: %v", err)
+		c.opt.Logger.Errorf("failed to prepare batch: %v", err)
 		return ErrBatchPrepareFailed
 	}
 
 	// 遍历数据并添加到批量插入
 	for _, row := range data {
-		if err := batch.AppendStruct(row); err != nil {
-			c.log.Errorf("failed to append batch struct data: %v", err)
+		if err = batch.AppendStruct(row); err != nil {
+			c.opt.Logger.Errorf("failed to append batch struct data: %v", err)
 			return ErrBatchAppendFailed
 		}
 	}
 
 	// 发送批量插入
 	if err = batch.Send(); err != nil {
-		c.log.Errorf("failed to send batch: %v", err)
+		c.opt.Logger.Errorf("failed to send batch: %v", err)
 		return ErrBatchSendFailed
 	}
 

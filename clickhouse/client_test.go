@@ -21,10 +21,12 @@ type Candle struct {
 
 func createTestClient() *Client {
 	cli, _ := NewClient(
-		WithAddresses("http://localhost:8123"),
-		WithUsername("default"),
-		WithPassword(""),
+		WithAddresses("localhost:9000"),
+		WithDatabase("finances"),
+		WithUsername(""),
+		WithPassword("*Abcd123456"),
 		WithLogger(log.DefaultLogger),
+		WithDebug(true),
 	)
 	return cli
 }
@@ -121,6 +123,7 @@ func TestInsertManyCandlesTable(t *testing.T) {
 }
 
 func TestAsyncInsertCandlesTable(t *testing.T) {
+	ctx := context.Background()
 	client := createTestClient()
 	assert.NotNil(t, client)
 
@@ -138,7 +141,7 @@ func TestAsyncInsertCandlesTable(t *testing.T) {
 	}
 
 	// 异步插入数据
-	err := client.AsyncInsert(context.Background(), "candles", candle, true)
+	err := client.AsyncInsert(ctx, "candles", candle, true)
 	assert.NoError(t, err, "AsyncInsert 方法应该成功执行")
 
 	// 验证插入结果
@@ -148,7 +151,7 @@ func TestAsyncInsertCandlesTable(t *testing.T) {
 		WHERE symbol = ?
 	`
 	var result Candle
-	err = client.QueryRow(context.Background(), &result, query, "BTC/USD")
+	err = client.QueryRow(ctx, &result, query, "BTC/USD")
 	assert.NoError(t, err, "QueryRow 应该成功执行")
 	assert.Equal(t, "BTC/USD", *result.Symbol, "symbol 列值应该为 BTC/USD")
 	assert.Equal(t, 30500.0, *result.Close, "close 列值应该为 30500.0")
@@ -156,6 +159,7 @@ func TestAsyncInsertCandlesTable(t *testing.T) {
 }
 
 func TestAsyncInsertManyCandlesTable(t *testing.T) {
+	ctx := context.Background()
 	client := createTestClient()
 	assert.NotNil(t, client)
 
@@ -193,7 +197,7 @@ func TestAsyncInsertManyCandlesTable(t *testing.T) {
 	}
 
 	// 批量插入数据
-	err := client.AsyncInsertMany(context.Background(), "candles", data, true)
+	err := client.AsyncInsertMany(ctx, "candles", data, true)
 	assert.NoError(t, err, "AsyncInsertMany 方法应该成功执行")
 
 	// 验证插入结果
@@ -202,7 +206,7 @@ func TestAsyncInsertManyCandlesTable(t *testing.T) {
 		FROM candles
 	`
 	var results []Candle
-	err = client.Select(context.Background(), &results, query)
+	err = client.Select(ctx, &results, query)
 	assert.NoError(t, err, "查询数据应该成功执行")
 }
 
@@ -231,6 +235,7 @@ func TestInternalBatchExecCandlesTable(t *testing.T) {
 }
 
 func TestBatchInsertCandlesTable(t *testing.T) {
+	ctx := context.Background()
 	client := createTestClient()
 	assert.NotNil(t, client)
 
@@ -268,7 +273,7 @@ func TestBatchInsertCandlesTable(t *testing.T) {
 	}
 
 	// 批量插入数据
-	err := client.BatchInsert(context.Background(), "candles", data)
+	err := client.BatchInsert(ctx, "candles", data)
 	assert.NoError(t, err, "BatchInsert 方法应该成功执行")
 
 	// 验证插入结果
@@ -277,7 +282,7 @@ func TestBatchInsertCandlesTable(t *testing.T) {
 		FROM candles
 	`
 	var results []Candle
-	err = client.Select(context.Background(), &results, query)
+	err = client.Select(ctx, &results, query)
 	assert.NoError(t, err, "查询数据应该成功执行")
 }
 
@@ -412,6 +417,7 @@ func TestSelectCandlesTable(t *testing.T) {
 }
 
 func TestQueryRow(t *testing.T) {
+	ctx := context.Background()
 	client := createTestClient()
 	assert.NotNil(t, client)
 
@@ -422,7 +428,7 @@ func TestQueryRow(t *testing.T) {
 		INSERT INTO candles (timestamp, symbol, open, high, low, close, volume)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
-	err := client.asyncInsert(context.Background(), insertQuery, true,
+	err := client.asyncInsert(ctx, insertQuery, true,
 		"2023-10-01 12:00:00", "AAPL", 100.5, 105.0, 99.5, 102.0, 1500.0)
 	assert.NoError(t, err, "数据插入失败")
 
@@ -435,7 +441,7 @@ func TestQueryRow(t *testing.T) {
 
 	var result Candle
 
-	err = client.QueryRow(context.Background(), &result, query, "AAPL")
+	err = client.QueryRow(ctx, &result, query, "AAPL")
 	assert.NoError(t, err, "QueryRow 应该成功执行")
 	assert.Equal(t, "AAPL", *result.Symbol, "symbol 列值应该为 AAPL")
 	assert.Equal(t, 100.5, *result.Open, "open 列值应该为 100.5")

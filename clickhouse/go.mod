@@ -6,8 +6,11 @@ replace github.com/tx7do/go-crud => ../
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.41.0
-	github.com/go-kratos/kratos/v2 v2.9.1
+	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/stretchr/testify v1.11.1
+	github.com/tx7do/go-crud v0.0.5
+	github.com/tx7do/go-utils v1.1.34
+	github.com/tx7do/go-utils/mapper v0.0.3
 	google.golang.org/protobuf v1.36.10
 )
 
@@ -17,7 +20,10 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
+	github.com/google/gnostic v0.7.1 // indirect
+	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/paulmach/orb v0.12.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect

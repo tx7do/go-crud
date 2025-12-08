@@ -86,4 +86,6 @@ var (
 
 	// ErrInvalidColumnData is returned when the column data type is invalid.
 	ErrInvalidColumnData = errors.InternalServer("INVALID_COLUMN_DATA", "invalid column data type")
+
+	ErrInvalidArgument = errors.BadRequest("INVALID_ARGUMENT", "invalid argument provided")
 )

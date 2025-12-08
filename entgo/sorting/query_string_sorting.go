@@ -22,6 +22,8 @@ func (qss QueryStringSorting) BuildSelector(orderBys []string) (func(s *sql.Sele
 
 	return func(s *sql.Selector) {
 		for _, v := range orderBys {
+			v = strings.TrimSpace(v)
+
 			if strings.HasPrefix(v, "-") {
 				// 降序
 				key := v[1:]

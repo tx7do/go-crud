@@ -51,6 +51,24 @@ func WithLogger(logger log.Logger) Option {
 	}
 }
 
+func WithDsn(dsn string) Option {
+	return func(o *options) {
+		o.Dsn = dsn
+	}
+}
+
+func WithHttpProxy(httpProxy string) Option {
+	return func(o *options) {
+		o.HttpProxy = httpProxy
+	}
+}
+
+func WithScheme(scheme string) Option {
+	return func(o *options) {
+		o.Scheme = scheme
+	}
+}
+
 func WithAddresses(addresses ...string) Option {
 	return func(o *options) {
 		o.Addresses = addresses
@@ -87,21 +105,9 @@ func WithDebug(debug bool) Option {
 	}
 }
 
-func WithScheme(scheme string) Option {
+func WithDebugMode(debug bool) Option {
 	return func(o *options) {
-		o.Scheme = scheme
-	}
-}
-
-func WithDsn(dsn string) Option {
-	return func(o *options) {
-		o.Dsn = dsn
-	}
-}
-
-func WithHttpProxy(httpProxy string) Option {
-	return func(o *options) {
-		o.HttpProxy = httpProxy
+		o.Debug = debug
 	}
 }
 
