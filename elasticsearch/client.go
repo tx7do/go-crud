@@ -15,22 +15,23 @@ import (
 )
 
 type Client struct {
-	cli *elasticsearchV9.Client
+	*elasticsearchV9.Client
+	options *elasticsearchV9.Config
+
 	log *log.Helper
 }
 
 func NewClient(opts ...Option) (*Client, error) {
-	c := &Client{}
+	c := &Client{
+		options: &elasticsearchV9.Config{},
+		log:     log.NewHelper(log.DefaultLogger),
+	}
 
-	var opt options
 	for _, o := range opts {
-		o(&opt)
-	}
-	if opt.Logger != nil {
-		c.log = opt.Logger
+		o(c)
 	}
 
-	if err := c.createESClient(&opt); err != nil {
+	if err := c.createESClient(c.options); err != nil {
 		return nil, err
 	}
 
@@ -38,20 +39,14 @@ func NewClient(opts ...Option) (*Client, error) {
 }
 
 // createESClient 创建Elasticsearch客户端
-func (c *Client) createESClient(opt *options) error {
-	cli, err := elasticsearchV9.NewClient(
-		elasticsearchV9.Config{
-			Addresses: opt.Addresses,
-			Username:  opt.Username,
-			Password:  opt.Password,
-		},
-	)
+func (c *Client) createESClient(options *elasticsearchV9.Config) error {
+	cli, err := elasticsearchV9.NewClient(*options)
 	if err != nil {
 		c.log.Errorf("failed to create elasticsearch client: %v", err)
 		return err
 	}
 
-	c.cli = cli
+	c.Client = cli
 
 	return nil
 }
@@ -62,11 +57,11 @@ func (c *Client) Close() {
 
 // CheckConnectStatus 检查Elasticsearch连接
 func (c *Client) CheckConnectStatus() bool {
-	if c.cli == nil {
+	if c.Client == nil {
 		return false
 	}
 
-	resp, err := c.cli.Info()
+	resp, err := c.Client.Info()
 	if err != nil {
 		c.log.Errorf("failed to connect to elasticsearch: %v", err)
 		return false
@@ -96,9 +91,9 @@ func (c *Client) CheckConnectStatus() bool {
 
 // IndexExists 检查索引是否存在
 func (c *Client) IndexExists(ctx context.Context, indexName string) (bool, error) {
-	resp, err := c.cli.Indices.Exists(
+	resp, err := c.Client.Indices.Exists(
 		[]string{indexName},
-		c.cli.Indices.Exists.WithContext(ctx),
+		c.Client.Indices.Exists.WithContext(ctx),
 	)
 	if err != nil {
 		c.log.Errorf("failed to check if index exists: %v", err)
@@ -126,10 +121,10 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 		return err
 	}
 
-	resp, err := c.cli.Indices.Create(
+	resp, err := c.Client.Indices.Create(
 		indexName,
-		c.cli.Indices.Create.WithContext(ctx),
-		c.cli.Indices.Create.WithBody(bytes.NewReader([]byte(body))),
+		c.Client.Indices.Create.WithContext(ctx),
+		c.Client.Indices.Create.WithBody(bytes.NewReader([]byte(body))),
 	)
 	if err != nil {
 		c.log.Errorf("failed to create index: %v", err)
@@ -162,9 +157,9 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 		return ErrIndexNotFound
 	}
 
-	resp, err := c.cli.Indices.Delete(
+	resp, err := c.Client.Indices.Delete(
 		[]string{indexName},
-		c.cli.Indices.Delete.WithContext(ctx),
+		c.Client.Indices.Delete.WithContext(ctx),
 	)
 	if err != nil {
 		c.log.Errorf("failed to delete index: %v", err)
@@ -188,9 +183,9 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 
 // DeleteDocument 删除一条数据
 func (c *Client) DeleteDocument(ctx context.Context, indexName, id string) error {
-	_, err := c.cli.Delete(
+	_, err := c.Client.Delete(
 		indexName, id,
-		c.cli.Delete.WithContext(ctx),
+		c.Client.Delete.WithContext(ctx),
 	)
 	if err != nil {
 		c.log.Errorf("failed to delete document: %v", err)
@@ -213,16 +208,16 @@ func (c *Client) InsertDocument(ctx context.Context, indexName, id string, data 
 	var resp *esapiV9.Response
 
 	if id == "" {
-		resp, err = c.cli.Index(
+		resp, err = c.Client.Index(
 			indexName,
 			bytes.NewReader(dataBytes),
-			c.cli.Index.WithContext(ctx),
+			c.Client.Index.WithContext(ctx),
 		)
 	} else {
-		resp, err = c.cli.Create(
+		resp, err = c.Client.Create(
 			indexName, id,
 			bytes.NewReader(dataBytes),
-			c.cli.Create.WithContext(ctx),
+			c.Client.Create.WithContext(ctx),
 		)
 	}
 	if err != nil {
@@ -266,10 +261,10 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 		buf.Write(dataBytes)
 	}
 
-	resp, err := c.cli.Bulk(
+	resp, err := c.Client.Bulk(
 		bytes.NewReader(buf.Bytes()),
-		c.cli.Bulk.WithContext(ctx),
-		c.cli.Bulk.WithIndex(indexName),
+		c.Client.Bulk.WithContext(ctx),
+		c.Client.Bulk.WithIndex(indexName),
 	)
 	if err != nil {
 		c.log.Errorf("failed to perform bulk insert: %v", err)
@@ -303,10 +298,10 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 		return err
 	}
 
-	_, err = c.cli.Update(
+	_, err = c.Client.Update(
 		indexName, pk,
 		bytes.NewReader(data),
-		c.cli.Update.WithContext(ctx),
+		c.Client.Update.WithContext(ctx),
 	)
 	if err != nil {
 		c.log.Errorf("failed to update document: %v", err)
@@ -324,10 +319,10 @@ func (c *Client) GetDocument(
 	sourceFields []string,
 	out interface{},
 ) error {
-	resp, err := c.cli.Get(
+	resp, err := c.Client.Get(
 		indexName, id,
-		c.cli.Get.WithContext(ctx),
-		c.cli.Get.WithSource(sourceFields...), // 指定返回的字段
+		c.Client.Get.WithContext(ctx),
+		c.Client.Get.WithSource(sourceFields...), // 指定返回的字段
 	)
 	if err != nil {
 		c.log.Errorf("failed to get document: %v", err)
@@ -403,14 +398,14 @@ func (c *Client) search(
 		}
 	}
 
-	resp, err := c.cli.Search(
-		c.cli.Search.WithContext(ctx),
-		c.cli.Search.WithIndex(indexName),
-		c.cli.Search.WithFrom(from),
-		c.cli.Search.WithSize(pageSize),
-		c.cli.Search.WithSort(sorts...),
-		c.cli.Search.WithQuery(query),
-		c.cli.Search.WithSource(sourceFields...), // 指定返回的字段
+	resp, err := c.Client.Search(
+		c.Client.Search.WithContext(ctx),
+		c.Client.Search.WithIndex(indexName),
+		c.Client.Search.WithFrom(from),
+		c.Client.Search.WithSize(pageSize),
+		c.Client.Search.WithSort(sorts...),
+		c.Client.Search.WithQuery(query),
+		c.Client.Search.WithSource(sourceFields...), // 指定返回的字段
 	)
 	if err != nil {
 		c.log.Errorf("failed to search documents: %v", err)
