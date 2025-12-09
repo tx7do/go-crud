@@ -103,38 +103,35 @@ func (c *Client) Close() {
 	} else {
 		c.log.Info("mongodb client disconnected successfully")
 	}
+	c.cli = nil
 }
 
 // CheckConnect 检查MongoDB连接状态
-func (c *Client) CheckConnect() {
+func (c *Client) CheckConnect() bool {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return false
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
 	if err := c.cli.Ping(ctx, nil); err != nil {
 		c.log.Errorf("failed to ping mongodb: %v", err)
-	} else {
-		c.log.Info("mongodb client is connected")
+		return false
 	}
-}
 
-// InsertOne 插入单个文档
-func (c *Client) InsertOne(ctx context.Context, collection string, document interface{}) (*mongoV2.InsertOneResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
-
-	return c.cli.Database(c.database).Collection(collection).InsertOne(ctx, document)
-}
-
-// InsertMany 插入多个文档
-func (c *Client) InsertMany(ctx context.Context, collection string, documents []interface{}) (*mongoV2.InsertManyResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
-
-	return c.cli.Database(c.database).Collection(collection).InsertMany(ctx, documents)
+	c.log.Info("mongodb client is connected")
+	return true
 }
 
 // FindOne 查询单个文档
 func (c *Client) FindOne(ctx context.Context, collection string, filter interface{}, result interface{}) error {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return mongoV2.ErrClientDisconnected
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
@@ -143,16 +140,13 @@ func (c *Client) FindOne(ctx context.Context, collection string, filter interfac
 
 // Find 查询多个文档
 func (c *Client) Find(ctx context.Context, collection string, filter interface{}, results interface{}) error {
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
-
-	// 防御性检查
 	if c.cli == nil {
-		if c.log != nil {
-			c.log.Errorf("mongodb client is not initialized")
-		}
+		c.log.Errorf("mongodb client is not initialized")
 		return mongoV2.ErrClientDisconnected
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 
 	cursor, err := c.cli.Database(c.database).Collection(collection).Find(ctx, filter)
 	if err != nil {
@@ -168,18 +162,165 @@ func (c *Client) Find(ctx context.Context, collection string, filter interface{}
 	return cursor.All(ctx, results)
 }
 
-// UpdateOne 更新单个文档
-func (c *Client) UpdateOne(ctx context.Context, collection string, filter, update interface{}) (*mongoV2.UpdateResult, error) {
+// InsertOne 插入单个文档
+func (c *Client) InsertOne(ctx context.Context, collection string, document interface{}) (*mongoV2.InsertOneResult, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return nil, mongoV2.ErrClientDisconnected
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	return c.cli.Database(c.database).Collection(collection).UpdateOne(ctx, filter, update)
+	return c.cli.Database(c.database).Collection(collection).InsertOne(ctx, document)
+}
+
+// InsertMany 插入多个文档
+func (c *Client) InsertMany(ctx context.Context, collection string, documents []interface{}) (*mongoV2.InsertManyResult, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return nil, mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	res, err := c.cli.Database(c.database).Collection(collection).InsertMany(ctx, documents)
+	if err != nil {
+		c.log.Errorf("failed to insert documents into collection %s: %v", collection, err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// UpdateOne 更新单个文档
+func (c *Client) UpdateOne(ctx context.Context, collection string, filter, update interface{}) (*mongoV2.UpdateResult, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return nil, mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	res, err := c.cli.Database(c.database).Collection(collection).UpdateOne(ctx, filter, update)
+	if err != nil {
+		c.log.Errorf("failed to update document in collection %s: %v", collection, err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// UpdateMany 更新多个文档
+func (c *Client) UpdateMany(ctx context.Context, collection string, filter, update interface{}) (*mongoV2.UpdateResult, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return nil, mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	res, err := c.cli.Database(c.database).Collection(collection).UpdateMany(ctx, filter, update)
+	if err != nil {
+		c.log.Errorf("failed to update documents in collection %s: %v", collection, err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// FindOneAndUpdate 在集合中查找并更新单个文档，结果 Decode 到 result 参数。
+// 可传入可选的 *optionsV2.FindOneAndUpdateOptions。
+func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter, update interface{}, result interface{}, opts ...optionsV2.Lister[optionsV2.FindOneAndUpdateOptions]) error {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	sr := c.cli.Database(c.database).Collection(collection).FindOneAndUpdate(ctx, filter, update, opts...)
+	if err := sr.Decode(result); err != nil {
+		c.log.Errorf("failed to FindOneAndUpdate in collection %s: %v", collection, err)
+		return err
+	}
+
+	return nil
 }
 
 // DeleteOne 删除单个文档
 func (c *Client) DeleteOne(ctx context.Context, collection string, filter interface{}) (*mongoV2.DeleteResult, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return nil, mongoV2.ErrClientDisconnected
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	return c.cli.Database(c.database).Collection(collection).DeleteOne(ctx, filter)
+}
+
+// DeleteMany 删除多个文档
+func (c *Client) DeleteMany(ctx context.Context, collection string, filter interface{}) (*mongoV2.DeleteResult, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return nil, mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	res, err := c.cli.Database(c.database).Collection(collection).DeleteMany(ctx, filter)
+	if err != nil {
+		c.log.Errorf("failed to delete documents in collection %s: %v", collection, err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// Count 统计集合中文档数量，使用 Client 配置的超时和日志方式
+func (c *Client) Count(ctx context.Context, collection string, filter interface{}) (int64, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return 0, mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	count, err := c.cli.Database(c.database).Collection(collection).CountDocuments(ctx, filter)
+	if err != nil {
+		c.log.Errorf("failed to count documents in collection %s: %v", collection, err)
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// Exist 检查集合中是否存在满足 filter 的文档，返回布尔值和可能的错误。
+// 使用 Client 的超时配置，客户端未初始化时返回 mongoV2.ErrClientDisconnected。
+func (c *Client) Exist(ctx context.Context, collection string, filter interface{}) (bool, error) {
+	if c.cli == nil {
+		c.log.Errorf("mongodb client is not initialized")
+		return false, mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	lim := int64(1)
+	countOpts := optionsV2.Count().SetLimit(lim)
+	count, err := c.cli.Database(c.database).Collection(collection).CountDocuments(ctx, filter, countOpts)
+	if err != nil {
+		c.log.Errorf("failed to count documents for existence check in collection %s: %v", collection, err)
+		return false, err
+	}
+
+	return count > 0, nil
 }

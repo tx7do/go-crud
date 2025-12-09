@@ -38,9 +38,23 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 		builder = &query.Builder{}
 	}
 
+	// helper to convert common types to trimmed string
+	toStr := func(v any) (string, bool) {
+		switch t := v.(type) {
+		case string:
+			return strings.TrimSpace(t), true
+		case []byte:
+			return strings.TrimSpace(string(t)), true
+		case interface{ String() string }:
+			return strings.TrimSpace(t.String()), true
+		default:
+			return "", false
+		}
+	}
+
 	// parse helper
-	unmarshalToMaps := func(strJson string) ([]map[string]string, error) {
-		var arr []map[string]string
+	unmarshalToMaps := func(strJson string) ([]map[string]any, error) {
+		var arr []map[string]any
 		if strings.TrimSpace(strJson) == "" {
 			return nil, nil
 		}
@@ -49,22 +63,22 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 			return arr, nil
 		}
 		// try codec into single map
-		var single map[string]string
+		var single map[string]any
 		if err := sf.codec.Unmarshal([]byte(strJson), &single); err == nil {
-			return []map[string]string{single}, nil
+			return []map[string]any{single}, nil
 		}
 		// fallback to standard json
 		if err := json.Unmarshal([]byte(strJson), &arr); err == nil {
 			return arr, nil
 		}
 		if err := json.Unmarshal([]byte(strJson), &single); err == nil {
-			return []map[string]string{single}, nil
+			return []map[string]any{single}, nil
 		}
 		return nil, fmt.Errorf("invalid filter json")
 	}
 
 	// helper to build a single condition (bsonV2.M) from operator/field/value
-	buildCondition := func(op pagination.Operator, field, value string, values []string) bsonV2.M {
+	buildCondition := func(op pagination.Operator, field string, value any, values []any) bsonV2.M {
 		key := sf.processor.makeKey(field)
 		if key == "" {
 			return nil
@@ -76,16 +90,16 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 			return bsonV2.M{key: bsonV2.M{"$ne": value}}
 		case pagination.Operator_IN:
 			// support JSON array string
-			if value != "" {
+			if s, ok := toStr(value); ok && s != "" {
 				var arr []interface{}
-				if err := sf.codec.Unmarshal([]byte(value), &arr); err == nil {
+				if err := sf.codec.Unmarshal([]byte(s), &arr); err == nil {
 					if len(arr) == 0 {
 						return bsonV2.M{"$expr": bsonV2.A{bsonV2.M{"$eq": bsonV2.A{1, 0}}}}
 					}
 					return bsonV2.M{key: bsonV2.M{"$in": arr}}
 				}
-				if strings.Contains(value, ",") {
-					parts := strings.Split(value, ",")
+				if strings.Contains(s, ",") {
+					parts := strings.Split(s, ",")
 					args := make([]interface{}, 0, len(parts))
 					for _, p := range parts {
 						p = strings.TrimSpace(p)
@@ -108,16 +122,16 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 			}
 			return nil
 		case pagination.Operator_NIN:
-			if value != "" {
+			if s, ok := toStr(value); ok && s != "" {
 				var arr []interface{}
-				if err := sf.codec.Unmarshal([]byte(value), &arr); err == nil {
+				if err := sf.codec.Unmarshal([]byte(s), &arr); err == nil {
 					if len(arr) == 0 {
 						return nil
 					}
 					return bsonV2.M{key: bsonV2.M{"$nin": arr}}
 				}
-				if strings.Contains(value, ",") {
-					parts := strings.Split(value, ",")
+				if strings.Contains(s, ",") {
+					parts := strings.Split(s, ",")
 					args := make([]interface{}, 0, len(parts))
 					for _, p := range parts {
 						p = strings.TrimSpace(p)
@@ -149,15 +163,15 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 			return bsonV2.M{key: bsonV2.M{"$lt": value}}
 		case pagination.Operator_BETWEEN:
 			// value may be JSON array or comma separated
-			if value != "" {
+			if s, ok := toStr(value); ok && s != "" {
 				var arr []interface{}
-				if err := sf.codec.Unmarshal([]byte(value), &arr); err == nil {
+				if err := sf.codec.Unmarshal([]byte(s), &arr); err == nil {
 					if len(arr) == 2 {
 						return bsonV2.M{key: bsonV2.M{"$gte": arr[0], "$lte": arr[1]}}
 					}
 				}
-				if strings.Contains(value, ",") {
-					parts := strings.SplitN(value, ",", 2)
+				if strings.Contains(s, ",") {
+					parts := strings.SplitN(s, ",", 2)
 					if len(parts) == 2 {
 						a := strings.TrimSpace(parts[0])
 						b := strings.TrimSpace(parts[1])
@@ -168,8 +182,9 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 			if len(values) == 2 {
 				return bsonV2.M{key: bsonV2.M{"$gte": values[0], "$lte": values[1]}}
 			}
-			if value != "" {
-				return bsonV2.M{key: value}
+			// fallback: if value is provided but not parsed above, use raw value
+			if s, ok := toStr(value); ok && s != "" {
+				return bsonV2.M{key: s}
 			}
 			return nil
 		case pagination.Operator_IS_NULL:
@@ -177,54 +192,67 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 		case pagination.Operator_IS_NOT_NULL:
 			return bsonV2.M{key: bsonV2.M{"$ne": nil}}
 		case pagination.Operator_CONTAINS:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": s}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": value}}
 		case pagination.Operator_ICONTAINS:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": s, "$options": "i"}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": value, "$options": "i"}}
 		case pagination.Operator_STARTS_WITH:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": "^" + s}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": "^" + value}}
 		case pagination.Operator_ISTARTS_WITH:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": "^" + s, "$options": "i"}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": "^" + value, "$options": "i"}}
 		case pagination.Operator_ENDS_WITH:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": s + "$"}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": value + "$"}}
 		case pagination.Operator_IENDS_WITH:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": s + "$", "$options": "i"}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": value + "$", "$options": "i"}}
 		case pagination.Operator_EXACT:
 			return bsonV2.M{key: value}
 		case pagination.Operator_IEXACT:
-			return bsonV2.M{key: bsonV2.M{"$regex": "^" + value + "$", "$options": "i"}}
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
+				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": "^" + s + "$", "$options": "i"}}
+			}
 		case pagination.Operator_REGEXP:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": s}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": value}}
 		case pagination.Operator_IREGEXP:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": s, "$options": "i"}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": value, "$options": "i"}}
 		case pagination.Operator_SEARCH:
-			if strings.TrimSpace(value) == "" {
+			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
+			} else {
+				return bsonV2.M{key: bsonV2.M{"$regex": s}}
 			}
-			return bsonV2.M{key: bsonV2.M{"$regex": value}}
 		default:
 			return nil
 		}

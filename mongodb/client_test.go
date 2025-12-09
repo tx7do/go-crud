@@ -71,9 +71,6 @@ func TestClient_CRUD(t *testing.T) {
 
 	// 确保测试集合干净
 	_ = client.cli.Database(client.database).Collection(collection).Drop(ctx)
-	defer func() {
-		_ = client.cli.Database(client.database).Collection(collection).Drop(ctx)
-	}()
 
 	// InsertOne
 	doc := bson.M{
@@ -126,12 +123,12 @@ func TestClient_CRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, deleteRes)
 
+	_ = client.cli.Database(client.database).Collection(collection).Drop(ctx)
+
 	// Close -> 后续 Ping 应失败
 	client.Close()
-	ctxPing, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	err = client.cli.Ping(ctxPing, nil)
-	assert.Error(t, err)
+	connected := client.CheckConnect()
+	assert.False(t, connected)
 }
 
 func TestClient_InsertManyAndOptions(t *testing.T) {

@@ -29,7 +29,7 @@ func NewProcessor() *Processor {
 
 // Process 根据 operator 在 builder 上追加对应的 filter 并返回 builder。
 // field 为字段路径（可能包含点），value 为单值，values 为额外的分割值列表（如 IN）。
-func (poc Processor) Process(builder *query.Builder, op pagination.Operator, field, value string, values []string) *query.Builder {
+func (poc Processor) Process(builder *query.Builder, op pagination.Operator, field string, value any, values []any) *query.Builder {
 	if builder == nil {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (poc Processor) appendFilter(builder *query.Builder, cond bsonV2.M) *query.
 }
 
 // Equal 等于
-func (poc Processor) Equal(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) Equal(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
@@ -122,7 +122,7 @@ func (poc Processor) Equal(builder *query.Builder, field, value string) *query.B
 }
 
 // NotEqual 不等于
-func (poc Processor) NotEqual(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) NotEqual(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
@@ -131,25 +131,33 @@ func (poc Processor) NotEqual(builder *query.Builder, field, value string) *quer
 }
 
 // In 包含
-func (poc Processor) In(builder *query.Builder, field, value string, values []string) *query.Builder {
+func (poc Processor) In(builder *query.Builder, field string, value any, values []any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
 	}
 
-	// 支持 JSON 数组字符串
-	if value != "" {
+	// helper: 永假条件
+	falseExpr := bsonV2.M{"$expr": bsonV2.A{bsonV2.M{"$eq": bsonV2.A{1, 0}}}}
+
+	// try string
+	if s, ok := value.(string); ok {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			// empty string -> fallthrough to values
+			goto tryValues
+		}
+		// try json array
 		var arr []interface{}
-		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
+		if err := poc.codec.Unmarshal([]byte(s), &arr); err == nil {
 			if len(arr) == 0 {
-				// 永假条件
-				return poc.appendFilter(builder, bsonV2.M{"$expr": bsonV2.A{bsonV2.M{"$eq": bsonV2.A{1, 0}}}})
+				return poc.appendFilter(builder, falseExpr)
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": arr}})
 		}
-		// 逗号分割
-		if strings.Contains(value, ",") {
-			parts := strings.Split(value, ",")
+		// comma separated
+		if strings.Contains(s, ",") {
+			parts := strings.Split(s, ",")
 			args := make([]interface{}, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
@@ -158,41 +166,99 @@ func (poc Processor) In(builder *query.Builder, field, value string, values []st
 				}
 			}
 			if len(args) == 0 {
-				return poc.appendFilter(builder, bsonV2.M{"$expr": bsonV2.A{bsonV2.M{"$eq": bsonV2.A{1, 0}}}})
+				return poc.appendFilter(builder, falseExpr)
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": args}})
 		}
+		// single string value
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []interface{}{s}}})
 	}
 
+	// try []byte
+	if b, ok := value.([]byte); ok {
+		if len(b) == 0 {
+			goto tryValues
+		}
+		var arr []interface{}
+		if err := poc.codec.Unmarshal(b, &arr); err == nil {
+			if len(arr) == 0 {
+				return poc.appendFilter(builder, falseExpr)
+			}
+			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": arr}})
+		}
+		// try comma-separated from bytes
+		s := strings.TrimSpace(string(b))
+		if s == "" {
+			goto tryValues
+		}
+		if strings.Contains(s, ",") {
+			parts := strings.Split(s, ",")
+			args := make([]interface{}, 0, len(parts))
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					args = append(args, p)
+				}
+			}
+			if len(args) == 0 {
+				return poc.appendFilter(builder, falseExpr)
+			}
+			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": args}})
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []interface{}{s}}})
+	}
+
+	// try []interface{}
+	if arrI, ok := value.([]interface{}); ok {
+		if len(arrI) == 0 {
+			return poc.appendFilter(builder, falseExpr)
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": arrI}})
+	}
+
+tryValues:
+	// fallback to values param when provided
 	if len(values) > 0 {
 		args := make([]interface{}, 0, len(values))
 		for _, v := range values {
 			args = append(args, v)
 		}
+		if len(args) == 0 {
+			return poc.appendFilter(builder, falseExpr)
+		}
 		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": args}})
+	}
+
+	// last fallback: single non-nil value
+	if value != nil {
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []interface{}{value}}})
 	}
 
 	return builder
 }
 
 // NotIn 不包含
-func (poc Processor) NotIn(builder *query.Builder, field, value string, values []string) *query.Builder {
+func (poc Processor) NotIn(builder *query.Builder, field string, value any, values []any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
 	}
 
-	// 支持 JSON 数组字符串
-	if value != "" {
+	// try string
+	if s, ok := value.(string); ok {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			goto tryValues
+		}
 		var arr []interface{}
-		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
+		if err := poc.codec.Unmarshal([]byte(s), &arr); err == nil {
 			if len(arr) == 0 {
 				return builder
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": arr}})
 		}
-		if strings.Contains(value, ",") {
-			parts := strings.Split(value, ",")
+		if strings.Contains(s, ",") {
+			parts := strings.Split(s, ",")
 			args := make([]interface{}, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
@@ -205,21 +271,73 @@ func (poc Processor) NotIn(builder *query.Builder, field, value string, values [
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": args}})
 		}
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []interface{}{s}}})
 	}
 
+	// try []byte
+	if b, ok := value.([]byte); ok {
+		if len(b) == 0 {
+			goto tryValues
+		}
+		var arr []interface{}
+		if err := poc.codec.Unmarshal(b, &arr); err == nil {
+			if len(arr) == 0 {
+				return builder
+			}
+			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": arr}})
+		}
+		s := strings.TrimSpace(string(b))
+		if s == "" {
+			goto tryValues
+		}
+		if strings.Contains(s, ",") {
+			parts := strings.Split(s, ",")
+			args := make([]interface{}, 0, len(parts))
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					args = append(args, p)
+				}
+			}
+			if len(args) == 0 {
+				return builder
+			}
+			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": args}})
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []interface{}{s}}})
+	}
+
+	// try []interface{}
+	if arrI, ok := value.([]interface{}); ok {
+		if len(arrI) == 0 {
+			return builder
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": arrI}})
+	}
+
+tryValues:
+	// fallback to values param when provided
 	if len(values) > 0 {
 		args := make([]interface{}, 0, len(values))
 		for _, v := range values {
 			args = append(args, v)
 		}
+		if len(args) == 0 {
+			return builder
+		}
 		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": args}})
+	}
+
+	// last fallback: single non-nil value
+	if value != nil {
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []interface{}{value}}})
 	}
 
 	return builder
 }
 
 // GTE 大于等于
-func (poc Processor) GTE(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) GTE(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
@@ -228,7 +346,7 @@ func (poc Processor) GTE(builder *query.Builder, field, value string) *query.Bui
 }
 
 // GT 大于
-func (poc Processor) GT(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) GT(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
@@ -237,7 +355,7 @@ func (poc Processor) GT(builder *query.Builder, field, value string) *query.Buil
 }
 
 // LTE 小于等于
-func (poc Processor) LTE(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) LTE(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
@@ -246,7 +364,7 @@ func (poc Processor) LTE(builder *query.Builder, field, value string) *query.Bui
 }
 
 // LT 小于
-func (poc Processor) LT(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) LT(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
@@ -255,33 +373,86 @@ func (poc Processor) LT(builder *query.Builder, field, value string) *query.Buil
 }
 
 // Range BETWEEN 范围查询
-func (poc Processor) Range(builder *query.Builder, field, value string, values []string) *query.Builder {
+func (poc Processor) Range(builder *query.Builder, field string, value any, values []any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
 	}
-	// 支持 JSON 数组字符串
-	if value != "" {
+
+	// try string
+	if s, ok := value.(string); ok {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			goto tryValues
+		}
+		// try JSON array
 		var arr []interface{}
-		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
+		if err := poc.codec.Unmarshal([]byte(s), &arr); err == nil {
 			if len(arr) == 2 {
 				return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": arr[0], "$lte": arr[1]}})
 			}
 		}
-		if strings.Contains(value, ",") {
-			parts := strings.SplitN(value, ",", 2)
+		// comma separated
+		if strings.Contains(s, ",") {
+			parts := strings.SplitN(s, ",", 2)
 			if len(parts) == 2 {
 				a := strings.TrimSpace(parts[0])
 				b := strings.TrimSpace(parts[1])
 				return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": a, "$lte": b}})
 			}
 		}
+		// fallback to equality when single
+		return poc.appendFilter(builder, bsonV2.M{key: s})
 	}
+
+	// try []byte
+	if b, ok := value.([]byte); ok {
+		if len(b) == 0 {
+			goto tryValues
+		}
+		var arr []interface{}
+		if err := poc.codec.Unmarshal(b, &arr); err == nil {
+			if len(arr) == 2 {
+				return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": arr[0], "$lte": arr[1]}})
+			}
+		}
+		s := strings.TrimSpace(string(b))
+		if s == "" {
+			goto tryValues
+		}
+		if strings.Contains(s, ",") {
+			parts := strings.SplitN(s, ",", 2)
+			if len(parts) == 2 {
+				a := strings.TrimSpace(parts[0])
+				b := strings.TrimSpace(parts[1])
+				return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": a, "$lte": b}})
+			}
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: s})
+	}
+
+	// try []interface{}
+	if arrI, ok := value.([]interface{}); ok {
+		if len(arrI) == 2 {
+			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": arrI[0], "$lte": arrI[1]}})
+		}
+		if len(arrI) == 1 {
+			return poc.appendFilter(builder, bsonV2.M{key: arrI[0]})
+		}
+		// empty -> fallthrough to try values
+	}
+
+tryValues:
+	// fallback to values param when provided (expecting two items for range)
 	if len(values) == 2 {
 		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": values[0], "$lte": values[1]}})
 	}
-	// fallback to equality when single
-	if value != "" {
+	if len(values) == 1 {
+		return poc.appendFilter(builder, bsonV2.M{key: values[0]})
+	}
+
+	// last fallback: single non-nil value -> equality
+	if value != nil {
 		return poc.appendFilter(builder, bsonV2.M{key: value})
 	}
 	return builder
@@ -306,101 +477,298 @@ func (poc Processor) IsNotNull(builder *query.Builder, field string) *query.Buil
 }
 
 // Contains (LIKE %val%) 使用 regex 匹配
-func (poc Processor) Contains(builder *query.Builder, field, value string) *query.Builder {
-	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
-		return builder
-	}
-	pat := value
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat}})
-}
-
-// InsensitiveContains 不区分大小写
-func (poc Processor) InsensitiveContains(builder *query.Builder, field, value string) *query.Builder {
-	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
-		return builder
-	}
-	pat := value
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat, "$options": "i"}})
-}
-
-// StartsWith 开始于
-func (poc Processor) StartsWith(builder *query.Builder, field, value string) *query.Builder {
-	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
-		return builder
-	}
-	pat := "^" + value
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat}})
-}
-
-// InsensitiveStartsWith 不区分大小写
-func (poc Processor) InsensitiveStartsWith(builder *query.Builder, field, value string) *query.Builder {
-	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
-		return builder
-	}
-	pat := "^" + value
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat, "$options": "i"}})
-}
-
-// EndsWith 结束于
-func (poc Processor) EndsWith(builder *query.Builder, field, value string) *query.Builder {
-	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
-		return builder
-	}
-	pat := value + "$"
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat}})
-}
-
-// InsensitiveEndsWith 不区分大小写
-func (poc Processor) InsensitiveEndsWith(builder *query.Builder, field, value string) *query.Builder {
-	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
-		return builder
-	}
-	pat := value + "$"
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat, "$options": "i"}})
-}
-
-// Exact 等值比较
-func (poc Processor) Exact(builder *query.Builder, field, value string) *query.Builder {
-	return poc.Equal(builder, field, value)
-}
-
-// InsensitiveExact 不区分大小写的等值比较（使用 regex ^val$ + i）
-func (poc Processor) InsensitiveExact(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) Contains(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
 	if key == "" {
 		return builder
 	}
-	pat := "^" + value + "$"
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		// 不支持的类型则不追加条件
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+
+	// 转义用户输入并做模糊匹配
+	pat := regexp.QuoteMeta(s)
+	pat = ".*" + pat + ".*"
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat}})
+}
+
+// InsensitiveContains 不区分大小写
+func (poc Processor) InsensitiveContains(builder *query.Builder, field string, value any) *query.Builder {
+	key := poc.makeKey(field)
+	if key == "" {
+		return builder
+	}
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+
+	pat := regexp.QuoteMeta(s)
+	pat = ".*" + pat + ".*"
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat, "$options": "i"}})
+}
+
+// StartsWith 开始于
+func (poc Processor) StartsWith(builder *query.Builder, field string, value any) *query.Builder {
+	key := poc.makeKey(field)
+	if key == "" {
+		return builder
+	}
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+
+	pat := "^" + regexp.QuoteMeta(s)
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat}})
+}
+
+// InsensitiveStartsWith 不区分大小写
+func (poc Processor) InsensitiveStartsWith(builder *query.Builder, field string, value any) *query.Builder {
+	key := poc.makeKey(field)
+	if key == "" {
+		return builder
+	}
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+
+	pat := "^" + regexp.QuoteMeta(s)
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat, "$options": "i"}})
+}
+
+// EndsWith 结束于
+func (poc Processor) EndsWith(builder *query.Builder, field string, value any) *query.Builder {
+	key := poc.makeKey(field)
+	if key == "" {
+		return builder
+	}
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+
+	pat := regexp.QuoteMeta(s) + "$"
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat}})
+}
+
+// InsensitiveEndsWith 不区分大小写
+func (poc Processor) InsensitiveEndsWith(builder *query.Builder, field string, value any) *query.Builder {
+	key := poc.makeKey(field)
+	if key == "" {
+		return builder
+	}
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+
+	pat := regexp.QuoteMeta(s) + "$"
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat, "$options": "i"}})
+}
+
+// Exact 等值比较
+func (poc Processor) Exact(builder *query.Builder, field string, value any) *query.Builder {
+	key := poc.makeKey(field)
+	if key == "" {
+		return builder
+	}
+
+	// 对常见字符串类型做 trim 并忽略空串
+	switch v := value.(type) {
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return builder
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: s})
+	case []byte:
+		s := strings.TrimSpace(string(v))
+		if s == "" {
+			return builder
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: s})
+	case interface{ String() string }:
+		s := strings.TrimSpace(v.String())
+		if s == "" {
+			return builder
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: s})
+	default:
+		if value == nil {
+			return builder
+		}
+		return poc.appendFilter(builder, bsonV2.M{key: value})
+	}
+}
+
+// InsensitiveExact 不区分大小写的等值比较（使用 regex ^val$ + i）
+func (poc Processor) InsensitiveExact(builder *query.Builder, field string, value any) *query.Builder {
+	key := poc.makeKey(field)
+	if key == "" {
+		return builder
+	}
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+
+	pat := "^" + regexp.QuoteMeta(s) + "$"
 	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": pat, "$options": "i"}})
 }
 
 // Regex 直接使用用户提供的正则
-func (poc Processor) Regex(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) Regex(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
+	if key == "" {
 		return builder
 	}
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": value}})
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": s}})
 }
 
 // InsensitiveRegex 不区分大小写的正则
-func (poc Processor) InsensitiveRegex(builder *query.Builder, field, value string) *query.Builder {
+func (poc Processor) InsensitiveRegex(builder *query.Builder, field string, value any) *query.Builder {
 	key := poc.makeKey(field)
-	if key == "" || strings.TrimSpace(value) == "" {
+	if key == "" {
 		return builder
 	}
-	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": value, "$options": "i"}})
+
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
+		return builder
+	}
+	return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$regex": s, "$options": "i"}})
 }
 
 // Search 简单全文搜索，fallback 为 contains（Regex %val%）
-func (poc Processor) Search(builder *query.Builder, field, value string) *query.Builder {
-	if strings.TrimSpace(value) == "" {
+func (poc Processor) Search(builder *query.Builder, field string, value any) *query.Builder {
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = strings.TrimSpace(v)
+	case []byte:
+		s = strings.TrimSpace(string(v))
+	case interface{ String() string }:
+		s = strings.TrimSpace(v.String())
+	default:
+		return builder
+	}
+
+	if s == "" {
 		return builder
 	}
 	return poc.Contains(builder, field, value)

@@ -29,6 +29,17 @@ func NewQueryBuilder() *Builder {
 	}
 }
 
+// Where 将传入的过滤条件合并到 Builder 的 filter 中（覆盖同名字段）
+func (qb *Builder) Where(cond bsonV2.M) *Builder {
+	if qb.filter == nil {
+		qb.filter = bsonV2.M{}
+	}
+	for k, v := range cond {
+		qb.filter[k] = v
+	}
+	return qb
+}
+
 // SetFilter 设置查询过滤条件
 func (qb *Builder) SetFilter(filter bsonV2.M) *Builder {
 	qb.filter = filter

@@ -3,7 +3,6 @@ package mongodb
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/go-utils/mapper"
@@ -16,7 +15,6 @@ import (
 	"github.com/tx7do/go-crud/mongodb/sorting"
 
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
-	mongoV2 "go.mongodb.org/mongo-driver/v2/mongo"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -36,14 +34,14 @@ type Repository[DTO any, ENTITY any] struct {
 
 	fieldSelector *field.Selector
 
-	db         *mongoV2.Database
+	client     *Client
 	collection string
 	log        *log.Helper
 }
 
-func NewRepository[DTO any, ENTITY any](db *mongoV2.Database, collection string, mapper *mapper.CopierMapper[DTO, ENTITY], logger *log.Helper) *Repository[DTO, ENTITY] {
+func NewRepository[DTO any, ENTITY any](client *Client, collection string, mapper *mapper.CopierMapper[DTO, ENTITY], logger *log.Helper) *Repository[DTO, ENTITY] {
 	return &Repository[DTO, ENTITY]{
-		db:         db,
+		client:     client,
 		collection: collection,
 
 		mapper: mapper,
@@ -63,42 +61,9 @@ func NewRepository[DTO any, ENTITY any](db *mongoV2.Database, collection string,
 	}
 }
 
-// Count 按给定 builder 中的 filter 统计数量
-func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, qb *query.Builder) (int64, error) {
-	if r.db == nil {
-		return 0, errors.New("mongodb database is nil")
-	}
-	if r.collection == "" {
-		return 0, errors.New("collection is empty")
-	}
-	if qb == nil {
-		qb = query.NewQueryBuilder()
-	}
-
-	// 假定 query.Builder 提供 BuildFind 返回 (filter any, opts *options.FindOptions, err error)
-	filterDoc, _, err := qb.BuildFind()
-	if err != nil {
-		return 0, err
-	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	// 转换 nil -> empty bsonV2.M
-	if filterDoc == nil {
-		filterDoc = bsonV2.M{}
-	}
-	count, err := col.CountDocuments(ctx, filterDoc)
-	if err != nil {
-		r.log.Errorf("count documents failed: %v", err)
-		return 0, err
-	}
-	return count, nil
-}
-
 // ListWithPaging 针对 paginationV1.PagingRequest 的列表查询（兼容 Query/OrQuery/FilterExpr）
 func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *paginationV1.PagingRequest) ([]*DTO, int64, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return nil, 0, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -150,51 +115,17 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	}
 
 	// 执行查询
-	filterDoc, findOpts, err := qb.BuildFind()
+	filterDoc, _, err := qb.BuildFind()
 	if err != nil {
 		return nil, 0, err
 	}
 	if filterDoc == nil {
 		filterDoc = bsonV2.M{}
 	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	var cur *mongoV2.Cursor
-	if findOpts != nil {
-		// 直接传入指针类型的 options（不解引用）
-		c, err := col.Find(ctx, filterDoc, findOpts)
-		if err != nil {
-			r.log.Errorf("find failed: %v", err)
-			return nil, 0, err
-		}
-		cur = c
-	} else {
-		c, err := col.Find(ctx, filterDoc)
-		if err != nil {
-			r.log.Errorf("find failed: %v", err)
-			return nil, 0, err
-		}
-		cur = c
-	}
-	defer func(cur *mongoV2.Cursor, ctx context.Context) {
-		err = cur.Close(ctx)
-		if err != nil {
-			r.log.Errorf("cursor close failed: %v", err)
-		}
-	}(cur, ctx)
 
 	var results []*ENTITY
-	for cur.Next(ctx) {
-		var e ENTITY
-		if err = cur.Decode(&e); err != nil {
-			r.log.Errorf("decode failed: %v", err)
-			return nil, 0, err
-		}
-		results = append(results, &e)
-	}
-	if err = cur.Err(); err != nil {
+	if err = r.client.Find(ctx, r.collection, filterDoc, &results); err != nil {
+		r.log.Errorf("find failed: %v", err)
 		return nil, 0, err
 	}
 
@@ -208,7 +139,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 
 // ListWithPagination 针对 paginationV1.PaginationRequest 的列表查询
 func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *paginationV1.PaginationRequest) ([]*DTO, int64, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return nil, 0, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -259,50 +190,17 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	}
 
 	// 执行查询
-	filterDoc, findOpts, err := qb.BuildFind()
+	filterDoc, _, err := qb.BuildFind()
 	if err != nil {
 		return nil, 0, err
 	}
 	if filterDoc == nil {
 		filterDoc = bsonV2.M{}
 	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	var cur *mongoV2.Cursor
-	if findOpts != nil {
-		// 直接传入指针类型的 options（不解引用）
-		c, err := col.Find(ctx, filterDoc, findOpts)
-		if err != nil {
-			r.log.Errorf("find failed: %v", err)
-			return nil, 0, err
-		}
-		cur = c
-	} else {
-		c, err := col.Find(ctx, filterDoc)
-		if err != nil {
-			r.log.Errorf("find failed: %v", err)
-			return nil, 0, err
-		}
-		cur = c
-	}
-	defer func(cur *mongoV2.Cursor, ctx context.Context) {
-		if err = cur.Close(ctx); err != nil {
-			r.log.Errorf("cursor close failed: %v", err)
-		}
-	}(cur, ctx)
 
 	var results []*ENTITY
-	for cur.Next(ctx) {
-		var e ENTITY
-		if err = cur.Decode(&e); err != nil {
-			r.log.Errorf("decode failed: %v", err)
-			return nil, 0, err
-		}
-		results = append(results, &e)
-	}
-	if err = cur.Err(); err != nil {
+	if err = r.client.Find(ctx, r.collection, filterDoc, &results); err != nil {
+		r.log.Errorf("find failed: %v", err)
 		return nil, 0, err
 	}
 
@@ -316,7 +214,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 
 // Get 根据过滤条件返回单条记录（使用 FilterExpr 或 Query/OrQuery 前置构建 qb）
 func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder) (*DTO, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return nil, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -325,43 +223,28 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder) (*
 	if qb == nil {
 		qb = query.NewQueryBuilder()
 	}
-	filterDoc, findOneOpts, err := qb.BuildFindOne()
+
+	filterDoc, _, err := qb.BuildFindOne()
 	if err != nil {
 		return nil, err
 	}
 	if filterDoc == nil {
 		filterDoc = bsonV2.M{}
 	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 
 	var ent ENTITY
-	var single *mongoV2.SingleResult
-	if findOneOpts != nil {
-		// 直接传入指针类型的 options（不解引用）
-		single = col.FindOne(ctx, filterDoc, findOneOpts)
-	} else {
-		single = col.FindOne(ctx, filterDoc)
-	}
-	if err = single.Err(); err != nil {
-		if errors.Is(err, mongoV2.ErrNoDocuments) {
-			return nil, nil
-		}
+	if err = r.client.FindOne(ctx, r.collection, filterDoc, &ent); err != nil {
 		r.log.Errorf("find one failed: %v", err)
 		return nil, err
 	}
-	if err = single.Decode(&ent); err != nil {
-		r.log.Errorf("decode one failed: %v", err)
-		return nil, err
-	}
+
 	dto := r.mapper.ToDTO(&ent)
 	return dto, nil
 }
 
 // Create 插入一条记录
 func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO) (*DTO, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return nil, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -370,22 +253,20 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO) (*DTO, e
 	if dto == nil {
 		return nil, errors.New("dto is nil")
 	}
-	ent := r.mapper.ToEntity(dto)
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 
-	if _, err := col.InsertOne(ctx, ent); err != nil {
+	ent := r.mapper.ToEntity(dto)
+
+	if _, err := r.client.InsertOne(ctx, r.collection, ent); err != nil {
 		r.log.Errorf("insert failed: %v", err)
 		return nil, err
 	}
-	// 返回 DTO（实体可能已携带 _id）
+
 	return r.mapper.ToDTO(ent), nil
 }
 
 // BatchCreate 批量插入
 func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) ([]*DTO, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return nil, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -394,6 +275,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 	if len(dtos) == 0 {
 		return nil, nil
 	}
+
 	docs := make([]interface{}, 0, len(dtos))
 	ents := make([]*ENTITY, 0, len(dtos))
 	for _, d := range dtos {
@@ -401,14 +283,12 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 		ents = append(ents, e)
 		docs = append(docs, e)
 	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
-	if _, err := col.InsertMany(ctx, docs); err != nil {
+	if _, err := r.client.InsertMany(ctx, r.collection, docs); err != nil {
 		r.log.Errorf("insert many failed: %v", err)
 		return nil, err
 	}
+
 	out := make([]*DTO, 0, len(ents))
 	for _, e := range ents {
 		out = append(out, r.mapper.ToDTO(e))
@@ -418,7 +298,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 
 // Update 根据 filter 在 qb 中定位并更新（qb 应包含 where/selector info）
 func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, qb *query.Builder, updateDoc interface{}) (*DTO, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return nil, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -427,6 +307,7 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, qb *query.Builder,
 	if qb == nil {
 		return nil, errors.New("query builder is nil for update")
 	}
+
 	filterDoc, _, err := qb.BuildFindOne()
 	if err != nil {
 		return nil, err
@@ -434,26 +315,24 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, qb *query.Builder,
 	if filterDoc == nil {
 		return nil, errors.New("empty filter for update")
 	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 
-	res := col.FindOneAndUpdate(ctx, filterDoc, bsonV2.M{"$set": updateDoc}, optionsV2.FindOneAndUpdate().SetReturnDocument(optionsV2.After))
-	if err = res.Err(); err != nil {
-		r.log.Errorf("findOneAndUpdate failed: %v", err)
-		return nil, err
-	}
 	var ent ENTITY
-	if err = res.Decode(&ent); err != nil {
-		r.log.Errorf("decode updated failed: %v", err)
+	err = r.client.FindOneAndUpdate(ctx, r.collection,
+		filterDoc, updateDoc,
+		&ent,
+		optionsV2.FindOneAndUpdate().SetReturnDocument(optionsV2.After),
+	)
+	if err != nil {
+		r.log.Errorf("update one failed: %v", err)
 		return nil, err
 	}
+
 	return r.mapper.ToDTO(&ent), nil
 }
 
 // Delete 根据 qb 中的 filter 删除（硬删除）
 func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, qb *query.Builder) (int64, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return 0, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -462,6 +341,7 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, qb *query.Builder)
 	if qb == nil {
 		return 0, errors.New("query builder is nil for delete")
 	}
+
 	filterDoc, _, err := qb.BuildFind()
 	if err != nil {
 		return 0, err
@@ -469,21 +349,45 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, qb *query.Builder)
 	if filterDoc == nil {
 		filterDoc = bsonV2.M{}
 	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 
-	res, err := col.DeleteMany(ctx, filterDoc)
+	res, err := r.client.DeleteMany(ctx, r.collection, filterDoc)
 	if err != nil {
-		r.log.Errorf("delete many failed: %v", err)
+		r.log.Errorf("delete documents failed: %v", err)
 		return 0, err
 	}
+
 	return res.DeletedCount, nil
+}
+
+// Count 按给定 builder 中的 filter 统计数量
+func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, qb *query.Builder) (int64, error) {
+	if r.client == nil {
+		return 0, errors.New("mongodb database is nil")
+	}
+	if r.collection == "" {
+		return 0, errors.New("collection is empty")
+	}
+	if qb == nil {
+		qb = query.NewQueryBuilder()
+	}
+
+	filterDoc, _, err := qb.BuildFind()
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := r.client.Count(ctx, r.collection, filterDoc)
+	if err != nil {
+		r.log.Errorf("count documents failed: %v", err)
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // Exists 判断是否存在符合 qb 的记录
 func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, qb *query.Builder) (bool, error) {
-	if r.db == nil {
+	if r.client == nil {
 		return false, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
@@ -492,24 +396,17 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, qb *query.Builder)
 	if qb == nil {
 		qb = query.NewQueryBuilder()
 	}
-	filterDoc, findOpts, err := qb.BuildFindOne()
+
+	filterDoc, _, err := qb.BuildFind()
 	if err != nil {
 		return false, err
 	}
-	if filterDoc == nil {
-		filterDoc = bsonV2.M{}
-	}
-	col := r.db.Collection(r.collection)
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 
-	single := col.FindOne(ctx, filterDoc, findOpts)
-	if err = single.Err(); err != nil {
-		if errors.Is(err, mongoV2.ErrNoDocuments) {
-			return false, nil
-		}
-		r.log.Errorf("exists find failed: %v", err)
+	exist, err := r.client.Exist(ctx, r.collection, filterDoc)
+	if err != nil {
+		r.log.Errorf("exist documents failed: %v", err)
 		return false, err
 	}
-	return true, nil
+
+	return exist, nil
 }
