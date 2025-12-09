@@ -6,10 +6,10 @@ go-crud 是一个基于 Go 语言的 CRUD（创建、读取、更新、删除）
 
 - GORM [✅]
 - ENT [✅]
-- MongoDB [❌]
-- Clickhouse [❌]
-- ElasticSearch [❌]
-- InfluxDB [❌]
+- MongoDB [✅]
+- Clickhouse [✅]
+- ElasticSearch [✅]
+- InfluxDB [✅]
 - Cassandra [❌]
 
 ## 许可证
