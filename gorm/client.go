@@ -13,7 +13,9 @@ import (
 	"gorm.io/plugin/opentelemetry/tracing"
 
 	goSqlite "github.com/glebarez/sqlite"
+	"gorm.io/driver/bigquery"
 	"gorm.io/driver/clickhouse"
+	"gorm.io/driver/gaussdb"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -162,6 +164,12 @@ func createDriver(driverName, dsn string) gorm.Dialector {
 
 	case "sqlserver":
 		return sqlserver.Open(dsn)
+
+	case "bigquery":
+		return bigquery.Open(dsn)
+
+	case "gaussdb":
+		return gaussdb.Open(dsn)
 	}
 }
 

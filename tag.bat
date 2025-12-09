@@ -1,5 +1,5 @@
 git tag entgo/v0.0.13 --force
-git tag gorm/v0.0.5 --force
+git tag gorm/v0.0.6 --force
 
 git tag cassandra/v0.0.1 --force
 git tag clickhouse/v0.0.2 --force
