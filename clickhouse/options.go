@@ -2,180 +2,201 @@ package clickhouse
 
 import (
 	"crypto/tls"
+	"net/url"
 	"time"
 
+	clickhouseV2 "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/go-kratos/kratos/v2/log"
 )
 
-type options struct {
-	Addresses []string `json:"addresses,omitempty"` // 对端网络地址
+type Creator func() any
 
-	Database string `json:"database,omitempty"` // 数据库名
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-
-	Debug  bool   `json:"debug,omitempty"`  // 调试开关
-	Scheme string `json:"scheme,omitempty"` // 协议：http、https、native
-
-	TLS *tls.Config `json:"tls,omitempty"` // TLS 配置
-
-	BlockBufferSize *int `json:"block_buffer_size,omitempty"` // 数据块缓冲区大小
-
-	CompressionMethod    string `json:"compression_method,omitempty"`     // 压缩方法：zstd、lz4、lz4hc、gzip、deflate、br、none
-	CompressionLevel     *int   `json:"compression_level,omitempty"`      // 压缩级别：0-9
-	MaxCompressionBuffer *int   `json:"max_compression_buffer,omitempty"` // 最大压缩缓冲区大小
-
-	ConnectionOpenStrategy string `json:"connection_open_strategy,omitempty"` // in_order、round_robin、random
-
-	DialTimeout     *time.Duration `json:"dial_timeout,omitempty"`
-	ReadTimeout     *time.Duration `json:"read_timeout,omitempty"`
-	ConnMaxLifetime *time.Duration `json:"conn_max_lifetime,omitempty"`
-
-	MaxIdleConns int `json:"max_idle_conns,omitempty"`
-	MaxOpenConns int `json:"max_open_conns,omitempty"`
-
-	Dsn       string `json:"dsn,omitempty"`        // 数据源名称（DSN字符串）
-	HttpProxy string `json:"http_proxy,omitempty"` // HTTP代理地址
-
-	EnableTracing bool `json:"enable_tracing,omitempty"`
-	EnableMetrics bool `json:"enable_metrics,omitempty"`
-
-	Logger *log.Helper
+var compressionMap = map[string]clickhouseV2.CompressionMethod{
+	"none":    clickhouseV2.CompressionNone,
+	"zstd":    clickhouseV2.CompressionZSTD,
+	"lz4":     clickhouseV2.CompressionLZ4,
+	"lz4hc":   clickhouseV2.CompressionLZ4HC,
+	"gzip":    clickhouseV2.CompressionGZIP,
+	"deflate": clickhouseV2.CompressionDeflate,
+	"br":      clickhouseV2.CompressionBrotli,
 }
 
-type Option func(o *options)
+type Option func(o *Client)
 
 func WithLogger(logger log.Logger) Option {
-	return func(o *options) {
-		o.Logger = log.NewHelper(log.With(logger, "module", "clickhouse-client"))
+	return func(o *Client) {
+		o.logger = log.NewHelper(log.With(logger, "module", "clickhouse-client"))
+	}
+}
+
+func WithOptions(opts *clickhouseV2.Options) Option {
+	return func(o *Client) {
+		if opts == nil {
+			return
+		}
+		o.options = opts
 	}
 }
 
 func WithDsn(dsn string) Option {
-	return func(o *options) {
-		o.Dsn = dsn
+	return func(o *Client) {
+		tmp, err := clickhouseV2.ParseDSN(dsn)
+		if err != nil {
+			return
+		}
+
+		o.options = tmp
 	}
 }
 
 func WithHttpProxy(httpProxy string) Option {
-	return func(o *options) {
-		o.HttpProxy = httpProxy
+	return func(o *Client) {
+		proxyURL, err := url.Parse(httpProxy)
+		if err != nil {
+			return
+		}
+
+		o.options.HTTPProxyURL = proxyURL
 	}
 }
 
 func WithScheme(scheme string) Option {
-	return func(o *options) {
-		o.Scheme = scheme
+	return func(o *Client) {
+		switch scheme {
+		case "http":
+			o.options.Protocol = clickhouseV2.HTTP
+		case "https":
+			o.options.Protocol = clickhouseV2.HTTP
+		default:
+			o.options.Protocol = clickhouseV2.Native
+		}
 	}
 }
 
 func WithAddresses(addresses ...string) Option {
-	return func(o *options) {
-		o.Addresses = addresses
+	return func(o *Client) {
+		o.options.Addr = addresses
 	}
 }
 
 func WithUsername(username string) Option {
-	return func(o *options) {
-		o.Username = username
+	return func(o *Client) {
+		o.options.Auth.Username = username
 	}
 }
 
 func WithPassword(password string) Option {
-	return func(o *options) {
-		o.Password = password
+	return func(o *Client) {
+		o.options.Auth.Password = password
 	}
 }
 
 func WithTLSConfig(tlsConfig *tls.Config) Option {
-	return func(o *options) {
-		o.TLS = tlsConfig
+	return func(o *Client) {
+		//o.TLS = tlsConfig
 	}
 }
 
 func WithDatabase(database string) Option {
-	return func(o *options) {
-		o.Database = database
+	return func(o *Client) {
+		o.options.Auth.Database = database
 	}
 }
 
 func WithDebug(debug bool) Option {
-	return func(o *options) {
-		o.Debug = debug
+	return func(o *Client) {
+		o.options.Debug = debug
 	}
 }
 
 func WithDebugMode(debug bool) Option {
-	return func(o *options) {
-		o.Debug = debug
+	return func(o *Client) {
+		o.options.Debug = debug
 	}
 }
 
 func WithEnableTracing(enableTracing bool) Option {
-	return func(o *options) {
-		o.EnableTracing = enableTracing
+	return func(o *Client) {
+		//o.options.EnableTracing = enableTracing
 	}
 }
 
 func WithEnableMetrics(enableMetrics bool) Option {
-	return func(o *options) {
-		o.EnableMetrics = enableMetrics
+	return func(o *Client) {
+		//o.options.EnableMetrics = enableMetrics
 	}
 }
 
 func WithDialTimeout(dialTimeout time.Duration) Option {
-	return func(o *options) {
-		o.DialTimeout = &dialTimeout
+	return func(o *Client) {
+		o.options.DialTimeout = dialTimeout
 	}
 }
 
 func WithReadTimeout(readTimeout time.Duration) Option {
-	return func(o *options) {
-		o.ReadTimeout = &readTimeout
+	return func(o *Client) {
+		o.options.ReadTimeout = readTimeout
 	}
 }
 
 func WithConnMaxLifetime(connMaxLifetime time.Duration) Option {
-	return func(o *options) {
-		o.ConnMaxLifetime = &connMaxLifetime
+	return func(o *Client) {
+		o.options.ConnMaxLifetime = connMaxLifetime
 	}
 }
 
 func WithMaxIdleConns(maxIdleConns int) Option {
-	return func(o *options) {
-		o.MaxIdleConns = maxIdleConns
+	return func(o *Client) {
+		o.options.MaxIdleConns = maxIdleConns
 	}
 }
 
 func WithMaxOpenConns(maxOpenConns int) Option {
-	return func(o *options) {
-		o.MaxOpenConns = maxOpenConns
+	return func(o *Client) {
+		o.options.MaxOpenConns = maxOpenConns
 	}
 }
 
-func WithBlockBufferSize(blockBufferSize int) Option {
-	return func(o *options) {
-		o.BlockBufferSize = &blockBufferSize
+func WithBlockBufferSize(blockBufferSize uint8) Option {
+	return func(o *Client) {
+		o.options.BlockBufferSize = blockBufferSize
 	}
 }
 
 func WithCompressionMethod(compressionMethod string) Option {
-	return func(o *options) {
-		o.CompressionMethod = compressionMethod
+	return func(o *Client) {
+		if o.options.Compression == nil {
+			o.options.Compression = &clickhouseV2.Compression{}
+		}
+		if compressionMethod != "" {
+			o.options.Compression.Method = compressionMap[compressionMethod]
+		}
 	}
 }
 func WithCompressionLevel(compressionLevel int) Option {
-	return func(o *options) {
-		o.CompressionLevel = &compressionLevel
+	return func(o *Client) {
+		if o.options.Compression == nil {
+			o.options.Compression = &clickhouseV2.Compression{}
+		}
+		o.options.Compression.Level = compressionLevel
 	}
 }
 func WithMaxCompressionBuffer(maxCompressionBuffer int) Option {
-	return func(o *options) {
-		o.MaxCompressionBuffer = &maxCompressionBuffer
+	return func(o *Client) {
+		o.options.MaxCompressionBuffer = maxCompressionBuffer
 	}
 }
 func WithConnectionOpenStrategy(connectionOpenStrategy string) Option {
-	return func(o *options) {
-		o.ConnectionOpenStrategy = connectionOpenStrategy
+	return func(o *Client) {
+		strategy := clickhouseV2.ConnOpenInOrder
+		switch connectionOpenStrategy {
+		case "in_order":
+			strategy = clickhouseV2.ConnOpenInOrder
+		case "round_robin":
+			strategy = clickhouseV2.ConnOpenRoundRobin
+		case "random":
+			strategy = clickhouseV2.ConnOpenRandom
+		}
+		o.options.ConnOpenStrategy = strategy
 	}
 }
