@@ -14,7 +14,7 @@ import (
 	"gorm.io/plugin/prometheus"
 
 	goSqlite "github.com/glebarez/sqlite"
-	"github.com/oracle-samples/gorm-oracle/oracle"
+	//"github.com/oracle-samples/gorm-oracle/oracle"
 	"gorm.io/driver/bigquery"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/gaussdb"
@@ -282,8 +282,8 @@ func createDriver(driverName, dsn string) gorm.Dialector {
 	case "gaussdb":
 		return gaussdb.Open(dsn)
 
-	case "oracle":
-		return oracle.Open(dsn)
+		//case "oracle":
+		//	return oracle.Open(dsn)
 	}
 }
 

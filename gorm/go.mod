@@ -8,7 +8,6 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/google/uuid v1.6.0
-	github.com/oracle-samples/gorm-oracle v1.1.0
 	github.com/tx7do/go-crud v0.0.5
 	github.com/tx7do/go-utils v1.1.34
 	github.com/tx7do/go-utils/id v0.0.2
@@ -41,7 +40,6 @@ require (
 	github.com/ClickHouse/ch-go v0.69.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.41.0 // indirect
 	github.com/HuaweiCloudDeveloper/gaussdb-go v1.0.0-rc1 // indirect
-	github.com/VictoriaMetrics/easyproto v1.1.3 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -52,13 +50,10 @@ require (
 	github.com/glebarez/go-sqlite v1.22.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
-	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/godror/godror v0.49.4 // indirect
-	github.com/godror/knownpb v0.3.0 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/google/flatbuffers v25.9.23+incompatible // indirect
