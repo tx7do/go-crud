@@ -21,7 +21,6 @@ func (StringId) Fields() []ent.Field {
 			Comment("id").
 			MaxLen(25).
 			NotEmpty().
-			Match(regexp.MustCompile("^[0-9a-zA-Z_\\-]+$")).
-			StructTag(`json:"id,omitempty"`),
+			Match(regexp.MustCompile("^[0-9a-zA-Z_\\-]+$")),
 	}
 }

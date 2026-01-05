@@ -4,37 +4,28 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/schema/field"
-	"entgo.io/ent/schema/index"
 	"entgo.io/ent/schema/mixin"
 
 	"github.com/tx7do/go-utils/id"
 )
 
-// 确保 SnowflackId 实现了 ent.Mixin 接口
-var _ ent.Mixin = (*SnowflackId)(nil)
+// 确保 SnowflakeId 实现了 ent.Mixin 接口
+var _ ent.Mixin = (*SnowflakeId)(nil)
 
-type SnowflackId struct {
+type SnowflakeId struct {
 	mixin.Schema
 }
 
-func (SnowflackId) Fields() []ent.Field {
+func (SnowflakeId) Fields() []ent.Field {
 	return []ent.Field{
 		field.Uint64("id").
 			Comment("id").
 			DefaultFunc(id.GenerateSonyflakeID).
 			Positive().
 			Immutable().
-			StructTag(`json:"id,omitempty"`).
 			SchemaType(map[string]string{
-				dialect.MySQL:    "bigint",
+				dialect.MySQL:    "bigint unsigned",
 				dialect.Postgres: "bigint",
 			}),
-	}
-}
-
-// Indexes of the SnowflackId.
-func (SnowflackId) Indexes() []ent.Index {
-	return []ent.Index{
-		index.Fields("id"),
 	}
 }

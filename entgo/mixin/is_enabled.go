@@ -3,7 +3,6 @@ package mixin
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
-	"entgo.io/ent/schema/index"
 	"entgo.io/ent/schema/mixin"
 )
 
@@ -24,9 +23,21 @@ func (IsEnabled) Fields() []ent.Field {
 	}
 }
 
-// Indexes of the IsEnabled mixin.
-func (IsEnabled) Indexes() []ent.Index {
-	return []ent.Index{
-		index.Fields("is_enabled"),
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// 确保 Enabled 实现了 ent.Mixin 接口
+var _ ent.Mixin = (*Enabled)(nil)
+
+type Enabled struct {
+	mixin.Schema
+}
+
+func (Enabled) Fields() []ent.Field {
+	return []ent.Field{
+		field.Bool("enabled").
+			Comment("是否启用").
+			Optional().
+			Nillable().
+			Default(true),
 	}
 }

@@ -3,7 +3,6 @@ package mixin
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
-	"entgo.io/ent/schema/index"
 	"entgo.io/ent/schema/mixin"
 )
 
@@ -16,23 +15,9 @@ type SwitchStatus struct {
 
 func (SwitchStatus) Fields() []ent.Field {
 	return []ent.Field{
-		/**
-		在PostgreSQL下，还需要为此创建一个Type，否则无法使用。
-
-		DROP TYPE IF EXISTS switch_status CASCADE;
-		CREATE TYPE switch_status AS ENUM (
-		    'OFF',
-		    'ON'
-		    );
-		*/
 		field.Enum("status").
 			Comment("状态").
-			Optional().
 			Nillable().
-			//SchemaType(map[string]string{
-			//	dialect.MySQL:    "switch_status",
-			//	dialect.Postgres: "switch_status",
-			//}).
 			Default("ON").
 			NamedValues(
 				"Off", "OFF",
@@ -41,9 +26,83 @@ func (SwitchStatus) Fields() []ent.Field {
 	}
 }
 
-// Indexes of the SwitchStatus mixin.
-func (SwitchStatus) Indexes() []ent.Index {
-	return []ent.Index{
-		index.Fields("status"),
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// 确保 BoolStatus 实现了 ent.Mixin 接口
+var _ ent.Mixin = (*BoolStatus)(nil)
+
+type BoolStatus struct {
+	mixin.Schema
+}
+
+func (BoolStatus) Fields() []ent.Field {
+	return []ent.Field{
+		field.Bool("status").
+			Comment("状态").
+			Nillable().
+			Default(true),
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// 确保 TinyIntStatus 实现了 ent.Mixin 接口
+var _ ent.Mixin = (*TinyIntStatus)(nil)
+
+type TinyIntStatus struct {
+	mixin.Schema
+}
+
+func (TinyIntStatus) Fields() []ent.Field {
+	return []ent.Field{
+		field.Uint8("status").
+			Comment("状态: 1=启用, 0=禁用").
+			Nillable().
+			Default(1),
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// 确保 EnableEnumStatus 实现了 ent.Mixin 接口
+var _ ent.Mixin = (*EnableEnumStatus)(nil)
+
+type EnableEnumStatus struct {
+	mixin.Schema
+}
+
+func (EnableEnumStatus) Fields() []ent.Field {
+	return []ent.Field{
+		field.Enum("status").
+			Comment("状态").
+			Nillable().
+			Default("ENABLED").
+			NamedValues(
+				"Enabled", "ENABLED",
+				"Disabled", "DISABLED",
+			),
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// 确保 ActiveStatus 实现了 ent.Mixin 接口
+var _ ent.Mixin = (*ActiveStatus)(nil)
+
+type ActiveStatus struct {
+	mixin.Schema
+}
+
+func (ActiveStatus) Fields() []ent.Field {
+	return []ent.Field{
+		field.Enum("status").
+			Comment("状态").
+			Nillable().
+			Default("ACTIVE").
+			NamedValues(
+				"Active", "ACTIVE",
+				"Inactive", "INACTIVE",
+				"Pending", "PENDING",
+			),
 	}
 }

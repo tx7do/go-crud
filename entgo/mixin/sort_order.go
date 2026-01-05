@@ -15,8 +15,8 @@ type SortOrder struct {
 
 func (SortOrder) Fields() []ent.Field {
 	return []ent.Field{
-		field.Int32("sort_order").
-			Comment("排序顺序，值越小越靠前").
+		field.Uint32("sort_order").
+			Comment("排序值（越小越靠前）").
 			Optional().
 			Nillable().
 			Default(0),

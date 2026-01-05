@@ -1,7 +1,6 @@
 package mixin
 
 import (
-	"entgo.io/contrib/entproto"
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/mixin"
@@ -15,10 +14,24 @@ func (AutoIncrementId) Fields() []ent.Field {
 	return []ent.Field{
 		field.Uint32("id").
 			Comment("id").
-			StructTag(`json:"id,omitempty"`).
-			Annotations(
-				entproto.Field(1),
-			).
+			Nillable().
+			Immutable().
+			Positive(),
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var _ ent.Mixin = (*AutoIncrementId64)(nil)
+
+type AutoIncrementId64 struct{ mixin.Schema }
+
+func (AutoIncrementId64) Fields() []ent.Field {
+	return []ent.Field{
+		field.Uint64("id").
+			Comment("id").
+			Nillable().
+			Immutable().
 			Positive(),
 	}
 }
