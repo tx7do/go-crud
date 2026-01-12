@@ -726,7 +726,7 @@ func (r *Repository[
 
 	field.NormalizeFieldMaskPaths(viewMask)
 
-	if viewMask != nil && len(viewMask.Paths) == 0 {
+	if viewMask != nil && len(viewMask.Paths) > 0 {
 		builder.Select(viewMask.GetPaths()...)
 	}
 
