@@ -1,4 +1,4 @@
-git tag entgo/v0.0.17 --force
+git tag entgo/v0.0.18 --force
 git tag gorm/v0.0.12 --force
 
 git tag cassandra/v0.0.2 --force
