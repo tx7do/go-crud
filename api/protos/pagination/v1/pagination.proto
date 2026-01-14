@@ -7,6 +7,7 @@ option go_package = "github.com/tx7do/go-crud/api/gen/go/pagination/v1;paginatio
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
+import "google/protobuf/struct.proto";
 
 import "gnostic/openapi/v3/annotations.proto";
 
@@ -119,10 +120,24 @@ message FilterCondition {
   // 过滤操作符
   Operator op = 2;
 
-  // 过滤值（单值）
-  optional string value = 3;
+  oneof value_oneof {
+    // 过滤值（单值）
+    string value = 3;
+
+    // 当需要使用非字符串类型的比较值（对象/数组/数字/布尔）时使用此字段，
+    // 使用 google.protobuf.Value 能表达任意 JSON 值。
+    google.protobuf.Value json_value = 7;
+  }
+
   // 过滤值（多值，如IN操作符）
   repeated string values = 4;
+
+  // 日期时间部分（可选，仅在字段为日期时间类型时使用）
+  optional DatePart date_part = 5;
+
+  // 当字段为 JSON/JSONB 类型时，可指定要抽取的子路径（例如: "meta.user.name" 或 JSONPath）
+  // 服务端应把此路径用于 JSON_EXTRACT / -> 操作，再对抽取结果应用 op。
+  optional string json_path = 6;
 }
 
 // 过滤表达式类型

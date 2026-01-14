@@ -12,6 +12,7 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
@@ -405,10 +406,18 @@ type FilterCondition struct {
 	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
 	// 过滤操作符
 	Op Operator `protobuf:"varint,2,opt,name=op,proto3,enum=pagination.Operator" json:"op,omitempty"`
-	// 过滤值（单值）
-	Value *string `protobuf:"bytes,3,opt,name=value,proto3,oneof" json:"value,omitempty"`
+	// Types that are valid to be assigned to ValueOneof:
+	//
+	//	*FilterCondition_Value
+	//	*FilterCondition_JsonValue
+	ValueOneof isFilterCondition_ValueOneof `protobuf_oneof:"value_oneof"`
 	// 过滤值（多值，如IN操作符）
-	Values        []string `protobuf:"bytes,4,rep,name=values,proto3" json:"values,omitempty"`
+	Values []string `protobuf:"bytes,4,rep,name=values,proto3" json:"values,omitempty"`
+	// 日期时间部分（可选，仅在字段为日期时间类型时使用）
+	DatePart *DatePart `protobuf:"varint,5,opt,name=date_part,json=datePart,proto3,enum=pagination.DatePart,oneof" json:"date_part,omitempty"`
+	// 当字段为 JSON/JSONB 类型时，可指定要抽取的子路径（例如: "meta.user.name" 或 JSONPath）
+	// 服务端应把此路径用于 JSON_EXTRACT / -> 操作，再对抽取结果应用 op。
+	JsonPath      *string `protobuf:"bytes,6,opt,name=json_path,json=jsonPath,proto3,oneof" json:"json_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -457,11 +466,29 @@ func (x *FilterCondition) GetOp() Operator {
 	return Operator_OPERATOR_UNSPECIFIED
 }
 
+func (x *FilterCondition) GetValueOneof() isFilterCondition_ValueOneof {
+	if x != nil {
+		return x.ValueOneof
+	}
+	return nil
+}
+
 func (x *FilterCondition) GetValue() string {
-	if x != nil && x.Value != nil {
-		return *x.Value
+	if x != nil {
+		if x, ok := x.ValueOneof.(*FilterCondition_Value); ok {
+			return x.Value
+		}
 	}
 	return ""
+}
+
+func (x *FilterCondition) GetJsonValue() *structpb.Value {
+	if x != nil {
+		if x, ok := x.ValueOneof.(*FilterCondition_JsonValue); ok {
+			return x.JsonValue
+		}
+	}
+	return nil
 }
 
 func (x *FilterCondition) GetValues() []string {
@@ -470,6 +497,39 @@ func (x *FilterCondition) GetValues() []string {
 	}
 	return nil
 }
+
+func (x *FilterCondition) GetDatePart() DatePart {
+	if x != nil && x.DatePart != nil {
+		return *x.DatePart
+	}
+	return DatePart_DATE_PART_UNSPECIFIED
+}
+
+func (x *FilterCondition) GetJsonPath() string {
+	if x != nil && x.JsonPath != nil {
+		return *x.JsonPath
+	}
+	return ""
+}
+
+type isFilterCondition_ValueOneof interface {
+	isFilterCondition_ValueOneof()
+}
+
+type FilterCondition_Value struct {
+	// 过滤值（单值）
+	Value string `protobuf:"bytes,3,opt,name=value,proto3,oneof"`
+}
+
+type FilterCondition_JsonValue struct {
+	// 当需要使用非字符串类型的比较值（对象/数组/数字/布尔）时使用此字段，
+	// 使用 google.protobuf.Value 能表达任意 JSON 值。
+	JsonValue *structpb.Value `protobuf:"bytes,7,opt,name=json_value,json=jsonValue,proto3,oneof"`
+}
+
+func (*FilterCondition_Value) isFilterCondition_ValueOneof() {}
+
+func (*FilterCondition_JsonValue) isFilterCondition_ValueOneof() {}
 
 // 过滤表达式
 type FilterExpr struct {
@@ -1291,19 +1351,27 @@ var File_pagination_v1_pagination_proto protoreflect.FileDescriptor
 const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\n" +
 	"\x1epagination/v1/pagination.proto\x12\n" +
-	"pagination\x1a google/protobuf/field_mask.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x19google/protobuf/any.proto\x1a$gnostic/openapi/v3/annotations.proto\"l\n" +
+	"pagination\x1a google/protobuf/field_mask.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x19google/protobuf/any.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a$gnostic/openapi/v3/annotations.proto\"l\n" +
 	"\aSorting\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12/\n" +
 	"\x05order\x18\x02 \x01(\x0e2\x19.pagination.Sorting.OrderR\x05order\"\x1a\n" +
 	"\x05Order\x12\a\n" +
 	"\x03ASC\x10\x00\x12\b\n" +
-	"\x04DESC\x10\x01\"\x8a\x01\n" +
+	"\x04DESC\x10\x01\"\xbb\x02\n" +
 	"\x0fFilterCondition\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12$\n" +
-	"\x02op\x18\x02 \x01(\x0e2\x14.pagination.OperatorR\x02op\x12\x19\n" +
-	"\x05value\x18\x03 \x01(\tH\x00R\x05value\x88\x01\x01\x12\x16\n" +
-	"\x06values\x18\x04 \x03(\tR\x06valuesB\b\n" +
-	"\x06_value\"\xa3\x01\n" +
+	"\x02op\x18\x02 \x01(\x0e2\x14.pagination.OperatorR\x02op\x12\x16\n" +
+	"\x05value\x18\x03 \x01(\tH\x00R\x05value\x127\n" +
+	"\n" +
+	"json_value\x18\a \x01(\v2\x16.google.protobuf.ValueH\x00R\tjsonValue\x12\x16\n" +
+	"\x06values\x18\x04 \x03(\tR\x06values\x126\n" +
+	"\tdate_part\x18\x05 \x01(\x0e2\x14.pagination.DatePartH\x01R\bdatePart\x88\x01\x01\x12 \n" +
+	"\tjson_path\x18\x06 \x01(\tH\x02R\bjsonPath\x88\x01\x01B\r\n" +
+	"\vvalue_oneofB\f\n" +
+	"\n" +
+	"_date_partB\f\n" +
+	"\n" +
+	"_json_path\"\xa3\x01\n" +
 	"\n" +
 	"FilterExpr\x12(\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x14.pagination.ExprTypeR\x04type\x12;\n" +
@@ -1492,39 +1560,42 @@ var file_pagination_v1_pagination_proto_goTypes = []any{
 	(*PagingResponse)(nil),         // 13: pagination.PagingResponse
 	(*PaginationRequest)(nil),      // 14: pagination.PaginationRequest
 	(*PaginationResponse)(nil),     // 15: pagination.PaginationResponse
-	(*fieldmaskpb.FieldMask)(nil),  // 16: google.protobuf.FieldMask
-	(*wrapperspb.UInt64Value)(nil), // 17: google.protobuf.UInt64Value
-	(*wrapperspb.UInt32Value)(nil), // 18: google.protobuf.UInt32Value
-	(*anypb.Any)(nil),              // 19: google.protobuf.Any
+	(*structpb.Value)(nil),         // 16: google.protobuf.Value
+	(*fieldmaskpb.FieldMask)(nil),  // 17: google.protobuf.FieldMask
+	(*wrapperspb.UInt64Value)(nil), // 18: google.protobuf.UInt64Value
+	(*wrapperspb.UInt32Value)(nil), // 19: google.protobuf.UInt32Value
+	(*anypb.Any)(nil),              // 20: google.protobuf.Any
 }
 var file_pagination_v1_pagination_proto_depIdxs = []int32{
 	3,  // 0: pagination.Sorting.order:type_name -> pagination.Sorting.Order
 	0,  // 1: pagination.FilterCondition.op:type_name -> pagination.Operator
-	2,  // 2: pagination.FilterExpr.type:type_name -> pagination.ExprType
-	5,  // 3: pagination.FilterExpr.conditions:type_name -> pagination.FilterCondition
-	6,  // 4: pagination.FilterExpr.groups:type_name -> pagination.FilterExpr
-	4,  // 5: pagination.PagingRequest.sorting:type_name -> pagination.Sorting
-	6,  // 6: pagination.PagingRequest.filter_expr:type_name -> pagination.FilterExpr
-	16, // 7: pagination.PagingRequest.field_mask:type_name -> google.protobuf.FieldMask
-	17, // 8: pagination.PaginationResponseMeta.total:type_name -> google.protobuf.UInt64Value
-	18, // 9: pagination.PaginationResponseMeta.total_pages:type_name -> google.protobuf.UInt32Value
-	18, // 10: pagination.PaginationResponseMeta.current_page:type_name -> google.protobuf.UInt32Value
-	17, // 11: pagination.PaginationResponseMeta.current_offset:type_name -> google.protobuf.UInt64Value
-	17, // 12: pagination.PagingResponse.total:type_name -> google.protobuf.UInt64Value
-	7,  // 13: pagination.PaginationRequest.page_based:type_name -> pagination.PageBasedPagination
-	8,  // 14: pagination.PaginationRequest.offset_based:type_name -> pagination.OffsetBasedPagination
-	9,  // 15: pagination.PaginationRequest.token_based:type_name -> pagination.TokenBasedPagination
-	10, // 16: pagination.PaginationRequest.no_paging:type_name -> pagination.NoPaging
-	4,  // 17: pagination.PaginationRequest.sorting:type_name -> pagination.Sorting
-	6,  // 18: pagination.PaginationRequest.filter_expr:type_name -> pagination.FilterExpr
-	16, // 19: pagination.PaginationRequest.field_mask:type_name -> google.protobuf.FieldMask
-	12, // 20: pagination.PaginationResponse.meta:type_name -> pagination.PaginationResponseMeta
-	19, // 21: pagination.PaginationResponse.data:type_name -> google.protobuf.Any
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	16, // 2: pagination.FilterCondition.json_value:type_name -> google.protobuf.Value
+	1,  // 3: pagination.FilterCondition.date_part:type_name -> pagination.DatePart
+	2,  // 4: pagination.FilterExpr.type:type_name -> pagination.ExprType
+	5,  // 5: pagination.FilterExpr.conditions:type_name -> pagination.FilterCondition
+	6,  // 6: pagination.FilterExpr.groups:type_name -> pagination.FilterExpr
+	4,  // 7: pagination.PagingRequest.sorting:type_name -> pagination.Sorting
+	6,  // 8: pagination.PagingRequest.filter_expr:type_name -> pagination.FilterExpr
+	17, // 9: pagination.PagingRequest.field_mask:type_name -> google.protobuf.FieldMask
+	18, // 10: pagination.PaginationResponseMeta.total:type_name -> google.protobuf.UInt64Value
+	19, // 11: pagination.PaginationResponseMeta.total_pages:type_name -> google.protobuf.UInt32Value
+	19, // 12: pagination.PaginationResponseMeta.current_page:type_name -> google.protobuf.UInt32Value
+	18, // 13: pagination.PaginationResponseMeta.current_offset:type_name -> google.protobuf.UInt64Value
+	18, // 14: pagination.PagingResponse.total:type_name -> google.protobuf.UInt64Value
+	7,  // 15: pagination.PaginationRequest.page_based:type_name -> pagination.PageBasedPagination
+	8,  // 16: pagination.PaginationRequest.offset_based:type_name -> pagination.OffsetBasedPagination
+	9,  // 17: pagination.PaginationRequest.token_based:type_name -> pagination.TokenBasedPagination
+	10, // 18: pagination.PaginationRequest.no_paging:type_name -> pagination.NoPaging
+	4,  // 19: pagination.PaginationRequest.sorting:type_name -> pagination.Sorting
+	6,  // 20: pagination.PaginationRequest.filter_expr:type_name -> pagination.FilterExpr
+	17, // 21: pagination.PaginationRequest.field_mask:type_name -> google.protobuf.FieldMask
+	12, // 22: pagination.PaginationResponse.meta:type_name -> pagination.PaginationResponseMeta
+	20, // 23: pagination.PaginationResponse.data:type_name -> google.protobuf.Any
+	24, // [24:24] is the sub-list for method output_type
+	24, // [24:24] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_pagination_v1_pagination_proto_init() }
@@ -1532,7 +1603,10 @@ func file_pagination_v1_pagination_proto_init() {
 	if File_pagination_v1_pagination_proto != nil {
 		return
 	}
-	file_pagination_v1_pagination_proto_msgTypes[1].OneofWrappers = []any{}
+	file_pagination_v1_pagination_proto_msgTypes[1].OneofWrappers = []any{
+		(*FilterCondition_Value)(nil),
+		(*FilterCondition_JsonValue)(nil),
+	}
 	file_pagination_v1_pagination_proto_msgTypes[7].OneofWrappers = []any{}
 	file_pagination_v1_pagination_proto_msgTypes[8].OneofWrappers = []any{}
 	file_pagination_v1_pagination_proto_msgTypes[9].OneofWrappers = []any{}
