@@ -6,8 +6,9 @@ import (
 	"github.com/go-kratos/kratos/v2/encoding"
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/tx7do/go-crud/clickhouse/query"
+	"github.com/tx7do/go-crud/pagination"
 
-	"github.com/tx7do/go-crud/paginator"
+	"github.com/tx7do/go-crud/pagination/paginator"
 )
 
 // TokenPaginator 基于 Token 的分页器（ClickHouse 版）
@@ -15,7 +16,7 @@ import (
 // - 当 token 为空或无效时: "LIMIT <n>"
 // - 当 token 有效且包含 last_id 时: "WHERE id > <last_id> LIMIT <n>"
 type TokenPaginator struct {
-	impl  paginator.Paginator
+	impl  pagination.Paginator
 	codec encoding.Codec
 }
 

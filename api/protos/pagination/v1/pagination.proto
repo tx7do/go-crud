@@ -324,6 +324,14 @@ message PagingRequest {
     }
   ];
 
+  // 过滤字符串，基于AIP规范的过滤表达式。
+  optional string filter = 23 [
+    json_name = "filter",
+    (gnostic.openapi.v3.property) = {
+      description: "过滤字符串，基于AIP规范的过滤表达式。"
+    }
+  ];
+
   // 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
   optional google.protobuf.FieldMask field_mask = 30 [
     json_name = "fieldMask",

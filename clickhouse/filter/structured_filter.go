@@ -67,14 +67,16 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 	}
 
 	// helper: 根据 condition 生成单个 SQL 片段和参数
-	buildCond := func(cond *paginationV1.Condition) (string, []interface{}) {
+	buildCond := func(cond *paginationV1.FilterCondition) (string, []interface{}) {
 		if cond == nil {
 			return "", nil
 		}
 		field := cond.GetField()
 		val := ""
-		if cond.Value != nil {
-			val = *cond.Value
+		switch cond.ValueOneof.(type) {
+		case *paginationV1.FilterCondition_Value:
+			val = cond.GetValue()
+		default:
 		}
 		opName := cond.GetOp().String()
 		values := cond.GetValues()

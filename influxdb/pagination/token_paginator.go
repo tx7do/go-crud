@@ -2,12 +2,13 @@ package pagination
 
 import (
 	"github.com/tx7do/go-crud/influxdb/query"
-	"github.com/tx7do/go-crud/paginator"
+	"github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-crud/pagination/paginator"
 )
 
 // TokenPaginator 基于 Token 的分页器（InfluxDB 版）
 type TokenPaginator struct {
-	impl paginator.Paginator
+	impl pagination.Paginator
 }
 
 func NewTokenPaginator() *TokenPaginator {

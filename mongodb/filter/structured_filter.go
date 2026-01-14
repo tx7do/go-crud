@@ -103,7 +103,7 @@ func (sf StructuredFilter) BuildSelectors(builder *query.Builder, expr *paginati
 }
 
 // buildCond 将单个 Condition 转为 bsonV2.M，失败或不可用返回 nil
-func (sf StructuredFilter) buildCond(cond *paginationV1.Condition) bsonV2.M {
+func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) bsonV2.M {
 	if cond == nil {
 		return nil
 	}
@@ -117,9 +117,12 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.Condition) bsonV2.M {
 	}
 
 	val := ""
-	if cond.Value != nil {
-		val = *cond.Value
+	switch cond.ValueOneof.(type) {
+	case *paginationV1.FilterCondition_Value:
+		val = cond.GetValue()
+	default:
 	}
+
 	values := cond.GetValues()
 
 	// helper: parse JSON array string into []interface{}

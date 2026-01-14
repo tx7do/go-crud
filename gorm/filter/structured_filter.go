@@ -11,7 +11,7 @@ import (
 
 	"github.com/tx7do/go-utils/stringcase"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 // StructuredFilter 基于 FilterExpr 的 GORM 过滤器
@@ -28,7 +28,7 @@ func NewStructuredFilter() *StructuredFilter {
 }
 
 // BuildSelectors 将 FilterExpr 转为一组可应用于 *gorm.DB 的闭包
-func (sf StructuredFilter) BuildSelectors(expr *pagination.FilterExpr) ([]func(*gorm.DB) *gorm.DB, error) {
+func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func(*gorm.DB) *gorm.DB, error) {
 	var sels []func(*gorm.DB) *gorm.DB
 
 	if expr == nil {
@@ -37,7 +37,7 @@ func (sf StructuredFilter) BuildSelectors(expr *pagination.FilterExpr) ([]func(*
 	}
 
 	// 未指定类型视为跳过（测试期望返回 nil）
-	if expr.GetType() == pagination.ExprType_EXPR_TYPE_UNSPECIFIED {
+	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
 		log.Warn("Skipping unspecified FilterExpr")
 		return nil, nil
 	}
@@ -53,24 +53,26 @@ func (sf StructuredFilter) BuildSelectors(expr *pagination.FilterExpr) ([]func(*
 }
 
 // buildFilterSelector 将单个 FilterExpr 转为 *gorm.DB 闭包（递归处理组）
-func (sf StructuredFilter) buildFilterSelector(expr *pagination.FilterExpr) (func(*gorm.DB) *gorm.DB, error) {
+func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (func(*gorm.DB) *gorm.DB, error) {
 	if expr == nil {
 		log.Warn("Skipping nil FilterExpr")
 		return nil, nil
 	}
-	if expr.GetType() == pagination.ExprType_EXPR_TYPE_UNSPECIFIED {
+	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
 		log.Warn("Skipping unspecified FilterExpr")
 		return nil, nil
 	}
 
 	// helper: 将单个 Condition 应用到 db 上
-	applyCond := func(db *gorm.DB, cond *pagination.Condition) *gorm.DB {
+	applyCond := func(db *gorm.DB, cond *paginationV1.FilterCondition) *gorm.DB {
 		if db == nil || cond == nil {
 			return db
 		}
 		val := ""
-		if cond.Value != nil {
-			val = *cond.Value
+		switch cond.ValueOneof.(type) {
+		case *paginationV1.FilterCondition_Value:
+			val = cond.GetValue()
+		default:
 		}
 
 		// 支持 JSON 字段 (e.g. preferences.daily_email)
@@ -97,7 +99,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *pagination.FilterExpr) (fun
 		}
 
 		switch expr.GetType() {
-		case pagination.ExprType_AND:
+		case paginationV1.ExprType_AND:
 			// 先处理条件（顺序 AND）
 			for _, cond := range expr.GetConditions() {
 				db = applyCond(db, cond)
@@ -116,7 +118,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *pagination.FilterExpr) (fun
 			}
 			return db
 
-		case pagination.ExprType_OR:
+		case paginationV1.ExprType_OR:
 			// 为 OR，把所有条件和子组合并为一个 WHERE 子表达式，内部使用 Or 组合
 			db = db.Where(func(tx *gorm.DB) *gorm.DB {
 				first := true

@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tx7do/go-utils/stringcase"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"github.com/go-kratos/kratos/v2/encoding"
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
+	"github.com/tx7do/go-utils/stringcase"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/pagination"
@@ -121,43 +119,11 @@ func (qsc *QueryStringConverter) processQueryMap(filterExpr *paginationV1.Filter
 	return nil
 }
 
-// toString 将任意值转换为 *string（nil 安全）
-func toString(v any) string {
-	if v == nil {
-		return ""
-	}
-	switch t := v.(type) {
-	case string:
-		s := t
-		return s
-	case *string:
-		return *t
-	case fmt.Stringer:
-		s := t.String()
-		return s
-	case []byte:
-		s := string(t)
-		return s
-	default:
-		// 对于数字、bool 等使用 fmt.Sprintf 回退
-		s := fmt.Sprintf("%v", t)
-		return s
-	}
-}
-
-func toStructValue(v any) *structpb.Value {
-	sv, err := structpb.NewValue(v)
-	if err != nil {
-		return nil
-	}
-	return sv
-}
-
 func (qsc *QueryStringConverter) addCondition(filterExpr *paginationV1.FilterExpr, op paginationV1.Operator, field string, value any) {
 	filterExpr.Conditions = append(filterExpr.Conditions, &paginationV1.FilterCondition{
 		Field:      field,
 		Op:         op,
-		ValueOneof: &paginationV1.FilterCondition_Value{Value: toString(value)},
+		ValueOneof: &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)},
 	})
 }
 
@@ -166,7 +132,7 @@ func (qsc *QueryStringConverter) addJsonCondition(filterExpr *paginationV1.Filte
 		Field:      field,
 		Op:         op,
 		JsonPath:   &jsonPath,
-		ValueOneof: &paginationV1.FilterCondition_JsonValue{JsonValue: toStructValue(value)},
+		ValueOneof: &paginationV1.FilterCondition_JsonValue{JsonValue: pagination.AnyToStructValue(value)},
 	})
 }
 
@@ -175,7 +141,7 @@ func (qsc *QueryStringConverter) addDatePartCondition(filterExpr *paginationV1.F
 		Field:      field,
 		Op:         op,
 		DatePart:   &datePart,
-		ValueOneof: &paginationV1.FilterCondition_Value{Value: toString(value)},
+		ValueOneof: &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)},
 	})
 }
 
@@ -218,16 +184,16 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 			if len(jsonFields) == 2 {
 				filterCondition.Field = jsonFields[0]
 				filterCondition.JsonPath = &jsonFields[1]
-				filterCondition.ValueOneof = &paginationV1.FilterCondition_JsonValue{JsonValue: toStructValue(value)}
+				filterCondition.ValueOneof = &paginationV1.FilterCondition_JsonValue{JsonValue: pagination.AnyToStructValue(value)}
 			} else {
 				field = stringcase.ToSnakeCase(field)
 				filterCondition.Field = field
-				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: toString(value)}
+				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
 			}
 		} else {
 			field = stringcase.ToSnakeCase(field)
 			filterCondition.Field = field
-			filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: toString(value)}
+			filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
 		}
 
 		filterCondition.Op = operator
@@ -261,14 +227,14 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 				if len(jsonFields) == 2 {
 					filterCondition.Field = jsonFields[0]
 					filterCondition.JsonPath = &jsonFields[1]
-					filterCondition.ValueOneof = &paginationV1.FilterCondition_JsonValue{JsonValue: toStructValue(value)}
+					filterCondition.ValueOneof = &paginationV1.FilterCondition_JsonValue{JsonValue: pagination.AnyToStructValue(value)}
 				} else {
 					filterCondition.Field = field
-					filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: toString(value)}
+					filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
 				}
 			} else {
 				filterCondition.Field = field
-				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: toString(value)}
+				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
 			}
 
 			filterCondition.DatePart = pagination.ConverterStringToDatePart(op1)
@@ -288,14 +254,14 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 				if len(jsonFields) == 2 {
 					filterCondition.Field = jsonFields[0]
 					filterCondition.JsonPath = &jsonFields[1]
-					filterCondition.ValueOneof = &paginationV1.FilterCondition_JsonValue{JsonValue: toStructValue(value)}
+					filterCondition.ValueOneof = &paginationV1.FilterCondition_JsonValue{JsonValue: pagination.AnyToStructValue(value)}
 				} else {
 					filterCondition.Field = field
-					filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: toString(value)}
+					filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
 				}
 			} else {
 				filterCondition.Field = field
-				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: toString(value)}
+				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
 			}
 
 			if qsc.hasOperations(op2) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-kratos/kratos/v2/encoding"
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/influxdb/query"
 )
 
@@ -63,19 +63,19 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 	}
 
 	// helper to map "not" flag to counterpart operator where possible
-	negateOp := func(op pagination.Operator) (pagination.Operator, bool) {
+	negateOp := func(op paginationV1.Operator) (paginationV1.Operator, bool) {
 		switch op {
-		case pagination.Operator_EQ:
-			return pagination.Operator_NEQ, true
-		case pagination.Operator_NEQ:
-			return pagination.Operator_EQ, true
-		case pagination.Operator_IN:
-			return pagination.Operator_NIN, true
-		case pagination.Operator_NIN:
-			return pagination.Operator_IN, true
+		case paginationV1.Operator_EQ:
+			return paginationV1.Operator_NEQ, true
+		case paginationV1.Operator_NEQ:
+			return paginationV1.Operator_EQ, true
+		case paginationV1.Operator_IN:
+			return paginationV1.Operator_NIN, true
+		case paginationV1.Operator_NIN:
+			return paginationV1.Operator_IN, true
 		default:
 			// other operators: not supported via simple negation here
-			return pagination.Operator(0), false
+			return paginationV1.Operator(0), false
 		}
 	}
 
@@ -96,10 +96,10 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 					continue
 				}
 				not := false
-				var op pagination.Operator
+				var op paginationV1.Operator
 				var ok bool
 				if len(keys) == 1 {
-					op = pagination.Operator_EQ
+					op = paginationV1.Operator_EQ
 					ok = true
 				} else {
 					op, ok = opFromStr(keys[1])
@@ -145,10 +145,10 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 						continue
 					}
 					not := false
-					var op pagination.Operator
+					var op paginationV1.Operator
 					var ok bool
 					if len(keys) == 1 {
-						op = pagination.Operator_EQ
+						op = paginationV1.Operator_EQ
 						ok = true
 					} else {
 						op, ok = opFromStr(keys[1])
@@ -178,56 +178,56 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 	return builder, nil
 }
 
-// opFromStr 将字符串表示的操作符转换为 pagination.Operator。
+// opFromStr 将字符串表示的操作符转换为 paginationV1.Operator。
 // 返回 (op, true) 表示识别成功，(0, false) 表示未知操作符。
-func opFromStr(s string) (pagination.Operator, bool) {
+func opFromStr(s string) (paginationV1.Operator, bool) {
 	s = strings.ToLower(strings.TrimSpace(s))
 	switch s {
 	case "eq", "=", "equals":
-		return pagination.Operator_EQ, true
+		return paginationV1.Operator_EQ, true
 	case "ne", "neq", "!=", "not_eq", "not-eq":
-		return pagination.Operator_NEQ, true
+		return paginationV1.Operator_NEQ, true
 	case "in":
-		return pagination.Operator_IN, true
+		return paginationV1.Operator_IN, true
 	case "nin", "notin", "not_in", "not-in":
-		return pagination.Operator_NIN, true
+		return paginationV1.Operator_NIN, true
 	case "gte", ">=", "ge":
-		return pagination.Operator_GTE, true
+		return paginationV1.Operator_GTE, true
 	case "gt", ">":
-		return pagination.Operator_GT, true
+		return paginationV1.Operator_GT, true
 	case "lte", "<=", "le":
-		return pagination.Operator_LTE, true
+		return paginationV1.Operator_LTE, true
 	case "lt", "<":
-		return pagination.Operator_LT, true
+		return paginationV1.Operator_LT, true
 	case "between", "range":
-		return pagination.Operator_BETWEEN, true
+		return paginationV1.Operator_BETWEEN, true
 	case "is_null", "isnull", "null":
-		return pagination.Operator_IS_NULL, true
+		return paginationV1.Operator_IS_NULL, true
 	case "is_not_null", "isnotnull", "not_null", "notnull":
-		return pagination.Operator_IS_NOT_NULL, true
+		return paginationV1.Operator_IS_NOT_NULL, true
 	case "contains":
-		return pagination.Operator_CONTAINS, true
+		return paginationV1.Operator_CONTAINS, true
 	case "icontains", "i_contains", "contains_i":
-		return pagination.Operator_ICONTAINS, true
+		return paginationV1.Operator_ICONTAINS, true
 	case "starts_with", "startswith":
-		return pagination.Operator_STARTS_WITH, true
+		return paginationV1.Operator_STARTS_WITH, true
 	case "istarts_with", "istartswith", "i_starts_with":
-		return pagination.Operator_ISTARTS_WITH, true
+		return paginationV1.Operator_ISTARTS_WITH, true
 	case "ends_with", "endswith":
-		return pagination.Operator_ENDS_WITH, true
+		return paginationV1.Operator_ENDS_WITH, true
 	case "iends_with", "iendswith", "i_ends_with":
-		return pagination.Operator_IENDS_WITH, true
+		return paginationV1.Operator_IENDS_WITH, true
 	case "exact":
-		return pagination.Operator_EXACT, true
+		return paginationV1.Operator_EXACT, true
 	case "iexact", "i_exact":
-		return pagination.Operator_IEXACT, true
+		return paginationV1.Operator_IEXACT, true
 	case "regexp", "regex", "=~":
-		return pagination.Operator_REGEXP, true
+		return paginationV1.Operator_REGEXP, true
 	case "iregexp", "iregex":
-		return pagination.Operator_IREGEXP, true
+		return paginationV1.Operator_IREGEXP, true
 	case "search":
-		return pagination.Operator_SEARCH, true
+		return paginationV1.Operator_SEARCH, true
 	default:
-		return pagination.Operator(0), false
+		return paginationV1.Operator(0), false
 	}
 }

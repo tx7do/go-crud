@@ -4,6 +4,14 @@ set DIR=%cd%
 go get all
 go mod tidy
 
+cd %DIR%\api
+go get all
+go mod tidy
+
+cd %DIR%\pagination
+go get all
+go mod tidy
+
 cd %DIR%\entgo
 go get all
 go mod tidy

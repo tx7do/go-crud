@@ -314,7 +314,7 @@ func createTestEntClient(t *testing.T) *ent.Client {
 //		PageSize: trans.Ptr(uint32(10)),
 //		Page:     trans.Ptr(uint32(1)),
 //		FilterExpr: &paginationV1.FilterExpr{
-//			Conditions: []*paginationV1.Condition{
+//			Conditions: []*paginationV1.FilterCondition{
 //				{
 //					Field: "name",
 //					Value: trans.Ptr("Alice"),

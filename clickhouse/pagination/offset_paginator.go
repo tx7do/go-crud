@@ -2,14 +2,15 @@ package pagination
 
 import (
 	"github.com/tx7do/go-crud/clickhouse/query"
-	"github.com/tx7do/go-crud/paginator"
+	"github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-crud/pagination/paginator"
 )
 
 // OffsetPaginator 基于 Offset 的分页器（ClickHouse 版）
 // 不再返回 GORM scope，而是直接构造 ClickHouse 的 LIMIT/OFFSET 子句字符串。
 // 使用示例： sql := "SELECT ... " + p.BuildClause(offset, limit)
 type OffsetPaginator struct {
-	impl paginator.Paginator
+	impl pagination.Paginator
 }
 
 func NewOffsetPaginator() *OffsetPaginator {

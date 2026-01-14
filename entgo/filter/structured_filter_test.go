@@ -3,13 +3,12 @@ package filter
 import (
 	"testing"
 
-	"github.com/tx7do/go-utils/trans"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
-func mustMarshal(fe *pagination.FilterExpr) string {
+func mustMarshal(fe *paginationV1.FilterExpr) string {
 	b, _ := protojson.MarshalOptions{Multiline: false, EmitUnpopulated: false}.Marshal(fe)
 	return string(b)
 }
@@ -17,15 +16,15 @@ func mustMarshal(fe *pagination.FilterExpr) string {
 func TestFilterExprExamples(t *testing.T) {
 	t.Run("SimpleAND", func(t *testing.T) {
 		// SQL: WHERE A = '1' AND B = '2'
-		fe := &pagination.FilterExpr{
-			Type: pagination.ExprType_AND,
-			Conditions: []*pagination.Condition{
-				{Field: "A", Op: pagination.Operator_EQ, Value: trans.Ptr("1")},
-				{Field: "B", Op: pagination.Operator_EQ, Value: trans.Ptr("2")},
+		fe := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "A", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "1"}},
+				{Field: "B", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "2"}},
 			},
 		}
 
-		if fe.GetType() != pagination.ExprType_AND {
+		if fe.GetType() != paginationV1.ExprType_AND {
 			t.Fatalf("expected AND, got %v", fe.GetType())
 		}
 		if len(fe.GetConditions()) != 2 {
@@ -40,15 +39,15 @@ func TestFilterExprExamples(t *testing.T) {
 
 	t.Run("SimpleOR", func(t *testing.T) {
 		// SQL: WHERE A = '1' OR B = '2'
-		fe := &pagination.FilterExpr{
-			Type: pagination.ExprType_OR,
-			Conditions: []*pagination.Condition{
-				{Field: "A", Op: pagination.Operator_EQ, Value: trans.Ptr("1")},
-				{Field: "B", Op: pagination.Operator_EQ, Value: trans.Ptr("2")},
+		fe := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_OR,
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "A", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "1"}},
+				{Field: "B", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "2"}},
 			},
 		}
 
-		if fe.GetType() != pagination.ExprType_OR {
+		if fe.GetType() != paginationV1.ExprType_OR {
 			t.Fatalf("expected OR, got %v", fe.GetType())
 		}
 		if len(fe.GetConditions()) != 2 {
@@ -59,20 +58,20 @@ func TestFilterExprExamples(t *testing.T) {
 	t.Run("Mixed_A_AND_BorC", func(t *testing.T) {
 		// Logical: A AND (B OR C)
 		// SQL: WHERE A = '1' AND (B = '2' OR C = '3')
-		orGroup := &pagination.FilterExpr{
-			Type: pagination.ExprType_OR,
-			Conditions: []*pagination.Condition{
-				{Field: "B", Op: pagination.Operator_EQ, Value: trans.Ptr("2")},
-				{Field: "C", Op: pagination.Operator_EQ, Value: trans.Ptr("3")},
+		orGroup := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_OR,
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "B", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "2"}},
+				{Field: "C", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "3"}},
 			},
 		}
-		fe := &pagination.FilterExpr{
-			Type:       pagination.ExprType_AND,
-			Conditions: []*pagination.Condition{{Field: "A", Op: pagination.Operator_EQ, Value: trans.Ptr("1")}},
-			Groups:     []*pagination.FilterExpr{orGroup},
+		fe := &paginationV1.FilterExpr{
+			Type:       paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{{Field: "A", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "1"}}},
+			Groups:     []*paginationV1.FilterExpr{orGroup},
 		}
 
-		if fe.GetType() != pagination.ExprType_AND {
+		if fe.GetType() != paginationV1.ExprType_AND {
 			t.Fatalf("expected top-level AND, got %v", fe.GetType())
 		}
 		if len(fe.GetConditions()) != 1 {
@@ -81,7 +80,7 @@ func TestFilterExprExamples(t *testing.T) {
 		if len(fe.GetGroups()) != 1 {
 			t.Fatalf("expected 1 group, got %d", len(fe.GetGroups()))
 		}
-		if fe.GetGroups()[0].GetType() != pagination.ExprType_OR {
+		if fe.GetGroups()[0].GetType() != paginationV1.ExprType_OR {
 			t.Fatalf("expected inner group OR, got %v", fe.GetGroups()[0].GetType())
 		}
 	})
@@ -89,33 +88,33 @@ func TestFilterExprExamples(t *testing.T) {
 	t.Run("ComplexNested", func(t *testing.T) {
 		// Logical: (A OR B) AND (C OR (D AND E))
 		// SQL: WHERE (A = 'a' OR B = 'b') AND (C = 'c' OR (D = 'd' AND E = 'e'))
-		left := &pagination.FilterExpr{
-			Type: pagination.ExprType_OR,
-			Conditions: []*pagination.Condition{
-				{Field: "A", Op: pagination.Operator_EQ, Value: trans.Ptr("a")},
-				{Field: "B", Op: pagination.Operator_EQ, Value: trans.Ptr("b")},
+		left := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_OR,
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "A", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "a"}},
+				{Field: "B", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "b"}},
 			},
 		}
-		rightInner := &pagination.FilterExpr{
-			Type: pagination.ExprType_AND,
-			Conditions: []*pagination.Condition{
-				{Field: "D", Op: pagination.Operator_EQ, Value: trans.Ptr("d")},
-				{Field: "E", Op: pagination.Operator_EQ, Value: trans.Ptr("e")},
+		rightInner := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "D", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "d"}},
+				{Field: "E", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "e"}},
 			},
 		}
-		right := &pagination.FilterExpr{
-			Type: pagination.ExprType_OR,
-			Conditions: []*pagination.Condition{
-				{Field: "C", Op: pagination.Operator_EQ, Value: trans.Ptr("c")},
+		right := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_OR,
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "C", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "c"}},
 			},
-			Groups: []*pagination.FilterExpr{rightInner},
+			Groups: []*paginationV1.FilterExpr{rightInner},
 		}
-		fe := &pagination.FilterExpr{
-			Type:   pagination.ExprType_AND,
-			Groups: []*pagination.FilterExpr{left, right},
+		fe := &paginationV1.FilterExpr{
+			Type:   paginationV1.ExprType_AND,
+			Groups: []*paginationV1.FilterExpr{left, right},
 		}
 
-		if fe.GetType() != pagination.ExprType_AND {
+		if fe.GetType() != paginationV1.ExprType_AND {
 			t.Fatalf("expected top-level AND, got %v", fe.GetType())
 		}
 		if len(fe.GetGroups()) != 2 {
@@ -157,8 +156,8 @@ func TestBuildFilterSelectors_NilExpr(t *testing.T) {
 func TestBuildFilterSelectors_UnspecifiedExpr(t *testing.T) {
 	sf := NewStructuredFilter()
 
-	expr := &pagination.FilterExpr{
-		Type: pagination.ExprType_EXPR_TYPE_UNSPECIFIED,
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED,
 	}
 	sels, err := sf.BuildSelectors(expr)
 	if err != nil {
@@ -173,10 +172,10 @@ func TestBuildFilterSelectors_UnspecifiedExpr(t *testing.T) {
 func TestBuildFilterSelectors_SimpleAnd(t *testing.T) {
 	sf := NewStructuredFilter()
 
-	expr := &pagination.FilterExpr{
-		Type: pagination.ExprType_AND,
-		Conditions: []*pagination.Condition{
-			{Field: "A", Op: pagination.Operator_EQ, Value: trans.Ptr("1")},
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "A", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "1"}},
 		},
 	}
 
@@ -205,7 +204,7 @@ func Test_buildFilterSelector_NilAndUnspecified(t *testing.T) {
 	}
 
 	// unspecified expr
-	expr := &pagination.FilterExpr{Type: pagination.ExprType_EXPR_TYPE_UNSPECIFIED}
+	expr := &paginationV1.FilterExpr{Type: paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED}
 	sel2, err := sf.buildFilterSelector(expr)
 	if err != nil {
 		t.Fatalf("unexpected error for unspecified expr: %v", err)
@@ -223,51 +222,51 @@ func TestStructuredFilter_VariousConditions(t *testing.T) {
 
 	cases := []struct {
 		name   string
-		op     pagination.Operator
+		op     paginationV1.Operator
 		value  string
 		values []string
 	}{
-		{"EQ", pagination.Operator_EQ, "v1", nil},
-		{"NEQ", pagination.Operator_NEQ, "v1", nil},
-		{"GT", pagination.Operator_GT, "10", nil},
-		{"GTE", pagination.Operator_GTE, "10", nil},
-		{"LT", pagination.Operator_LT, "10", nil},
-		{"LTE", pagination.Operator_LTE, "10", nil},
-		{"LIKE", pagination.Operator_LIKE, "pattern%", nil},
-		{"ILIKE", pagination.Operator_ILIKE, "pattern%", nil},
-		{"NOT_LIKE", pagination.Operator_NOT_LIKE, "pattern%", nil},
-		{"IN", pagination.Operator_IN, "", []string{"a", "b"}},
-		{"NIN", pagination.Operator_NIN, "", []string{"a", "b"}},
-		{"IS_NULL", pagination.Operator_IS_NULL, "", nil},
-		{"IS_NOT_NULL", pagination.Operator_IS_NOT_NULL, "", nil},
-		{"BETWEEN", pagination.Operator_BETWEEN, "", []string{"1", "5"}},
-		{"REGEXP", pagination.Operator_REGEXP, "regex", nil},
-		{"IREGEXP", pagination.Operator_IREGEXP, "regex", nil},
-		{"CONTAINS", pagination.Operator_CONTAINS, "sub", nil},
-		{"STARTS_WITH", pagination.Operator_STARTS_WITH, "pre", nil},
-		{"ENDS_WITH", pagination.Operator_ENDS_WITH, "suf", nil},
-		{"ICONTAINS", pagination.Operator_ICONTAINS, "sub", nil},
-		{"ISTARTS_WITH", pagination.Operator_ISTARTS_WITH, "pre", nil},
-		{"IENDS_WITH", pagination.Operator_IENDS_WITH, "suf", nil},
-		{"JSON_CONTAINS", pagination.Operator_JSON_CONTAINS, `{"k":"v"}`, nil},
-		{"ARRAY_CONTAINS", pagination.Operator_ARRAY_CONTAINS, "elem", nil},
-		{"EXISTS", pagination.Operator_EXISTS, "subquery", nil},
-		{"SEARCH", pagination.Operator_SEARCH, "q", nil},
-		{"EXACT", pagination.Operator_EXACT, "exact", nil},
-		{"IEXACT", pagination.Operator_IEXACT, "iexact", nil},
+		{"EQ", paginationV1.Operator_EQ, "v1", nil},
+		{"NEQ", paginationV1.Operator_NEQ, "v1", nil},
+		{"GT", paginationV1.Operator_GT, "10", nil},
+		{"GTE", paginationV1.Operator_GTE, "10", nil},
+		{"LT", paginationV1.Operator_LT, "10", nil},
+		{"LTE", paginationV1.Operator_LTE, "10", nil},
+		{"LIKE", paginationV1.Operator_LIKE, "pattern%", nil},
+		{"ILIKE", paginationV1.Operator_ILIKE, "pattern%", nil},
+		{"NOT_LIKE", paginationV1.Operator_NOT_LIKE, "pattern%", nil},
+		{"IN", paginationV1.Operator_IN, "", []string{"a", "b"}},
+		{"NIN", paginationV1.Operator_NIN, "", []string{"a", "b"}},
+		{"IS_NULL", paginationV1.Operator_IS_NULL, "", nil},
+		{"IS_NOT_NULL", paginationV1.Operator_IS_NOT_NULL, "", nil},
+		{"BETWEEN", paginationV1.Operator_BETWEEN, "", []string{"1", "5"}},
+		{"REGEXP", paginationV1.Operator_REGEXP, "regex", nil},
+		{"IREGEXP", paginationV1.Operator_IREGEXP, "regex", nil},
+		{"CONTAINS", paginationV1.Operator_CONTAINS, "sub", nil},
+		{"STARTS_WITH", paginationV1.Operator_STARTS_WITH, "pre", nil},
+		{"ENDS_WITH", paginationV1.Operator_ENDS_WITH, "suf", nil},
+		{"ICONTAINS", paginationV1.Operator_ICONTAINS, "sub", nil},
+		{"ISTARTS_WITH", paginationV1.Operator_ISTARTS_WITH, "pre", nil},
+		{"IENDS_WITH", paginationV1.Operator_IENDS_WITH, "suf", nil},
+		{"JSON_CONTAINS", paginationV1.Operator_JSON_CONTAINS, `{"k":"v"}`, nil},
+		{"ARRAY_CONTAINS", paginationV1.Operator_ARRAY_CONTAINS, "elem", nil},
+		{"EXISTS", paginationV1.Operator_EXISTS, "subquery", nil},
+		{"SEARCH", paginationV1.Operator_SEARCH, "q", nil},
+		{"EXACT", paginationV1.Operator_EXACT, "exact", nil},
+		{"IEXACT", paginationV1.Operator_IEXACT, "iexact", nil},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cond := &pagination.Condition{
-				Field:  "test_field",
-				Op:     tc.op,
-				Value:  trans.Ptr(tc.value),
-				Values: tc.values,
+			cond := &paginationV1.FilterCondition{
+				Field:      "test_field",
+				Op:         tc.op,
+				ValueOneof: &paginationV1.FilterCondition_Value{Value: tc.value},
+				Values:     tc.values,
 			}
-			expr := &pagination.FilterExpr{
-				Type:       pagination.ExprType_AND,
-				Conditions: []*pagination.Condition{cond},
+			expr := &paginationV1.FilterExpr{
+				Type:       paginationV1.ExprType_AND,
+				Conditions: []*paginationV1.FilterCondition{cond},
 			}
 
 			sels, err := sf.BuildSelectors(expr)

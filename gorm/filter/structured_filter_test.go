@@ -4,23 +4,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tx7do/go-utils/trans"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
-func mustMarshal(fe *pagination.FilterExpr) string {
+func mustMarshal(fe *paginationV1.FilterExpr) string {
 	b, _ := protojson.MarshalOptions{Multiline: false, EmitUnpopulated: false}.Marshal(fe)
 	return string(b)
 }
 
 func TestFilterExprExamples_Marshal(t *testing.T) {
-	fe := &pagination.FilterExpr{
-		Type: pagination.ExprType_AND,
-		Conditions: []*pagination.Condition{
-			{Field: "A", Op: pagination.Operator_EQ, Value: trans.Ptr("1")},
-			{Field: "B", Op: pagination.Operator_EQ, Value: trans.Ptr("2")},
+	fe := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "A", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "1"}},
+			{Field: "B", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "2"}},
 		},
 	}
 	js := mustMarshal(fe)
@@ -54,7 +53,7 @@ func TestBuildFilterSelectors_NilAndUnspecified(t *testing.T) {
 	}
 
 	// unspecified -> nil, nil per implementation
-	expr := &pagination.FilterExpr{Type: pagination.ExprType_EXPR_TYPE_UNSPECIFIED}
+	expr := &paginationV1.FilterExpr{Type: paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED}
 	sels2, err := sf.BuildSelectors(expr)
 	if err != nil {
 		t.Fatalf("unexpected error for unspecified expr: %v", err)
@@ -66,10 +65,10 @@ func TestBuildFilterSelectors_NilAndUnspecified(t *testing.T) {
 
 func TestBuildFilterSelectors_SimpleAnd(t *testing.T) {
 	sf := NewStructuredFilter()
-	expr := &pagination.FilterExpr{
-		Type: pagination.ExprType_AND,
-		Conditions: []*pagination.Condition{
-			{Field: "A", Op: pagination.Operator_EQ, Value: trans.Ptr("1")},
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "A", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "1"}},
 		},
 	}
 	sels, err := sf.BuildSelectors(expr)
@@ -95,7 +94,7 @@ func Test_buildFilterSelector_NilAndUnspecified(t *testing.T) {
 		t.Fatal("expected nil selector for nil expr, got non-nil")
 	}
 
-	expr := &pagination.FilterExpr{Type: pagination.ExprType_EXPR_TYPE_UNSPECIFIED}
+	expr := &paginationV1.FilterExpr{Type: paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED}
 	sel2, err := sf.buildFilterSelector(expr)
 	if err != nil {
 		t.Fatalf("unexpected error for unspecified expr: %v", err)
@@ -111,45 +110,45 @@ func TestStructuredFilter_SupportedOperators_CreateSelectors(t *testing.T) {
 	// 仅测试实现中明确支持的操作集合
 	ops := []struct {
 		name   string
-		op     pagination.Operator
+		op     paginationV1.Operator
 		value  string
 		values []string
 	}{
-		{"EQ", pagination.Operator_EQ, "v1", nil},
-		{"NEQ", pagination.Operator_NEQ, "v1", nil},
-		{"GT", pagination.Operator_GT, "10", nil},
-		{"GTE", pagination.Operator_GTE, "10", nil},
-		{"LT", pagination.Operator_LT, "10", nil},
-		{"LTE", pagination.Operator_LTE, "10", nil},
-		{"IN", pagination.Operator_IN, `["a","b"]`, nil},
-		{"NIN", pagination.Operator_NIN, `["a","b"]`, nil},
-		{"BETWEEN", pagination.Operator_BETWEEN, `["1","5"]`, nil},
-		{"IS_NULL", pagination.Operator_IS_NULL, "", nil},
-		{"IS_NOT_NULL", pagination.Operator_IS_NOT_NULL, "", nil},
-		{"CONTAINS", pagination.Operator_CONTAINS, "sub", nil},
-		{"ICONTAINS", pagination.Operator_ICONTAINS, "sub", nil},
-		{"STARTS_WITH", pagination.Operator_STARTS_WITH, "pre", nil},
-		{"ISTARTS_WITH", pagination.Operator_ISTARTS_WITH, "pre", nil},
-		{"ENDS_WITH", pagination.Operator_ENDS_WITH, "suf", nil},
-		{"IENDS_WITH", pagination.Operator_IENDS_WITH, "suf", nil},
-		{"EXACT", pagination.Operator_EXACT, "exact", nil},
-		{"IEXACT", pagination.Operator_IEXACT, "iexact", nil},
-		{"REGEXP", pagination.Operator_REGEXP, `^a`, nil},
-		{"IREGEXP", pagination.Operator_IREGEXP, `(?i)^a`, nil},
-		{"SEARCH", pagination.Operator_SEARCH, "q", nil},
+		{"EQ", paginationV1.Operator_EQ, "v1", nil},
+		{"NEQ", paginationV1.Operator_NEQ, "v1", nil},
+		{"GT", paginationV1.Operator_GT, "10", nil},
+		{"GTE", paginationV1.Operator_GTE, "10", nil},
+		{"LT", paginationV1.Operator_LT, "10", nil},
+		{"LTE", paginationV1.Operator_LTE, "10", nil},
+		{"IN", paginationV1.Operator_IN, `["a","b"]`, nil},
+		{"NIN", paginationV1.Operator_NIN, `["a","b"]`, nil},
+		{"BETWEEN", paginationV1.Operator_BETWEEN, `["1","5"]`, nil},
+		{"IS_NULL", paginationV1.Operator_IS_NULL, "", nil},
+		{"IS_NOT_NULL", paginationV1.Operator_IS_NOT_NULL, "", nil},
+		{"CONTAINS", paginationV1.Operator_CONTAINS, "sub", nil},
+		{"ICONTAINS", paginationV1.Operator_ICONTAINS, "sub", nil},
+		{"STARTS_WITH", paginationV1.Operator_STARTS_WITH, "pre", nil},
+		{"ISTARTS_WITH", paginationV1.Operator_ISTARTS_WITH, "pre", nil},
+		{"ENDS_WITH", paginationV1.Operator_ENDS_WITH, "suf", nil},
+		{"IENDS_WITH", paginationV1.Operator_IENDS_WITH, "suf", nil},
+		{"EXACT", paginationV1.Operator_EXACT, "exact", nil},
+		{"IEXACT", paginationV1.Operator_IEXACT, "iexact", nil},
+		{"REGEXP", paginationV1.Operator_REGEXP, `^a`, nil},
+		{"IREGEXP", paginationV1.Operator_IREGEXP, `(?i)^a`, nil},
+		{"SEARCH", paginationV1.Operator_SEARCH, "q", nil},
 	}
 
 	for _, tc := range ops {
 		t.Run(tc.name, func(t *testing.T) {
-			cond := &pagination.Condition{
-				Field:  "test_field",
-				Op:     tc.op,
-				Value:  trans.Ptr(tc.value),
-				Values: tc.values,
+			cond := &paginationV1.FilterCondition{
+				Field:      "test_field",
+				Op:         tc.op,
+				ValueOneof: &paginationV1.FilterCondition_Value{Value: tc.value},
+				Values:     tc.values,
 			}
-			expr := &pagination.FilterExpr{
-				Type:       pagination.ExprType_AND,
-				Conditions: []*pagination.Condition{cond},
+			expr := &paginationV1.FilterExpr{
+				Type:       paginationV1.ExprType_AND,
+				Conditions: []*paginationV1.FilterCondition{cond},
 			}
 			sels, err := sf.BuildSelectors(expr)
 			if err != nil {
@@ -173,14 +172,14 @@ func TestStructuredFilter_JSONField_SQL(t *testing.T) {
 	db := openTestDB(t)
 
 	// JSON 字段条件： preferences.daily_email = "true"
-	cond := &pagination.Condition{
-		Field: "preferences.daily_email",
-		Op:    pagination.Operator_EQ,
-		Value: trans.Ptr("true"),
+	cond := &paginationV1.FilterCondition{
+		Field:      "preferences.daily_email",
+		Op:         paginationV1.Operator_EQ,
+		ValueOneof: &paginationV1.FilterCondition_Value{Value: "true"},
 	}
-	expr := &pagination.FilterExpr{
-		Type:       pagination.ExprType_AND,
-		Conditions: []*pagination.Condition{cond},
+	expr := &paginationV1.FilterExpr{
+		Type:       paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{cond},
 	}
 
 	sels, err := sf.BuildSelectors(expr)

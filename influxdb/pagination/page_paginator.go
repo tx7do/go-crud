@@ -1,15 +1,15 @@
-// go
 package pagination
 
 import (
 	"github.com/tx7do/go-crud/influxdb/query"
-	"github.com/tx7do/go-crud/paginator"
+	"github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-crud/pagination/paginator"
 )
 
 // PagePaginator 基于页码的分页器（InfluxDB 版）
 // 使用示例： p.BuildClause(builder, page, size) 会在 builder 上设置 skip/limit（若 builder 支持）
 type PagePaginator struct {
-	impl paginator.Paginator
+	impl pagination.Paginator
 }
 
 func NewPagePaginator() *PagePaginator {

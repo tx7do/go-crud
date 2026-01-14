@@ -5,7 +5,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 func newSelector() *sql.Selector {
@@ -122,16 +122,16 @@ func TestProcessor_ProcessDispatcher(t *testing.T) {
 	proc := Processor{}
 
 	cases := []struct {
-		op    pagination.Operator
+		op    paginationV1.Operator
 		field string
 		value string
 		want  bool // want non-nil
 	}{
-		{pagination.Operator_EQ, "name", "tom", true},
-		{pagination.Operator_IN, "name", `["a","b"]`, true},
-		{pagination.Operator_BETWEEN, "created_at", `["2020-01-01","2021-01-01"]`, true},
-		{pagination.Operator_IS_NULL, "deleted_at", "", true},
-		{pagination.Operator_SEARCH, "any", "", true},
+		{paginationV1.Operator_EQ, "name", "tom", true},
+		{paginationV1.Operator_IN, "name", `["a","b"]`, true},
+		{paginationV1.Operator_BETWEEN, "created_at", `["2020-01-01","2021-01-01"]`, true},
+		{paginationV1.Operator_IS_NULL, "deleted_at", "", true},
+		{paginationV1.Operator_SEARCH, "any", "", true},
 	}
 
 	for _, c := range cases {

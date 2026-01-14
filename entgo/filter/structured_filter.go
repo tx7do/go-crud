@@ -7,7 +7,7 @@ import (
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/go-kratos/kratos/v2/log"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 // StructuredFilter 基于 FilterExpr 的过滤器
@@ -24,7 +24,7 @@ func NewStructuredFilter() *StructuredFilter {
 }
 
 // BuildSelectors 构建过滤选择器
-func (sf StructuredFilter) BuildSelectors(expr *pagination.FilterExpr) ([]func(s *sql.Selector), error) {
+func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func(s *sql.Selector), error) {
 	var queryConditions []func(s *sql.Selector)
 
 	if expr == nil {
@@ -32,7 +32,7 @@ func (sf StructuredFilter) BuildSelectors(expr *pagination.FilterExpr) ([]func(s
 	}
 
 	// Skip unspecified expressions
-	if expr.GetType() == pagination.ExprType_EXPR_TYPE_UNSPECIFIED {
+	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
 		log.Warn("Skipping unspecified FilterExpr")
 		return nil, nil
 	}
@@ -48,7 +48,7 @@ func (sf StructuredFilter) BuildSelectors(expr *pagination.FilterExpr) ([]func(s
 	return queryConditions, nil
 }
 
-func (sf StructuredFilter) buildFilterSelector(expr *pagination.FilterExpr) (func(s *sql.Selector), error) {
+func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (func(s *sql.Selector), error) {
 	var selector func(s *sql.Selector)
 
 	// Skip nil expressions
@@ -58,7 +58,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *pagination.FilterExpr) (fun
 	}
 
 	// Skip unspecified expressions
-	if expr.GetType() == pagination.ExprType_EXPR_TYPE_UNSPECIFIED {
+	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
 		log.Warn("Skipping unspecified FilterExpr")
 		return nil, nil
 	}
@@ -85,9 +85,9 @@ func (sf StructuredFilter) buildFilterSelector(expr *pagination.FilterExpr) (fun
 
 		// Combine predicates based on expression type
 		switch expr.GetType() {
-		case pagination.ExprType_AND:
+		case paginationV1.ExprType_AND:
 			s.Where(sql.Or(ps...))
-		case pagination.ExprType_OR:
+		case paginationV1.ExprType_OR:
 			s.Where(sql.Or(ps...))
 		}
 	}
@@ -96,7 +96,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *pagination.FilterExpr) (fun
 }
 
 // processCondition 处理条件
-func (sf StructuredFilter) processCondition(s *sql.Selector, conditions []*pagination.Condition) ([]*sql.Predicate, error) {
+func (sf StructuredFilter) processCondition(s *sql.Selector, conditions []*paginationV1.FilterCondition) ([]*sql.Predicate, error) {
 	if len(conditions) == 0 {
 		return nil, nil
 	}

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 func TestStructuredSorting_BuildScope_Empty(t *testing.T) {
@@ -20,12 +20,12 @@ func TestStructuredSorting_BuildScope_Empty(t *testing.T) {
 func TestStructuredSorting_BuildScope_Orderings(t *testing.T) {
 	ss := NewStructuredSorting()
 
-	orders := []*pagination.Sorting{
-		{Field: "name", Order: pagination.Sorting_ASC},
-		{Field: "age", Order: pagination.Sorting_DESC},
+	orders := []*paginationV1.Sorting{
+		{Field: "name", Order: paginationV1.Sorting_ASC},
+		{Field: "age", Order: paginationV1.Sorting_DESC},
 		nil,
-		{Field: "", Order: pagination.Sorting_ASC},
-		{Field: "created_at", Order: pagination.Sorting_ASC},
+		{Field: "", Order: paginationV1.Sorting_ASC},
+		{Field: "created_at", Order: paginationV1.Sorting_ASC},
 	}
 
 	scope := ss.BuildScope(orders)
@@ -58,7 +58,7 @@ func TestStructuredSorting_BuildScopeWithDefaultField(t *testing.T) {
 	}
 
 	// 提供 orders 时应优先使用 orders 而非默认字段
-	scope2 := ss.BuildScopeWithDefaultField([]*pagination.Sorting{{Field: "score", Order: pagination.Sorting_DESC}}, "created_at", true)
+	scope2 := ss.BuildScopeWithDefaultField([]*paginationV1.Sorting{{Field: "score", Order: paginationV1.Sorting_DESC}}, "created_at", true)
 	sql2 := sqlOfScope(t, scope2)
 	up2 := strings.ToUpper(sql2)
 	if strings.Contains(up2, "CREATED_AT") {

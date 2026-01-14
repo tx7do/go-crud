@@ -6,14 +6,14 @@ import (
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"github.com/tx7do/go-crud/pagination"
 
 	"github.com/go-kratos/kratos/v2/encoding"
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
 
 	"github.com/tx7do/go-utils/stringcase"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
-	"github.com/tx7do/go-crud/paginator"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 // escapeSQLString 对 SQL 字面量做最小转义，双写单引号并转义反斜杠，降低注入风险。
@@ -38,51 +38,51 @@ func NewProcessor() *Processor {
 }
 
 // Process 处理过滤条件
-func (poc Processor) Process(s *sql.Selector, p *sql.Predicate, op pagination.Operator, field, value string, values []string) *sql.Predicate {
+func (poc Processor) Process(s *sql.Selector, p *sql.Predicate, op paginationV1.Operator, field, value string, values []string) *sql.Predicate {
 	switch op {
-	case pagination.Operator_EQ:
+	case paginationV1.Operator_EQ:
 		return poc.Equal(s, p, field, value)
-	case pagination.Operator_NEQ:
+	case paginationV1.Operator_NEQ:
 		return poc.NotEqual(s, p, field, value)
-	case pagination.Operator_IN:
+	case paginationV1.Operator_IN:
 		return poc.In(s, p, field, value, values)
-	case pagination.Operator_NIN:
+	case paginationV1.Operator_NIN:
 		return poc.NotIn(s, p, field, value, values)
-	case pagination.Operator_GTE:
+	case paginationV1.Operator_GTE:
 		return poc.GTE(s, p, field, value)
-	case pagination.Operator_GT:
+	case paginationV1.Operator_GT:
 		return poc.GT(s, p, field, value)
-	case pagination.Operator_LTE:
+	case paginationV1.Operator_LTE:
 		return poc.LTE(s, p, field, value)
-	case pagination.Operator_LT:
+	case paginationV1.Operator_LT:
 		return poc.LT(s, p, field, value)
-	case pagination.Operator_BETWEEN:
+	case paginationV1.Operator_BETWEEN:
 		return poc.Range(s, p, field, value, values)
-	case pagination.Operator_IS_NULL:
+	case paginationV1.Operator_IS_NULL:
 		return poc.IsNull(s, p, field, value)
-	case pagination.Operator_IS_NOT_NULL:
+	case paginationV1.Operator_IS_NOT_NULL:
 		return poc.IsNotNull(s, p, field, value)
-	case pagination.Operator_CONTAINS:
+	case paginationV1.Operator_CONTAINS:
 		return poc.Contains(s, p, field, value)
-	case pagination.Operator_ICONTAINS:
+	case paginationV1.Operator_ICONTAINS:
 		return poc.InsensitiveContains(s, p, field, value)
-	case pagination.Operator_STARTS_WITH:
+	case paginationV1.Operator_STARTS_WITH:
 		return poc.StartsWith(s, p, field, value)
-	case pagination.Operator_ISTARTS_WITH:
+	case paginationV1.Operator_ISTARTS_WITH:
 		return poc.InsensitiveStartsWith(s, p, field, value)
-	case pagination.Operator_ENDS_WITH:
+	case paginationV1.Operator_ENDS_WITH:
 		return poc.EndsWith(s, p, field, value)
-	case pagination.Operator_IENDS_WITH:
+	case paginationV1.Operator_IENDS_WITH:
 		return poc.InsensitiveEndsWith(s, p, field, value)
-	case pagination.Operator_EXACT:
+	case paginationV1.Operator_EXACT:
 		return poc.Exact(s, p, field, value)
-	case pagination.Operator_IEXACT:
+	case paginationV1.Operator_IEXACT:
 		return poc.InsensitiveExact(s, p, field, value)
-	case pagination.Operator_REGEXP:
+	case paginationV1.Operator_REGEXP:
 		return poc.Regex(s, p, field, value)
-	case pagination.Operator_IREGEXP:
+	case paginationV1.Operator_IREGEXP:
 		return poc.InsensitiveRegex(s, p, field, value)
-	case pagination.Operator_SEARCH:
+	case paginationV1.Operator_SEARCH:
 		return poc.Search(s, p, field, value)
 	default:
 		return nil
@@ -359,7 +359,7 @@ func (poc Processor) Search(s *sql.Selector, p *sql.Predicate, field, value stri
 // DatePart 时间戳提取日期
 // SQL: select extract(quarter from timestamp '2018-08-15 12:10:10');
 func (poc Processor) DatePart(s *sql.Selector, p *sql.Predicate, datePart, field string) *sql.Predicate {
-	if !paginator.IsValidDatePartString(datePart) {
+	if !pagination.IsValidDatePartString(datePart) {
 		// 非法的 datePart，不生成表达式以避免注入
 		return p
 	}
@@ -398,7 +398,7 @@ func (poc Processor) DatePart(s *sql.Selector, p *sql.Predicate, datePart, field
 
 // DatePartField 日期
 func (poc Processor) DatePartField(s *sql.Selector, datePart, field string) string {
-	if !paginator.IsValidDatePartString(datePart) {
+	if !pagination.IsValidDatePartString(datePart) {
 		// 非法的 datePart，不生成表达式以避免注入
 		return ""
 	}

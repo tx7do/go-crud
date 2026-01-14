@@ -10,7 +10,7 @@ import (
 	"github.com/tx7do/go-crud/mongodb/query"
 	"github.com/tx7do/go-utils/stringcase"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 )
 
@@ -29,54 +29,54 @@ func NewProcessor() *Processor {
 
 // Process 根据 operator 在 builder 上追加对应的 filter 并返回 builder。
 // field 为字段路径（可能包含点），value 为单值，values 为额外的分割值列表（如 IN）。
-func (poc Processor) Process(builder *query.Builder, op pagination.Operator, field string, value any, values []any) *query.Builder {
+func (poc Processor) Process(builder *query.Builder, op paginationV1.Operator, field string, value any, values []any) *query.Builder {
 	if builder == nil {
 		return nil
 	}
 	switch op {
-	case pagination.Operator_EQ:
+	case paginationV1.Operator_EQ:
 		return poc.Equal(builder, field, value)
-	case pagination.Operator_NEQ:
+	case paginationV1.Operator_NEQ:
 		return poc.NotEqual(builder, field, value)
-	case pagination.Operator_IN:
+	case paginationV1.Operator_IN:
 		return poc.In(builder, field, value, values)
-	case pagination.Operator_NIN:
+	case paginationV1.Operator_NIN:
 		return poc.NotIn(builder, field, value, values)
-	case pagination.Operator_GTE:
+	case paginationV1.Operator_GTE:
 		return poc.GTE(builder, field, value)
-	case pagination.Operator_GT:
+	case paginationV1.Operator_GT:
 		return poc.GT(builder, field, value)
-	case pagination.Operator_LTE:
+	case paginationV1.Operator_LTE:
 		return poc.LTE(builder, field, value)
-	case pagination.Operator_LT:
+	case paginationV1.Operator_LT:
 		return poc.LT(builder, field, value)
-	case pagination.Operator_BETWEEN:
+	case paginationV1.Operator_BETWEEN:
 		return poc.Range(builder, field, value, values)
-	case pagination.Operator_IS_NULL:
+	case paginationV1.Operator_IS_NULL:
 		return poc.IsNull(builder, field)
-	case pagination.Operator_IS_NOT_NULL:
+	case paginationV1.Operator_IS_NOT_NULL:
 		return poc.IsNotNull(builder, field)
-	case pagination.Operator_CONTAINS:
+	case paginationV1.Operator_CONTAINS:
 		return poc.Contains(builder, field, value)
-	case pagination.Operator_ICONTAINS:
+	case paginationV1.Operator_ICONTAINS:
 		return poc.InsensitiveContains(builder, field, value)
-	case pagination.Operator_STARTS_WITH:
+	case paginationV1.Operator_STARTS_WITH:
 		return poc.StartsWith(builder, field, value)
-	case pagination.Operator_ISTARTS_WITH:
+	case paginationV1.Operator_ISTARTS_WITH:
 		return poc.InsensitiveStartsWith(builder, field, value)
-	case pagination.Operator_ENDS_WITH:
+	case paginationV1.Operator_ENDS_WITH:
 		return poc.EndsWith(builder, field, value)
-	case pagination.Operator_IENDS_WITH:
+	case paginationV1.Operator_IENDS_WITH:
 		return poc.InsensitiveEndsWith(builder, field, value)
-	case pagination.Operator_EXACT:
+	case paginationV1.Operator_EXACT:
 		return poc.Exact(builder, field, value)
-	case pagination.Operator_IEXACT:
+	case paginationV1.Operator_IEXACT:
 		return poc.InsensitiveExact(builder, field, value)
-	case pagination.Operator_REGEXP:
+	case paginationV1.Operator_REGEXP:
 		return poc.Regex(builder, field, value)
-	case pagination.Operator_IREGEXP:
+	case paginationV1.Operator_IREGEXP:
 		return poc.InsensitiveRegex(builder, field, value)
-	case pagination.Operator_SEARCH:
+	case paginationV1.Operator_SEARCH:
 		return poc.Search(builder, field, value)
 	default:
 		return builder

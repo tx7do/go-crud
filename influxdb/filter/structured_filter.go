@@ -35,7 +35,7 @@ func (sf StructuredFilter) BuildSelectors(builder *query.Builder, expr *paginati
 	}
 
 	// helper: 处理单个 Condition，返回是否成功处理（用于判断 OR 单项）
-	processCond := func(b *query.Builder, cond *paginationV1.Condition) bool {
+	processCond := func(b *query.Builder, cond *paginationV1.FilterCondition) bool {
 		if cond == nil {
 			return false
 		}
@@ -44,8 +44,10 @@ func (sf StructuredFilter) BuildSelectors(builder *query.Builder, expr *paginati
 			return false
 		}
 		val := ""
-		if cond.Value != nil {
-			val = *cond.Value
+		switch cond.ValueOneof.(type) {
+		case *paginationV1.FilterCondition_Value:
+			val = cond.GetValue()
+		default:
 		}
 		values := cond.GetValues()
 		// 委托 Processor 追加到 builder

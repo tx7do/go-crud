@@ -8,7 +8,7 @@ import (
 	"github.com/go-kratos/kratos/v2/encoding"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/mongodb/query"
 )
 
@@ -78,17 +78,17 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 	}
 
 	// helper to build a single condition (bsonV2.M) from operator/field/value
-	buildCondition := func(op pagination.Operator, field string, value any, values []any) bsonV2.M {
+	buildCondition := func(op paginationV1.Operator, field string, value any, values []any) bsonV2.M {
 		key := sf.processor.makeKey(field)
 		if key == "" {
 			return nil
 		}
 		switch op {
-		case pagination.Operator_EQ:
+		case paginationV1.Operator_EQ:
 			return bsonV2.M{key: value}
-		case pagination.Operator_NEQ:
+		case paginationV1.Operator_NEQ:
 			return bsonV2.M{key: bsonV2.M{"$ne": value}}
-		case pagination.Operator_IN:
+		case paginationV1.Operator_IN:
 			// support JSON array string
 			if s, ok := toStr(value); ok && s != "" {
 				var arr []interface{}
@@ -121,7 +121,7 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 				return bsonV2.M{key: bsonV2.M{"$in": args}}
 			}
 			return nil
-		case pagination.Operator_NIN:
+		case paginationV1.Operator_NIN:
 			if s, ok := toStr(value); ok && s != "" {
 				var arr []interface{}
 				if err := sf.codec.Unmarshal([]byte(s), &arr); err == nil {
@@ -153,15 +153,15 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 				return bsonV2.M{key: bsonV2.M{"$nin": args}}
 			}
 			return nil
-		case pagination.Operator_GTE:
+		case paginationV1.Operator_GTE:
 			return bsonV2.M{key: bsonV2.M{"$gte": value}}
-		case pagination.Operator_GT:
+		case paginationV1.Operator_GT:
 			return bsonV2.M{key: bsonV2.M{"$gt": value}}
-		case pagination.Operator_LTE:
+		case paginationV1.Operator_LTE:
 			return bsonV2.M{key: bsonV2.M{"$lte": value}}
-		case pagination.Operator_LT:
+		case paginationV1.Operator_LT:
 			return bsonV2.M{key: bsonV2.M{"$lt": value}}
-		case pagination.Operator_BETWEEN:
+		case paginationV1.Operator_BETWEEN:
 			// value may be JSON array or comma separated
 			if s, ok := toStr(value); ok && s != "" {
 				var arr []interface{}
@@ -187,67 +187,67 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 				return bsonV2.M{key: s}
 			}
 			return nil
-		case pagination.Operator_IS_NULL:
+		case paginationV1.Operator_IS_NULL:
 			return bsonV2.M{key: nil}
-		case pagination.Operator_IS_NOT_NULL:
+		case paginationV1.Operator_IS_NOT_NULL:
 			return bsonV2.M{key: bsonV2.M{"$ne": nil}}
-		case pagination.Operator_CONTAINS:
+		case paginationV1.Operator_CONTAINS:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": s}}
 			}
-		case pagination.Operator_ICONTAINS:
+		case paginationV1.Operator_ICONTAINS:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": s, "$options": "i"}}
 			}
-		case pagination.Operator_STARTS_WITH:
+		case paginationV1.Operator_STARTS_WITH:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": "^" + s}}
 			}
-		case pagination.Operator_ISTARTS_WITH:
+		case paginationV1.Operator_ISTARTS_WITH:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": "^" + s, "$options": "i"}}
 			}
-		case pagination.Operator_ENDS_WITH:
+		case paginationV1.Operator_ENDS_WITH:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": s + "$"}}
 			}
-		case pagination.Operator_IENDS_WITH:
+		case paginationV1.Operator_IENDS_WITH:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": s + "$", "$options": "i"}}
 			}
-		case pagination.Operator_EXACT:
+		case paginationV1.Operator_EXACT:
 			return bsonV2.M{key: value}
-		case pagination.Operator_IEXACT:
+		case paginationV1.Operator_IEXACT:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": "^" + s + "$", "$options": "i"}}
 			}
-		case pagination.Operator_REGEXP:
+		case paginationV1.Operator_REGEXP:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": s}}
 			}
-		case pagination.Operator_IREGEXP:
+		case paginationV1.Operator_IREGEXP:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
 				return bsonV2.M{key: bsonV2.M{"$regex": s, "$options": "i"}}
 			}
-		case pagination.Operator_SEARCH:
+		case paginationV1.Operator_SEARCH:
 			if s, ok := toStr(value); !ok || strings.TrimSpace(s) == "" {
 				return nil
 			} else {
@@ -275,10 +275,10 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 					continue
 				}
 				not := false
-				var op pagination.Operator
+				var op paginationV1.Operator
 				var ok bool
 				if len(keys) == 1 {
-					op = pagination.Operator_EQ
+					op = paginationV1.Operator_EQ
 					ok = true
 				} else {
 					op, ok = opFromStr(keys[1])
@@ -321,10 +321,10 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 					continue
 				}
 				not := false
-				var op pagination.Operator
+				var op paginationV1.Operator
 				var ok bool
 				if len(keys) == 1 {
-					op = pagination.Operator_EQ
+					op = paginationV1.Operator_EQ
 					ok = true
 				} else {
 					op, ok = opFromStr(keys[1])
@@ -355,55 +355,55 @@ func (sf *QueryStringFilter) BuildSelectors(builder *query.Builder, andFilterJso
 	return builder, nil
 }
 
-// opFromStr 将字符串映射为 pagination.Operator（不区分大小写）。
+// opFromStr 将字符串映射为 paginationV1.Operator（不区分大小写）。
 // 返回对应的 operator 及是否匹配成功。
-func opFromStr(s string) (pagination.Operator, bool) {
+func opFromStr(s string) (paginationV1.Operator, bool) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "eq", "equal", "equals":
-		return pagination.Operator_EQ, true
+		return paginationV1.Operator_EQ, true
 	case "neq", "ne", "not_equal", "not-equal":
-		return pagination.Operator_NEQ, true
+		return paginationV1.Operator_NEQ, true
 	case "in":
-		return pagination.Operator_IN, true
+		return paginationV1.Operator_IN, true
 	case "nin", "not_in", "not-in":
-		return pagination.Operator_NIN, true
+		return paginationV1.Operator_NIN, true
 	case "gte", "ge", "greater_or_equal", "greater-equal":
-		return pagination.Operator_GTE, true
+		return paginationV1.Operator_GTE, true
 	case "gt", "greater":
-		return pagination.Operator_GT, true
+		return paginationV1.Operator_GT, true
 	case "lte", "le", "less_or_equal", "less-equal":
-		return pagination.Operator_LTE, true
+		return paginationV1.Operator_LTE, true
 	case "lt", "less":
-		return pagination.Operator_LT, true
+		return paginationV1.Operator_LT, true
 	case "between", "range":
-		return pagination.Operator_BETWEEN, true
+		return paginationV1.Operator_BETWEEN, true
 	case "is_null", "null":
-		return pagination.Operator_IS_NULL, true
+		return paginationV1.Operator_IS_NULL, true
 	case "is_not_null", "not_null", "notnull":
-		return pagination.Operator_IS_NOT_NULL, true
+		return paginationV1.Operator_IS_NOT_NULL, true
 	case "contains":
-		return pagination.Operator_CONTAINS, true
+		return paginationV1.Operator_CONTAINS, true
 	case "icontains", "i_contains", "contains_i":
-		return pagination.Operator_ICONTAINS, true
+		return paginationV1.Operator_ICONTAINS, true
 	case "starts_with", "startswith":
-		return pagination.Operator_STARTS_WITH, true
+		return paginationV1.Operator_STARTS_WITH, true
 	case "istarts_with", "istartswith":
-		return pagination.Operator_ISTARTS_WITH, true
+		return paginationV1.Operator_ISTARTS_WITH, true
 	case "ends_with", "endswith":
-		return pagination.Operator_ENDS_WITH, true
+		return paginationV1.Operator_ENDS_WITH, true
 	case "iends_with", "iendswith":
-		return pagination.Operator_IENDS_WITH, true
+		return paginationV1.Operator_IENDS_WITH, true
 	case "exact":
-		return pagination.Operator_EXACT, true
+		return paginationV1.Operator_EXACT, true
 	case "iexact":
-		return pagination.Operator_IEXACT, true
+		return paginationV1.Operator_IEXACT, true
 	case "regexp":
-		return pagination.Operator_REGEXP, true
+		return paginationV1.Operator_REGEXP, true
 	case "iregexp":
-		return pagination.Operator_IREGEXP, true
+		return paginationV1.Operator_IREGEXP, true
 	case "search":
-		return pagination.Operator_SEARCH, true
+		return paginationV1.Operator_SEARCH, true
 	default:
-		return pagination.Operator(0), false
+		return paginationV1.Operator(0), false
 	}
 }

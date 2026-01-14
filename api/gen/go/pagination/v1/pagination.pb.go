@@ -824,6 +824,8 @@ type PagingRequest struct {
 	OrQuery *string `protobuf:"bytes,21,opt,name=or_query,json=or,proto3,oneof" json:"or_query,omitempty"`
 	// 复杂过滤表达式
 	FilterExpr *FilterExpr `protobuf:"bytes,22,opt,name=filter_expr,json=filterExpr,proto3,oneof" json:"filter_expr,omitempty"`
+	// 过滤字符串，基于AIP规范的过滤表达式。
+	Filter *string `protobuf:"bytes,23,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
 	// 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
 	FieldMask     *fieldmaskpb.FieldMask `protobuf:"bytes,30,opt,name=field_mask,json=fieldMask,proto3,oneof" json:"field_mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -935,6 +937,13 @@ func (x *PagingRequest) GetFilterExpr() *FilterExpr {
 		return x.FilterExpr
 	}
 	return nil
+}
+
+func (x *PagingRequest) GetFilter() string {
+	if x != nil && x.Filter != nil {
+		return *x.Filter
+	}
+	return ""
 }
 
 func (x *PagingRequest) GetFieldMask() *fieldmaskpb.FieldMask {
@@ -1389,7 +1398,7 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tBW\xbaGT\x92\x02Q上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）R\x05token\x12d\n" +
 	"\tpage_size\x18\x02 \x01(\rBG\xbaGD\x8a\x02\t\t\x00\x00\x00\x00\x00\x00$@\x92\x025每页条数（默认10，建议设置上限如100）R\bpageSize\"\n" +
 	"\n" +
-	"\bNoPaging\"\xd6\r\n" +
+	"\bNoPaging\"\xbc\x0e\n" +
 	"\rPagingRequest\x12Q\n" +
 	"\x04page\x18\x01 \x01(\rB8\xbaG5\x8a\x02\t\t\x00\x00\x00\x00\x00\x00\xf0?\x92\x02&当前页码（从1开始，默认1）H\x00R\x04page\x88\x01\x01\x12i\n" +
 	"\tpage_size\x18\x02 \x01(\rBG\xbaGD\x8a\x02\t\t\x00\x00\x00\x00\x00\x00$@\x92\x025每页条数（默认10，建议设置上限如100）H\x01R\bpageSize\x88\x01\x01\x12[\n" +
@@ -1403,9 +1412,11 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x05query\x18\x14 \x01(\tB\xd9\x01\xbaG\xd5\x01:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\xb0\x01AND过滤参数，其语法为json格式的字符串，如：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-utils/tree/main/entgo/query/README.mdH\x06R\x05query\x88\x01\x01\x12P\n" +
 	"\bor_query\x18\x15 \x01(\tB5\xbaG2:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\x0eOR过滤参数H\aR\x02or\x88\x01\x01\x12Y\n" +
 	"\vfilter_expr\x18\x16 \x01(\v2\x16.pagination.FilterExprB\x1b\xbaG\x18\x92\x02\x15复杂过滤表达式H\bR\n" +
-	"filterExpr\x88\x01\x01\x12\x8d\x02\n" +
+	"filterExpr\x88\x01\x01\x12Y\n" +
+	"\x06filter\x18\x17 \x01(\tB<\xbaG9\x92\x026过滤字符串，基于AIP规范的过滤表达式。H\tR\x06filter\x88\x01\x01\x12\x8d\x02\n" +
 	"\n" +
-	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\tR\tfieldMask\x88\x01\x01B\a\n" +
+	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\n" +
+	"R\tfieldMask\x88\x01\x01B\a\n" +
 	"\x05_pageB\f\n" +
 	"\n" +
 	"_page_sizeB\t\n" +
@@ -1416,7 +1427,8 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"_no_pagingB\b\n" +
 	"\x06_queryB\v\n" +
 	"\t_or_queryB\x0e\n" +
-	"\f_filter_exprB\r\n" +
+	"\f_filter_exprB\t\n" +
+	"\a_filterB\r\n" +
 	"\v_field_mask\"\xea\x06\n" +
 	"\x16PaginationResponseMeta\x12\x8e\x01\n" +
 	"\x05total\x18\x01 \x01(\v2\x1c.google.protobuf.UInt64ValueBU\xbaGR\x92\x02O总记录数（仅Page/Offset分页有效，Token分页通常不返回总数）H\x00R\x05total\x88\x01\x01\x12l\n" +

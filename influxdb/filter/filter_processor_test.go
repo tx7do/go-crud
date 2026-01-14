@@ -3,36 +3,36 @@ package filter
 import (
 	"testing"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/influxdb/query"
 )
 
 func TestProcessor_Process_ReturnsBuilder_NoPanic(t *testing.T) {
 	proc := NewProcessor()
 
-	ops := []pagination.Operator{
-		pagination.Operator_EQ,
-		pagination.Operator_NEQ,
-		pagination.Operator_IN,
-		pagination.Operator_NIN,
-		pagination.Operator_GTE,
-		pagination.Operator_GT,
-		pagination.Operator_LTE,
-		pagination.Operator_LT,
-		pagination.Operator_BETWEEN,
-		pagination.Operator_IS_NULL,
-		pagination.Operator_IS_NOT_NULL,
-		pagination.Operator_CONTAINS,
-		pagination.Operator_ICONTAINS,
-		pagination.Operator_STARTS_WITH,
-		pagination.Operator_ISTARTS_WITH,
-		pagination.Operator_ENDS_WITH,
-		pagination.Operator_IENDS_WITH,
-		pagination.Operator_EXACT,
-		pagination.Operator_IEXACT,
-		pagination.Operator_REGEXP,
-		pagination.Operator_IREGEXP,
-		pagination.Operator_SEARCH,
+	ops := []paginationV1.Operator{
+		paginationV1.Operator_EQ,
+		paginationV1.Operator_NEQ,
+		paginationV1.Operator_IN,
+		paginationV1.Operator_NIN,
+		paginationV1.Operator_GTE,
+		paginationV1.Operator_GT,
+		paginationV1.Operator_LTE,
+		paginationV1.Operator_LT,
+		paginationV1.Operator_BETWEEN,
+		paginationV1.Operator_IS_NULL,
+		paginationV1.Operator_IS_NOT_NULL,
+		paginationV1.Operator_CONTAINS,
+		paginationV1.Operator_ICONTAINS,
+		paginationV1.Operator_STARTS_WITH,
+		paginationV1.Operator_ISTARTS_WITH,
+		paginationV1.Operator_ENDS_WITH,
+		paginationV1.Operator_IENDS_WITH,
+		paginationV1.Operator_EXACT,
+		paginationV1.Operator_IEXACT,
+		paginationV1.Operator_REGEXP,
+		paginationV1.Operator_IREGEXP,
+		paginationV1.Operator_SEARCH,
 	}
 
 	for _, op := range ops {
@@ -85,7 +85,7 @@ func TestProcessor_SpecificCases_ReturnsBuilder(t *testing.T) {
 	t.Run("IsNull_ReturnsBuilder", func(t *testing.T) {
 		qb := query.NewQueryBuilder("m")
 		// Processor 没有单独的 IsNull 方法，使用 Process + Operator_IS_NULL
-		got := proc.Process(qb, pagination.Operator_IS_NULL, "deleted_at", "", nil)
+		got := proc.Process(qb, paginationV1.Operator_IS_NULL, "deleted_at", "", nil)
 		if got == nil || got != qb {
 			t.Fatalf("Process(IS_NULL) should return the same non-nil builder")
 		}
@@ -101,7 +101,7 @@ func TestProcessor_SpecificCases_ReturnsBuilder(t *testing.T) {
 
 	t.Run("JsonField_DotPath_ReturnsBuilder", func(t *testing.T) {
 		qb := query.NewQueryBuilder("m")
-		got := proc.Process(qb, pagination.Operator_EQ, "preferences.daily_email", "1", nil)
+		got := proc.Process(qb, paginationV1.Operator_EQ, "preferences.daily_email", "1", nil)
 		if got == nil || got != qb {
 			t.Fatalf("Processing JSON dot path should return the same non-nil builder")
 		}

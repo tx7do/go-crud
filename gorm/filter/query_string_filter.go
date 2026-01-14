@@ -12,8 +12,8 @@ import (
 
 	"github.com/tx7do/go-utils/stringcase"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
-	"github.com/tx7do/go-crud/paginator"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-crud/pagination"
 )
 
 const (
@@ -130,58 +130,58 @@ func (sf QueryStringFilter) MakeFieldFilter(keys []string, value string) func(*g
 		return nil
 	}
 
-	// helper: 把操作字符串映射为 pagination.Operator
-	opFromStr := func(s string) (pagination.Operator, bool) {
+	// helper: 把操作字符串映射为 paginationV1.Operator
+	opFromStr := func(s string) (paginationV1.Operator, bool) {
 		switch strings.ToLower(s) {
 		case "eq", "equals", "exact":
-			return pagination.Operator_EQ, true
+			return paginationV1.Operator_EQ, true
 		case "neq", "ne", "not":
-			return pagination.Operator_NEQ, true
+			return paginationV1.Operator_NEQ, true
 		case "in":
-			return pagination.Operator_IN, true
+			return paginationV1.Operator_IN, true
 		case "nin", "not_in":
-			return pagination.Operator_NIN, true
+			return paginationV1.Operator_NIN, true
 		case "gte":
-			return pagination.Operator_GTE, true
+			return paginationV1.Operator_GTE, true
 		case "gt":
-			return pagination.Operator_GT, true
+			return paginationV1.Operator_GT, true
 		case "lte":
-			return pagination.Operator_LTE, true
+			return paginationV1.Operator_LTE, true
 		case "lt":
-			return pagination.Operator_LT, true
+			return paginationV1.Operator_LT, true
 		case "between":
-			return pagination.Operator_BETWEEN, true
+			return paginationV1.Operator_BETWEEN, true
 		case "is_null":
-			return pagination.Operator_IS_NULL, true
+			return paginationV1.Operator_IS_NULL, true
 		case "is_not_null":
-			return pagination.Operator_IS_NOT_NULL, true
+			return paginationV1.Operator_IS_NOT_NULL, true
 		case "contains":
-			return pagination.Operator_CONTAINS, true
+			return paginationV1.Operator_CONTAINS, true
 		case "icontains", "i_contains":
-			return pagination.Operator_ICONTAINS, true
+			return paginationV1.Operator_ICONTAINS, true
 		case "starts_with":
-			return pagination.Operator_STARTS_WITH, true
+			return paginationV1.Operator_STARTS_WITH, true
 		case "istarts_with", "i_starts_with":
-			return pagination.Operator_ISTARTS_WITH, true
+			return paginationV1.Operator_ISTARTS_WITH, true
 		case "ends_with":
-			return pagination.Operator_ENDS_WITH, true
+			return paginationV1.Operator_ENDS_WITH, true
 		case "iends_with", "i_ends_with":
-			return pagination.Operator_IENDS_WITH, true
+			return paginationV1.Operator_IENDS_WITH, true
 		case "iexact", "i_exact":
-			return pagination.Operator_IEXACT, true
+			return paginationV1.Operator_IEXACT, true
 		case "regexp":
-			return pagination.Operator_REGEXP, true
+			return paginationV1.Operator_REGEXP, true
 		case "iregexp":
-			return pagination.Operator_IREGEXP, true
+			return paginationV1.Operator_IREGEXP, true
 		case "search":
-			return pagination.Operator_SEARCH, true
+			return paginationV1.Operator_SEARCH, true
 		default:
 			return 0, false
 		}
 	}
 
 	// JSON 字段处理： "meta.title" -> column meta, json key title
-	handleJson := func(col string, jsonKey string, op pagination.Operator) func(*gorm.DB) *gorm.DB {
+	handleJson := func(col string, jsonKey string, op paginationV1.Operator) func(*gorm.DB) *gorm.DB {
 		return func(db *gorm.DB) *gorm.DB {
 			if db == nil {
 				return db
@@ -197,7 +197,7 @@ func (sf QueryStringFilter) MakeFieldFilter(keys []string, value string) func(*g
 	}
 
 	// 普通字段处理器
-	handleField := func(col string, op pagination.Operator) func(*gorm.DB) *gorm.DB {
+	handleField := func(col string, op paginationV1.Operator) func(*gorm.DB) *gorm.DB {
 		return func(db *gorm.DB) *gorm.DB {
 			if db == nil {
 				return db
@@ -212,10 +212,10 @@ func (sf QueryStringFilter) MakeFieldFilter(keys []string, value string) func(*g
 			parts := sf.splitJsonFieldKey(field)
 			col := stringcase.ToSnakeCase(parts[0])
 			jsonKey := strings.Join(parts[1:], ".")
-			return handleJson(col, jsonKey, pagination.Operator_EQ)
+			return handleJson(col, jsonKey, paginationV1.Operator_EQ)
 		}
 		col := stringcase.ToSnakeCase(field)
-		return handleField(col, pagination.Operator_EQ)
+		return handleField(col, paginationV1.Operator_EQ)
 	}
 
 	// 两段： field__op
@@ -335,11 +335,11 @@ func (sf QueryStringFilter) isJsonFieldKey(key string) bool {
 // hasOperations 是否有操作
 func (sf QueryStringFilter) hasOperations(str string) bool {
 	str = strings.ToLower(str)
-	return paginator.IsValidOperatorString(str)
+	return pagination.IsValidOperatorString(str)
 }
 
 // hasDatePart 是否有日期部分
 func (sf QueryStringFilter) hasDatePart(str string) bool {
 	str = strings.ToLower(str)
-	return paginator.IsValidDatePartString(str)
+	return pagination.IsValidDatePartString(str)
 }

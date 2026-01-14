@@ -13,7 +13,7 @@ import (
 
 	"github.com/tx7do/go-utils/stringcase"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 var jsonKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_\.]+$`)
@@ -31,7 +31,7 @@ func NewProcessor() *Processor {
 }
 
 // Process 将给定操作映射为对 *gorm.DB 的修改并返回修改后的 *gorm.DB
-func (poc Processor) Process(db *gorm.DB, op pagination.Operator, field, value string, values []string) *gorm.DB {
+func (poc Processor) Process(db *gorm.DB, op paginationV1.Operator, field, value string, values []string) *gorm.DB {
 	if db == nil {
 		return db
 	}
@@ -39,49 +39,49 @@ func (poc Processor) Process(db *gorm.DB, op pagination.Operator, field, value s
 	field = stringcase.ToSnakeCase(field)
 
 	switch op {
-	case pagination.Operator_EQ:
+	case paginationV1.Operator_EQ:
 		return poc.Equal(db, field, value)
-	case pagination.Operator_NEQ:
+	case paginationV1.Operator_NEQ:
 		return poc.NotEqual(db, field, value)
-	case pagination.Operator_IN:
+	case paginationV1.Operator_IN:
 		return poc.In(db, field, value, values)
-	case pagination.Operator_NIN:
+	case paginationV1.Operator_NIN:
 		return poc.NotIn(db, field, value, values)
-	case pagination.Operator_GTE:
+	case paginationV1.Operator_GTE:
 		return poc.GTE(db, field, value)
-	case pagination.Operator_GT:
+	case paginationV1.Operator_GT:
 		return poc.GT(db, field, value)
-	case pagination.Operator_LTE:
+	case paginationV1.Operator_LTE:
 		return poc.LTE(db, field, value)
-	case pagination.Operator_LT:
+	case paginationV1.Operator_LT:
 		return poc.LT(db, field, value)
-	case pagination.Operator_BETWEEN:
+	case paginationV1.Operator_BETWEEN:
 		return poc.Range(db, field, value, values)
-	case pagination.Operator_IS_NULL:
+	case paginationV1.Operator_IS_NULL:
 		return poc.IsNull(db, field)
-	case pagination.Operator_IS_NOT_NULL:
+	case paginationV1.Operator_IS_NOT_NULL:
 		return poc.IsNotNull(db, field)
-	case pagination.Operator_CONTAINS:
+	case paginationV1.Operator_CONTAINS:
 		return poc.Contains(db, field, value)
-	case pagination.Operator_ICONTAINS:
+	case paginationV1.Operator_ICONTAINS:
 		return poc.InsensitiveContains(db, field, value)
-	case pagination.Operator_STARTS_WITH:
+	case paginationV1.Operator_STARTS_WITH:
 		return poc.StartsWith(db, field, value)
-	case pagination.Operator_ISTARTS_WITH:
+	case paginationV1.Operator_ISTARTS_WITH:
 		return poc.InsensitiveStartsWith(db, field, value)
-	case pagination.Operator_ENDS_WITH:
+	case paginationV1.Operator_ENDS_WITH:
 		return poc.EndsWith(db, field, value)
-	case pagination.Operator_IENDS_WITH:
+	case paginationV1.Operator_IENDS_WITH:
 		return poc.InsensitiveEndsWith(db, field, value)
-	case pagination.Operator_EXACT:
+	case paginationV1.Operator_EXACT:
 		return poc.Exact(db, field, value)
-	case pagination.Operator_IEXACT:
+	case paginationV1.Operator_IEXACT:
 		return poc.InsensitiveExact(db, field, value)
-	case pagination.Operator_REGEXP:
+	case paginationV1.Operator_REGEXP:
 		return poc.Regex(db, field, value)
-	case pagination.Operator_IREGEXP:
+	case paginationV1.Operator_IREGEXP:
 		return poc.InsensitiveRegex(db, field, value)
-	case pagination.Operator_SEARCH:
+	case paginationV1.Operator_SEARCH:
 		return poc.Search(db, field, value)
 	default:
 		return db

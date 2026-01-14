@@ -3,7 +3,7 @@ package sorting
 import (
 	"strings"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/mongodb/query"
 	"github.com/tx7do/go-utils/stringcase"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
@@ -18,7 +18,7 @@ func NewStructuredSorting() *StructuredSorting {
 }
 
 // BuildOrderClause 根据传入的排序指令构造 ORDER BY 子句
-func (ss StructuredSorting) BuildOrderClause(builder *query.Builder, orders []*pagination.Sorting) *query.Builder {
+func (ss StructuredSorting) BuildOrderClause(builder *query.Builder, orders []*paginationV1.Sorting) *query.Builder {
 	if builder == nil || len(orders) == 0 {
 		return builder
 	}
@@ -46,7 +46,7 @@ func (ss StructuredSorting) BuildOrderClause(builder *query.Builder, orders []*p
 		}
 
 		dir := int32(1)
-		if o.GetOrder() == pagination.Sorting_DESC {
+		if o.GetOrder() == paginationV1.Sorting_DESC {
 			dir = -1
 		}
 		sortFields = append(sortFields, bsonV2.E{Key: col, Value: dir})
@@ -60,7 +60,7 @@ func (ss StructuredSorting) BuildOrderClause(builder *query.Builder, orders []*p
 }
 
 // BuildOrderClauseWithDefaultField 当 orders 为空时使用默认排序字段
-func (ss StructuredSorting) BuildOrderClauseWithDefaultField(builder *query.Builder, orders []*pagination.Sorting, defaultOrderField string, defaultDesc bool) *query.Builder {
+func (ss StructuredSorting) BuildOrderClauseWithDefaultField(builder *query.Builder, orders []*paginationV1.Sorting, defaultOrderField string, defaultDesc bool) *query.Builder {
 	if builder == nil {
 		return builder
 	}
@@ -68,11 +68,11 @@ func (ss StructuredSorting) BuildOrderClauseWithDefaultField(builder *query.Buil
 		if strings.TrimSpace(defaultOrderField) == "" {
 			return builder
 		}
-		order := pagination.Sorting_ASC
+		order := paginationV1.Sorting_ASC
 		if defaultDesc {
-			order = pagination.Sorting_DESC
+			order = paginationV1.Sorting_DESC
 		}
-		orders = []*pagination.Sorting{
+		orders = []*paginationV1.Sorting{
 			{
 				Field: defaultOrderField,
 				Order: order,

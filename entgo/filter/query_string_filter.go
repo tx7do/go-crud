@@ -4,12 +4,12 @@ import (
 	"strings"
 
 	"entgo.io/ent/dialect/sql"
+	"github.com/tx7do/go-crud/pagination"
 
 	"github.com/go-kratos/kratos/v2/encoding"
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/go-kratos/kratos/v2/log"
 
-	"github.com/tx7do/go-crud/paginator"
 	"github.com/tx7do/go-utils/stringcase"
 )
 
@@ -158,7 +158,7 @@ func (sf QueryStringFilter) MakeFieldFilter(s *sql.Selector, keys []string, valu
 
 		var cond *sql.Predicate
 		if sf.hasOperations(op) {
-			return sf.processor.Process(s, p, paginator.ConverterStringToOperator(op), field, value, nil)
+			return sf.processor.Process(s, p, pagination.ConverterStringToOperator(op), field, value, nil)
 		} else if sf.hasDatePart(op) {
 			cond = sf.processor.DatePart(s, p, op, field).EQ("", value)
 		} else {
@@ -195,7 +195,7 @@ func (sf QueryStringFilter) MakeFieldFilter(s *sql.Selector, keys []string, valu
 			str := sf.processor.DatePartField(s, op1, field)
 
 			if sf.hasOperations(op2) {
-				return sf.processor.Process(s, p, paginator.ConverterStringToOperator(op2), str, value, nil)
+				return sf.processor.Process(s, p, pagination.ConverterStringToOperator(op2), str, value, nil)
 			}
 
 			return nil
@@ -203,7 +203,7 @@ func (sf QueryStringFilter) MakeFieldFilter(s *sql.Selector, keys []string, valu
 			str := sf.processor.JsonbField(s, op1, field)
 
 			if sf.hasOperations(op2) {
-				return sf.processor.Process(s, p, paginator.ConverterStringToOperator(op2), str, value, nil)
+				return sf.processor.Process(s, p, pagination.ConverterStringToOperator(op2), str, value, nil)
 			} else if sf.hasDatePart(op2) {
 				return sf.processor.DatePart(s, p, op2, str)
 			}
@@ -233,11 +233,11 @@ func (sf QueryStringFilter) isJsonFieldKey(key string) bool {
 // hasOperations 是否有操作
 func (sf QueryStringFilter) hasOperations(str string) bool {
 	str = strings.ToLower(str)
-	return paginator.IsValidOperatorString(str)
+	return pagination.IsValidOperatorString(str)
 }
 
 // hasDatePart 是否有日期部分
 func (sf QueryStringFilter) hasDatePart(str string) bool {
 	str = strings.ToLower(str)
-	return paginator.IsValidDatePartString(str)
+	return pagination.IsValidDatePartString(str)
 }

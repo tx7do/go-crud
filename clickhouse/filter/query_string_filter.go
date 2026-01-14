@@ -8,7 +8,7 @@ import (
 	"github.com/go-kratos/kratos/v2/encoding"
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/clickhouse/query"
 )
 
@@ -123,7 +123,7 @@ func (sf *QueryStringFilter) makeClosureFromMaps(builder *query.Builder, maps []
 	}
 
 	// helper: 使用 Processor 在临时 builder 上生成子表达式与 args（从临时 SQL 中提取 WHERE 部分）
-	buildWithProcessor := func(field string, op pagination.Operator, val string, vals []string) (string, []interface{}) {
+	buildWithProcessor := func(field string, op paginationV1.Operator, val string, vals []string) (string, []interface{}) {
 		tmp := query.NewQueryBuilder("", nil)
 		sf.processor.Process(tmp, op, field, val, vals)
 		sql, args := tmp.Build()
@@ -148,10 +148,10 @@ func (sf *QueryStringFilter) makeClosureFromMaps(builder *query.Builder, maps []
 					continue
 				}
 				not := false
-				var op pagination.Operator
+				var op paginationV1.Operator
 				var ok bool
 				if len(keys) == 1 {
-					op = pagination.Operator_EQ
+					op = paginationV1.Operator_EQ
 					ok = true
 				} else {
 					op, ok = opFromStr(keys[1])
@@ -198,10 +198,10 @@ func (sf *QueryStringFilter) makeClosureFromMaps(builder *query.Builder, maps []
 					continue
 				}
 				not := false
-				var op pagination.Operator
+				var op paginationV1.Operator
 				var ok bool
 				if len(keys) == 1 {
-					op = pagination.Operator_EQ
+					op = paginationV1.Operator_EQ
 					ok = true
 				} else {
 					op, ok = opFromStr(keys[1])
@@ -270,51 +270,51 @@ func (sf *QueryStringFilter) isJsonFieldKey(key string) bool {
 	return strings.Contains(key, JsonFieldDelimiter)
 }
 
-func opFromStr(s string) (pagination.Operator, bool) {
+func opFromStr(s string) (paginationV1.Operator, bool) {
 	switch strings.ToLower(s) {
 	case "eq", "equals", "exact":
-		return pagination.Operator_EQ, true
+		return paginationV1.Operator_EQ, true
 	case "neq", "ne", "not", "not_eq":
-		return pagination.Operator_NEQ, true
+		return paginationV1.Operator_NEQ, true
 	case "in":
-		return pagination.Operator_IN, true
+		return paginationV1.Operator_IN, true
 	case "nin", "not_in":
-		return pagination.Operator_NIN, true
+		return paginationV1.Operator_NIN, true
 	case "gte":
-		return pagination.Operator_GTE, true
+		return paginationV1.Operator_GTE, true
 	case "gt":
-		return pagination.Operator_GT, true
+		return paginationV1.Operator_GT, true
 	case "lte":
-		return pagination.Operator_LTE, true
+		return paginationV1.Operator_LTE, true
 	case "lt":
-		return pagination.Operator_LT, true
+		return paginationV1.Operator_LT, true
 	case "between":
-		return pagination.Operator_BETWEEN, true
+		return paginationV1.Operator_BETWEEN, true
 	case "is_null", "isnull":
-		return pagination.Operator_IS_NULL, true
+		return paginationV1.Operator_IS_NULL, true
 	case "is_not_null", "isnotnull":
-		return pagination.Operator_IS_NOT_NULL, true
+		return paginationV1.Operator_IS_NOT_NULL, true
 	case "contains", "like":
-		return pagination.Operator_CONTAINS, true
+		return paginationV1.Operator_CONTAINS, true
 	case "icontains", "i_contains":
-		return pagination.Operator_ICONTAINS, true
+		return paginationV1.Operator_ICONTAINS, true
 	case "starts_with":
-		return pagination.Operator_STARTS_WITH, true
+		return paginationV1.Operator_STARTS_WITH, true
 	case "istarts_with", "i_starts_with":
-		return pagination.Operator_ISTARTS_WITH, true
+		return paginationV1.Operator_ISTARTS_WITH, true
 	case "ends_with":
-		return pagination.Operator_ENDS_WITH, true
+		return paginationV1.Operator_ENDS_WITH, true
 	case "iends_with", "i_ends_with":
-		return pagination.Operator_IENDS_WITH, true
+		return paginationV1.Operator_IENDS_WITH, true
 	case "iexact", "i_exact":
-		return pagination.Operator_IEXACT, true
+		return paginationV1.Operator_IEXACT, true
 	case "regexp":
-		return pagination.Operator_REGEXP, true
+		return paginationV1.Operator_REGEXP, true
 	case "iregexp":
-		return pagination.Operator_IREGEXP, true
+		return paginationV1.Operator_IREGEXP, true
 	case "search":
-		return pagination.Operator_SEARCH, true
+		return paginationV1.Operator_SEARCH, true
 	default:
-		return pagination.Operator_EQ, false
+		return paginationV1.Operator_EQ, false
 	}
 }

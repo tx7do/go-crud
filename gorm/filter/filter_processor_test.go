@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 // 简单的测试模型
@@ -134,16 +134,16 @@ func TestProcessor_ProcessDispatcher(t *testing.T) {
 	proc := NewProcessor()
 
 	cases := []struct {
-		op      pagination.Operator
+		op      paginationV1.Operator
 		field   string
 		value   string
 		substrs []string
 	}{
-		{pagination.Operator_EQ, "name", "tom", []string{"name", "="}},
-		{pagination.Operator_IN, "name", `["a","b"]`, []string{" in "}},
-		{pagination.Operator_BETWEEN, "created_at", `["2020-01-01","2021-01-01"]`, []string{">=", "<="}},
-		{pagination.Operator_IS_NULL, "deleted_at", "", []string{"is null"}},
-		{pagination.Operator_SEARCH, "title", "query", []string{"like"}},
+		{paginationV1.Operator_EQ, "name", "tom", []string{"name", "="}},
+		{paginationV1.Operator_IN, "name", `["a","b"]`, []string{" in "}},
+		{paginationV1.Operator_BETWEEN, "created_at", `["2020-01-01","2021-01-01"]`, []string{">=", "<="}},
+		{paginationV1.Operator_IS_NULL, "deleted_at", "", []string{"is null"}},
+		{paginationV1.Operator_SEARCH, "title", "query", []string{"like"}},
 	}
 
 	for _, c := range cases {

@@ -2,13 +2,14 @@ package pagination
 
 import (
 	"github.com/tx7do/go-crud/mongodb/query"
-	"github.com/tx7do/go-crud/paginator"
+	"github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-crud/pagination/paginator"
 )
 
 // PagePaginator 基于页码的分页器（MongoDB 版）
 // 使用示例： p.BuildClause(builder, page, size) 会在 builder 上设置 skip/limit
 type PagePaginator struct {
-	impl paginator.Paginator
+	impl pagination.Paginator
 }
 
 func NewPagePaginator() *PagePaginator {

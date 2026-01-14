@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 // StructuredSorting 用于把结构化的排序指令转换为 GORM 的 order scope
@@ -18,7 +18,7 @@ func NewStructuredSorting() *StructuredSorting {
 }
 
 // BuildScope 根据 orders 构建 GORM scope（可与 db.Scopes 一起使用）
-func (ss StructuredSorting) BuildScope(orders []*pagination.Sorting) func(*gorm.DB) *gorm.DB {
+func (ss StructuredSorting) BuildScope(orders []*paginationV1.Sorting) func(*gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(orders) == 0 {
 			return db
@@ -36,7 +36,7 @@ func (ss StructuredSorting) BuildScope(orders []*pagination.Sorting) func(*gorm.
 				continue
 			}
 			dir := "ASC"
-			if o.GetOrder() == pagination.Sorting_DESC {
+			if o.GetOrder() == paginationV1.Sorting_DESC {
 				dir = "DESC"
 			}
 			db = db.Order(fmt.Sprintf("%s %s", field, dir))
@@ -47,7 +47,7 @@ func (ss StructuredSorting) BuildScope(orders []*pagination.Sorting) func(*gorm.
 
 // BuildScopeWithDefaultField 当 orders 为空时使用默认排序字段
 // defaultOrderField 为空则不应用默认排序
-func (ss StructuredSorting) BuildScopeWithDefaultField(orders []*pagination.Sorting, defaultOrderField string, defaultDesc bool) func(*gorm.DB) *gorm.DB {
+func (ss StructuredSorting) BuildScopeWithDefaultField(orders []*paginationV1.Sorting, defaultOrderField string, defaultDesc bool) func(*gorm.DB) *gorm.DB {
 	def := strings.TrimSpace(defaultOrderField)
 	if len(orders) == 0 && def != "" && fieldNameRegexp.MatchString(def) {
 		dir := "ASC"
