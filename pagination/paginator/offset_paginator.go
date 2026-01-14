@@ -1,5 +1,7 @@
 package paginator
 
+import "github.com/tx7do/go-crud/pagination"
+
 var DefaultLimit = 10
 var DefaultOffset = 0
 
@@ -9,7 +11,7 @@ type offsetPaginator struct {
 	total  int64
 }
 
-func NewOffsetPaginator(offset, limit int) Paginator {
+func NewOffsetPaginator(offset, limit int) pagination.Paginator {
 	if offset < 0 {
 		offset = DefaultOffset
 	}
@@ -22,14 +24,14 @@ func NewOffsetPaginator(offset, limit int) Paginator {
 	}
 }
 
-func NewOffsetPaginatorWithDefault() Paginator {
+func NewOffsetPaginatorWithDefault() pagination.Paginator {
 	return &offsetPaginator{
 		offset: DefaultOffset,
 		limit:  DefaultLimit,
 	}
 }
 
-func (p *offsetPaginator) Mode() PaginateMode { return ModeOffset }
+func (p *offsetPaginator) Mode() pagination.PaginateMode { return pagination.ModeOffset }
 
 func (p *offsetPaginator) Page() int {
 	lim := p.Limit()
@@ -90,26 +92,26 @@ func (p *offsetPaginator) HasNext() bool {
 }
 func (p *offsetPaginator) HasPrev() bool { return p.Offset() > 0 }
 
-func (p *offsetPaginator) WithPage(page int) Paginator {
+func (p *offsetPaginator) WithPage(page int) pagination.Paginator {
 	if page < 1 {
 		page = 1
 	}
 	p.offset = (page - 1) * p.Limit()
 	return p
 }
-func (p *offsetPaginator) WithSize(size int) Paginator { return p.WithLimit(size) }
-func (p *offsetPaginator) WithOffset(offset int) Paginator {
+func (p *offsetPaginator) WithSize(size int) pagination.Paginator { return p.WithLimit(size) }
+func (p *offsetPaginator) WithOffset(offset int) pagination.Paginator {
 	if offset < 0 {
 		offset = 0
 	}
 	p.offset = offset
 	return p
 }
-func (p *offsetPaginator) WithLimit(limit int) Paginator {
+func (p *offsetPaginator) WithLimit(limit int) pagination.Paginator {
 	if limit < 1 {
 		limit = 1
 	}
 	p.limit = limit
 	return p
 }
-func (p *offsetPaginator) WithToken(string) Paginator { return p }
+func (p *offsetPaginator) WithToken(string) pagination.Paginator { return p }

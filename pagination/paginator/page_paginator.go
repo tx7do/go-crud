@@ -1,5 +1,7 @@
 package paginator
 
+import "github.com/tx7do/go-crud/pagination"
+
 var DefaultPage = 1
 var DefaultPageSize = 10
 
@@ -9,7 +11,7 @@ type pagePaginator struct {
 	total int64
 }
 
-func NewPagePaginator(page, size int) Paginator {
+func NewPagePaginator(page, size int) pagination.Paginator {
 	if page < 1 {
 		page = DefaultPage
 	}
@@ -22,14 +24,14 @@ func NewPagePaginator(page, size int) Paginator {
 	}
 }
 
-func NewPagePaginatorWithDefault() Paginator {
+func NewPagePaginatorWithDefault() pagination.Paginator {
 	return &pagePaginator{
 		page: DefaultPage,
 		size: DefaultPageSize,
 	}
 }
 
-func (p *pagePaginator) Mode() PaginateMode { return ModePage }
+func (p *pagePaginator) Mode() pagination.PaginateMode { return pagination.ModePage }
 
 func (p *pagePaginator) Page() int {
 	if p.page < 1 {
@@ -83,21 +85,21 @@ func (p *pagePaginator) TotalPages() int {
 func (p *pagePaginator) HasNext() bool { return p.Page() < p.TotalPages() }
 func (p *pagePaginator) HasPrev() bool { return p.Page() > 1 }
 
-func (p *pagePaginator) WithPage(page int) Paginator {
+func (p *pagePaginator) WithPage(page int) pagination.Paginator {
 	if page < 1 {
 		page = 1
 	}
 	p.page = page
 	return p
 }
-func (p *pagePaginator) WithSize(size int) Paginator {
+func (p *pagePaginator) WithSize(size int) pagination.Paginator {
 	if size < 1 {
 		size = 1
 	}
 	p.size = size
 	return p
 }
-func (p *pagePaginator) WithOffset(offset int) Paginator {
+func (p *pagePaginator) WithOffset(offset int) pagination.Paginator {
 	// 支持从 offset 设置 page（向上取整）
 	if offset < 0 {
 		offset = 0
@@ -105,5 +107,5 @@ func (p *pagePaginator) WithOffset(offset int) Paginator {
 	p.page = offset/p.Size() + 1
 	return p
 }
-func (p *pagePaginator) WithLimit(limit int) Paginator { return p.WithSize(limit) }
-func (p *pagePaginator) WithToken(string) Paginator    { return p }
+func (p *pagePaginator) WithLimit(limit int) pagination.Paginator { return p.WithSize(limit) }
+func (p *pagePaginator) WithToken(string) pagination.Paginator    { return p }

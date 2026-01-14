@@ -1,9 +1,10 @@
-package paginator
+package pagination
 
 import (
 	"testing"
 
 	pagination "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-utils/trans"
 )
 
 func TestConverterStringToOperator(t *testing.T) {
@@ -72,40 +73,42 @@ func TestIsValidOperatorString(t *testing.T) {
 }
 
 func TestConverterStringToDatePart(t *testing.T) {
-	cases := map[string]pagination.DatePart{
-		"date":         pagination.DatePart_DATE,
-		"Date":         pagination.DatePart_DATE,
-		"DATE":         pagination.DatePart_DATE,
-		"year":         pagination.DatePart_YEAR,
-		"yr":           pagination.DatePart_YEAR,
-		"iso_year":     pagination.DatePart_ISO_YEAR,
-		"iso-year":     pagination.DatePart_ISO_YEAR,
-		"quarter":      pagination.DatePart_QUARTER,
-		"month":        pagination.DatePart_MONTH,
-		"week":         pagination.DatePart_WEEK,
-		"week_day":     pagination.DatePart_WEEK_DAY,
-		"week-day":     pagination.DatePart_WEEK_DAY,
-		"weekday":      pagination.DatePart_WEEK_DAY,
-		"iso_week_day": pagination.DatePart_ISO_WEEK_DAY,
-		"iso-week-day": pagination.DatePart_ISO_WEEK_DAY,
-		"day":          pagination.DatePart_DAY,
-		"time":         pagination.DatePart_TIME,
-		"hour":         pagination.DatePart_HOUR,
-		"minute":       pagination.DatePart_MINUTE,
-		"min":          pagination.DatePart_MINUTE,
-		"second":       pagination.DatePart_SECOND,
-		"sec":          pagination.DatePart_SECOND,
-		"microsecond":  pagination.DatePart_MICROSECOND,
+	cases := map[string]*pagination.DatePart{
+		"date":         trans.Ptr(pagination.DatePart_DATE),
+		"Date":         trans.Ptr(pagination.DatePart_DATE),
+		"DATE":         trans.Ptr(pagination.DatePart_DATE),
+		"year":         trans.Ptr(pagination.DatePart_YEAR),
+		"yr":           trans.Ptr(pagination.DatePart_YEAR),
+		"iso_year":     trans.Ptr(pagination.DatePart_ISO_YEAR),
+		"iso-year":     trans.Ptr(pagination.DatePart_ISO_YEAR),
+		"quarter":      trans.Ptr(pagination.DatePart_QUARTER),
+		"month":        trans.Ptr(pagination.DatePart_MONTH),
+		"week":         trans.Ptr(pagination.DatePart_WEEK),
+		"week_day":     trans.Ptr(pagination.DatePart_WEEK_DAY),
+		"week-day":     trans.Ptr(pagination.DatePart_WEEK_DAY),
+		"weekday":      trans.Ptr(pagination.DatePart_WEEK_DAY),
+		"iso_week_day": trans.Ptr(pagination.DatePart_ISO_WEEK_DAY),
+		"iso-week-day": trans.Ptr(pagination.DatePart_ISO_WEEK_DAY),
+		"day":          trans.Ptr(pagination.DatePart_DAY),
+		"time":         trans.Ptr(pagination.DatePart_TIME),
+		"hour":         trans.Ptr(pagination.DatePart_HOUR),
+		"minute":       trans.Ptr(pagination.DatePart_MINUTE),
+		"min":          trans.Ptr(pagination.DatePart_MINUTE),
+		"second":       trans.Ptr(pagination.DatePart_SECOND),
+		"sec":          trans.Ptr(pagination.DatePart_SECOND),
+		"microsecond":  trans.Ptr(pagination.DatePart_MICROSECOND),
 
 		// unknown / empty -> unspecified
-		"":       pagination.DatePart_DATE_PART_UNSPECIFIED,
-		"foobar": pagination.DatePart_DATE_PART_UNSPECIFIED,
+		"":       nil,
+		"foobar": nil,
 	}
 
 	for input, want := range cases {
 		t.Run(input, func(t *testing.T) {
 			got := ConverterStringToDatePart(input)
-			if got != want {
+			if want == nil && got != nil {
+				t.Fatalf("ConverterStringToDatePart(%q) = %v, want %v", input, got, want)
+			} else if want != nil && *got != *want {
 				t.Fatalf("ConverterStringToDatePart(%q) = %v, want %v", input, got, want)
 			}
 		})

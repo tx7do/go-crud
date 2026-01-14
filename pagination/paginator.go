@@ -1,4 +1,4 @@
-package paginator
+package pagination
 
 // PaginateMode 表示分页方式
 type PaginateMode int

@@ -1,5 +1,7 @@
 package paginator
 
+import "github.com/tx7do/go-crud/pagination"
+
 type tokenPaginator struct {
 	token     string
 	nextToken string
@@ -8,7 +10,7 @@ type tokenPaginator struct {
 	total     int64
 }
 
-func NewTokenPaginator(token string, limit int) Paginator {
+func NewTokenPaginator(token string, limit int) pagination.Paginator {
 	if limit < 1 {
 		limit = DefaultLimit
 	}
@@ -18,13 +20,13 @@ func NewTokenPaginator(token string, limit int) Paginator {
 	}
 }
 
-func NewTokenPaginatorWithDefault() Paginator {
+func NewTokenPaginatorWithDefault() pagination.Paginator {
 	return &tokenPaginator{
 		limit: DefaultLimit,
 	}
 }
 
-func (p *tokenPaginator) Mode() PaginateMode { return ModeToken }
+func (p *tokenPaginator) Mode() pagination.PaginateMode { return pagination.ModeToken }
 
 func (p *tokenPaginator) Page() int { return 1 }
 func (p *tokenPaginator) Size() int {
@@ -76,17 +78,17 @@ func (p *tokenPaginator) TotalPages() int {
 func (p *tokenPaginator) HasNext() bool { return p.nextToken != "" }
 func (p *tokenPaginator) HasPrev() bool { return p.prevToken != "" }
 
-func (p *tokenPaginator) WithPage(int) Paginator { return p } // token 模式下无效
-func (p *tokenPaginator) WithSize(size int) Paginator {
+func (p *tokenPaginator) WithPage(int) pagination.Paginator { return p } // token 模式下无效
+func (p *tokenPaginator) WithSize(size int) pagination.Paginator {
 	if size < 1 {
 		size = 1
 	}
 	p.limit = size
 	return p
 }
-func (p *tokenPaginator) WithOffset(int) Paginator      { return p } // token 模式下无效
-func (p *tokenPaginator) WithLimit(limit int) Paginator { return p.WithSize(limit) }
-func (p *tokenPaginator) WithToken(token string) Paginator {
+func (p *tokenPaginator) WithOffset(int) pagination.Paginator      { return p } // token 模式下无效
+func (p *tokenPaginator) WithLimit(limit int) pagination.Paginator { return p.WithSize(limit) }
+func (p *tokenPaginator) WithToken(token string) pagination.Paginator {
 	p.token = token
 	return p
 }

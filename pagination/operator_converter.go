@@ -1,4 +1,4 @@
-package paginator
+package pagination
 
 import (
 	"strings"
@@ -150,16 +150,16 @@ var datePartMap = map[string]pagination.DatePart{
 }
 
 // ConverterStringToDatePart 将字符串转换为 pagination.DatePart 枚举
-func ConverterStringToDatePart(s string) pagination.DatePart {
+func ConverterStringToDatePart(s string) *pagination.DatePart {
 	key := strings.ToLower(stringcase.ToSnakeCase(s))
 	if v, ok := datePartMap[key]; ok {
-		return v
+		return &v
 	}
-	return pagination.DatePart_DATE_PART_UNSPECIFIED
+	return nil
 }
 
 // IsValidDatePartString 检查字符串是否为有效的 pagination.DatePart 枚举值
 func IsValidDatePartString(str string) bool {
 	dp := ConverterStringToDatePart(str)
-	return dp != pagination.DatePart_DATE_PART_UNSPECIFIED
+	return dp != nil
 }
