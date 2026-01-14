@@ -2,13 +2,15 @@ module github.com/tx7do/go-crud/influxdb
 
 go 1.24.11
 
-replace github.com/tx7do/go-crud => ../
+replace github.com/tx7do/go-crud/api => ../api
+
+replace github.com/tx7do/go-crud/pagination => ../pagination
 
 require (
 	github.com/InfluxCommunity/influxdb3-go/v2 v2.12.0
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tx7do/go-crud/api v0.0.2
+	github.com/tx7do/go-crud/api v0.0.3
 	github.com/tx7do/go-crud/pagination v0.0.1
 	github.com/tx7do/go-utils v1.1.34
 	google.golang.org/protobuf v1.36.11
