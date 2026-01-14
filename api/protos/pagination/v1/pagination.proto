@@ -111,8 +111,8 @@ enum DatePart {
   MICROSECOND = 14; // 微秒
 }
 
-// 单个条件
-message Condition {
+// 过滤条件
+message FilterCondition {
   // 过滤字段名
   string field = 1;
 
@@ -139,7 +139,7 @@ message FilterExpr {
   ExprType type = 1;
 
   // 条件列表
-  repeated Condition conditions = 2;
+  repeated FilterCondition conditions = 2;
 
   // 子表达式列表
   repeated FilterExpr groups = 3;
