@@ -94,25 +94,29 @@ func (qsc *QueryStringConverter) processQueryMap(filterExpr *paginationV1.Filter
 		return nil
 	}
 
+	if isOr {
+		orFilterExpr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_OR,
+		}
+
+		for k, v := range queryMap {
+			keys := qsc.splitQueryKey(k)
+			if err := qsc.MakeFieldFilter(orFilterExpr, keys, v); err != nil {
+				return err
+			}
+		}
+
+		// 仅在 OR 组中有实际条件或子组时追加
+		if len(orFilterExpr.Conditions) > 0 || len(orFilterExpr.Groups) > 0 {
+			filterExpr.Groups = append(filterExpr.Groups, orFilterExpr)
+		}
+		return nil
+	}
+
 	for k, v := range queryMap {
 		keys := qsc.splitQueryKey(k)
-
-		if isOr {
-			orFilterExpr := &paginationV1.FilterExpr{
-				Type: paginationV1.ExprType_OR,
-			}
-
-			err := qsc.MakeFieldFilter(orFilterExpr, keys, v)
-			if err != nil {
-				return err
-			}
-
-			filterExpr.Groups = append(filterExpr.Groups, orFilterExpr)
-		} else {
-			err := qsc.MakeFieldFilter(filterExpr, keys, v)
-			if err != nil {
-				return err
-			}
+		if err := qsc.MakeFieldFilter(filterExpr, keys, v); err != nil {
+			return err
 		}
 	}
 

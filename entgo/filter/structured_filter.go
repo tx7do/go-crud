@@ -88,7 +88,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (f
 		// Combine predicates based on expression type
 		switch expr.GetType() {
 		case paginationV1.ExprType_AND:
-			s.Where(sql.Or(ps...))
+			s.Where(sql.And(ps...))
 		case paginationV1.ExprType_OR:
 			s.Where(sql.Or(ps...))
 		}
