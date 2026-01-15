@@ -1,7 +1,7 @@
 git tag api/v0.0.4 --force
 git tag pagination/v0.0.6 --force
 
-git tag entgo/v0.0.19 --force
+git tag entgo/v0.0.20 --force
 git tag gorm/v0.0.13 --force
 
 git tag cassandra/v0.0.3 --force
