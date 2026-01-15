@@ -10,8 +10,8 @@ require (
 	github.com/InfluxCommunity/influxdb3-go/v2 v2.12.0
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tx7do/go-crud/api v0.0.3
-	github.com/tx7do/go-crud/pagination v0.0.3
+	github.com/tx7do/go-crud/api v0.0.4
+	github.com/tx7do/go-crud/pagination v0.0.5
 	github.com/tx7do/go-utils v1.1.34
 	google.golang.org/protobuf v1.36.11
 )
@@ -41,7 +41,7 @@ require (
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260112192933-99fd39fd28a9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260114163908-3f89685c29c3 // indirect
 	google.golang.org/grpc v1.78.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

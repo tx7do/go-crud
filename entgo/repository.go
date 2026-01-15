@@ -19,106 +19,8 @@ import (
 	paging "github.com/tx7do/go-crud/entgo/pagination"
 	"github.com/tx7do/go-crud/entgo/sorting"
 	"github.com/tx7do/go-crud/entgo/update"
+	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 )
-
-type QueryBuilder[ENT_QUERY any, ENT_SELECT any, ENTITY any] interface {
-	Modify(modifiers ...func(s *sql.Selector)) *ENT_SELECT
-
-	Clone() *ENT_QUERY
-
-	All(ctx context.Context) ([]*ENTITY, error)
-
-	Only(ctx context.Context) (*ENTITY, error)
-
-	Count(ctx context.Context) (int, error)
-
-	Select(fields ...string) *ENT_SELECT
-
-	Exist(ctx context.Context) (bool, error)
-}
-
-type ListBuilder[ENT_QUERY any, ENT_SELECT any, ENTITY any] interface {
-	Modify(modifiers ...func(s *sql.Selector)) *ENT_SELECT
-
-	Clone() *ENT_QUERY
-
-	All(ctx context.Context) ([]*ENTITY, error)
-
-	Count(ctx context.Context) (int, error)
-
-	Offset(offset int) *ENT_QUERY
-	Limit(limit int) *ENT_QUERY
-}
-
-type SelectBuilder[ENT_SELECT any, ENTITY any] interface {
-	Modify(modifiers ...func(s *sql.Selector)) *ENT_SELECT
-
-	Clone() SelectBuilder[ENT_SELECT, ENTITY]
-
-	All(ctx context.Context) ([]*ENTITY, error)
-
-	Only(ctx context.Context) (*ENTITY, error)
-
-	Count(ctx context.Context) (int, error)
-
-	Select(fields ...string) *ENT_SELECT
-
-	Exist(ctx context.Context) (bool, error)
-}
-
-type CreateBuilder[ENTITY any] interface {
-	Exec(ctx context.Context) error
-
-	ExecX(ctx context.Context)
-
-	Save(ctx context.Context) (*ENTITY, error)
-
-	SaveX(ctx context.Context) *ENTITY
-}
-
-type CreateBulkBuilder[ENT_CREATE_BULK any, ENTITY any] interface {
-	Exec(ctx context.Context) error
-
-	ExecX(ctx context.Context)
-
-	Save(ctx context.Context) ([]*ENTITY, error)
-
-	SaveX(ctx context.Context) []*ENTITY
-}
-
-type UpdateBuilder[ENT_UPDATE any, PREDICATE any] interface {
-	Exec(ctx context.Context) error
-
-	ExecX(ctx context.Context)
-
-	Save(ctx context.Context) (int, error)
-
-	SaveX(ctx context.Context) int
-
-	Where(ps ...PREDICATE) *ENT_UPDATE
-
-	Modify(modifiers ...func(u *sql.UpdateBuilder)) *ENT_UPDATE
-}
-
-type UpdateOneBuilder[ENT_UPDATE_ONE any, PREDICATE any, ENTITY any] interface {
-	Modify(modifiers ...func(u *sql.UpdateBuilder)) *ENT_UPDATE_ONE
-
-	Save(ctx context.Context) (*ENTITY, error)
-	SaveX(ctx context.Context) *ENTITY
-
-	Exec(ctx context.Context) error
-	ExecX(ctx context.Context)
-
-	Where(ps ...PREDICATE) *ENT_UPDATE_ONE
-}
-
-type DeleteBuilder[ENT_DELETE any, PREDICATE any] interface {
-	Exec(ctx context.Context) (int, error)
-
-	ExecX(ctx context.Context) int
-
-	Where(ps ...PREDICATE) *ENT_DELETE
-}
 
 // Repository Ent查询器
 type Repository[
@@ -139,6 +41,9 @@ type Repository[
 
 	queryStringFilter *filter.QueryStringFilter
 	structuredFilter  *filter.StructuredFilter
+
+	queryStringConverter  *paginationFilter.QueryStringConverter
+	filterStringConverter *paginationFilter.FilterStringConverter
 
 	fieldSelector *field.Selector
 }
@@ -176,6 +81,9 @@ func NewRepository[
 		structuredFilter:  filter.NewStructuredFilter(),
 
 		fieldSelector: field.NewFieldSelector(),
+
+		queryStringConverter:  paginationFilter.NewQueryStringConverter(),
+		filterStringConverter: paginationFilter.NewFilterStringConverter(),
 	}
 }
 
@@ -412,17 +320,26 @@ func (r *Repository[
 	var selectSelector func(s *sql.Selector)
 
 	// filters
-	if req.Query != nil || req.OrQuery != nil {
-		whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
-		if err != nil {
-			log.Errorf("build query string filter selectors failed: %s", err.Error())
-		}
-	} else if req.FilterExpr != nil {
-		whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
-		if err != nil {
-			log.Errorf("build structured filter selectors failed: %s", err.Error())
-		}
+	//if req.Query != nil || req.OrQuery != nil {
+	//	whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
+	//	if err != nil {
+	//		log.Errorf("build query string filter selectors failed: %s", err.Error())
+	//	}
+	//} else if req.FilterExpr != nil {
+	//	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
+	//	if err != nil {
+	//		log.Errorf("build structured filter selectors failed: %s", err.Error())
+	//	}
+	//}
+	filterExpr, err := r.ConvertFilterByPagingRequest(req)
+	if err != nil {
+		log.Errorf("convert filter by pagination request failed: %s", err.Error())
 	}
+	whereSelectors, err = r.structuredFilter.BuildSelectors(filterExpr)
+	if err != nil {
+		log.Errorf("build structured filter selectors failed: %s", err.Error())
+	}
+
 	if whereSelectors != nil {
 		querySelectors = append(querySelectors, whereSelectors...)
 	}
@@ -644,16 +561,24 @@ func (r *Repository[
 	var selectSelector func(s *sql.Selector)
 
 	// filters
-	if req.Query != nil || req.OrQuery != nil {
-		whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
-		if err != nil {
-			log.Errorf("build query string filter selectors failed: %s", err.Error())
-		}
-	} else if req.FilterExpr != nil {
-		whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
-		if err != nil {
-			log.Errorf("build structured filter selectors failed: %s", err.Error())
-		}
+	//if req.Query != nil || req.OrQuery != nil {
+	//	whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
+	//	if err != nil {
+	//		log.Errorf("build query string filter selectors failed: %s", err.Error())
+	//	}
+	//} else if req.FilterExpr != nil {
+	//	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
+	//	if err != nil {
+	//		log.Errorf("build structured filter selectors failed: %s", err.Error())
+	//	}
+	//}
+	filterExpr, err := r.ConvertFilterByPaginationRequest(req)
+	if err != nil {
+		log.Errorf("convert filter by pagination request failed: %s", err.Error())
+	}
+	whereSelectors, err = r.structuredFilter.BuildSelectors(filterExpr)
+	if err != nil {
+		log.Errorf("build structured filter selectors failed: %s", err.Error())
 	}
 
 	// select fields
@@ -1095,4 +1020,68 @@ func (r *Repository[
 	}
 
 	return affected, nil
+}
+
+// ConvertFilterByPagingRequest 将通用分页请求中的过滤条件转换为结构化表达式
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) ConvertFilterByPagingRequest(
+	req *paginationV1.PagingRequest,
+) (*paginationV1.FilterExpr, error) {
+	if req == nil {
+		return nil, nil
+	}
+
+	// 已有结构化表达式，直接返回
+	if req.GetFilterExpr() != nil {
+		return req.GetFilterExpr(), nil
+	}
+
+	// 优先使用 query/or_query 转换
+	if req.GetQuery() != "" || req.GetOrQuery() != "" {
+		return r.queryStringConverter.Convert(req.GetQuery(), req.GetOrQuery())
+	}
+
+	// 最后使用 filter 字符串转换
+	if req.GetFilter() != "" {
+		return r.filterStringConverter.Convert(req.GetFilter())
+	}
+
+	return nil, nil
+}
+
+// ConvertFilterByPaginationRequest 使用通用的分页请求参数转换过滤表达式
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) ConvertFilterByPaginationRequest(
+	req *paginationV1.PaginationRequest,
+) (*paginationV1.FilterExpr, error) {
+	if req == nil {
+		return nil, nil
+	}
+
+	// 已有结构化表达式，直接返回
+	if req.GetFilterExpr() != nil {
+		return req.GetFilterExpr(), nil
+	}
+
+	// 优先使用 query/or_query 转换
+	if req.GetQuery() != "" || req.GetOrQuery() != "" {
+		return r.queryStringConverter.Convert(req.GetQuery(), req.GetOrQuery())
+	}
+
+	// 最后使用 filter 字符串转换
+	if req.GetFilter() != "" {
+		return r.filterStringConverter.Convert(req.GetFilter())
+	}
+
+	return nil, nil
 }

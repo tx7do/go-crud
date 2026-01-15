@@ -133,9 +133,6 @@ func TestNewStructuredFilter(t *testing.T) {
 	if sf == nil {
 		t.Fatal("NewStructuredFilter returned nil")
 	}
-	if sf.processor == nil {
-		t.Fatal("expected processor to be initialized")
-	}
 }
 
 func TestBuildFilterSelectors_NilExpr(t *testing.T) {

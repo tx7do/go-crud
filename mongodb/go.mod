@@ -9,8 +9,8 @@ replace github.com/tx7do/go-crud/pagination => ../pagination
 require (
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tx7do/go-crud/api v0.0.3
-	github.com/tx7do/go-crud/pagination v0.0.3
+	github.com/tx7do/go-crud/api v0.0.4
+	github.com/tx7do/go-crud/pagination v0.0.5
 	github.com/tx7do/go-utils v1.1.34
 	github.com/tx7do/go-utils/mapper v0.0.3
 	go.mongodb.org/mongo-driver v1.17.6
