@@ -158,6 +158,19 @@ func ConverterStringToDatePart(s string) *paginationV1.DatePart {
 	return nil
 }
 
+// ConverterDatePartToString 将 paginationV1.DatePart 枚举转换为字符串
+func ConverterDatePartToString(datePart *paginationV1.DatePart) string {
+	if datePart == nil {
+		return ""
+	}
+	for k, v := range datePartMap {
+		if v == *datePart {
+			return k
+		}
+	}
+	return ""
+}
+
 // IsValidDatePartString 检查字符串是否为有效的 paginationV1.DatePart 枚举值
 func IsValidDatePartString(str string) bool {
 	dp := ConverterStringToDatePart(str)

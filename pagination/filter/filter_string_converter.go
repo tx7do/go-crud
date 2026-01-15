@@ -3,7 +3,6 @@ package filter
 import (
 	"strings"
 
-	"github.com/go-kratos/kratos/v2/encoding"
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
 	"go.einride.tech/aip/filtering"
 	v1alpha1 "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -12,13 +11,10 @@ import (
 )
 
 type FilterStringConverter struct {
-	codec encoding.Codec
 }
 
 func NewFilterStringConverter() *FilterStringConverter {
-	return &FilterStringConverter{
-		codec: encoding.GetCodec("json"),
-	}
+	return &FilterStringConverter{}
 }
 
 func (fsc *FilterStringConverter) Convert(filterString string) (*paginationV1.FilterExpr, error) {

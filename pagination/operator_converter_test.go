@@ -130,3 +130,47 @@ func TestIsValidDatePartString(t *testing.T) {
 		}
 	}
 }
+
+func TestConverterDatePartToString(t *testing.T) {
+	ptr := func(v paginationV1.DatePart) *paginationV1.DatePart { return &v }
+
+	cases := []struct {
+		in   *paginationV1.DatePart
+		want []string
+	}{
+		{in: ptr(paginationV1.DatePart_DATE), want: []string{"date"}},
+		{in: ptr(paginationV1.DatePart_YEAR), want: []string{"year", "yr"}},
+		{in: ptr(paginationV1.DatePart_ISO_YEAR), want: []string{"iso_year", "iso-year"}},
+		{in: ptr(paginationV1.DatePart_QUARTER), want: []string{"quarter"}},
+		{in: ptr(paginationV1.DatePart_MONTH), want: []string{"month"}},
+		{in: ptr(paginationV1.DatePart_WEEK), want: []string{"week"}},
+		{in: ptr(paginationV1.DatePart_WEEK_DAY), want: []string{"week_day", "week-day", "weekday"}},
+		{in: ptr(paginationV1.DatePart_ISO_WEEK_DAY), want: []string{"iso_week_day", "iso-week-day"}},
+		{in: ptr(paginationV1.DatePart_DAY), want: []string{"day"}},
+		{in: ptr(paginationV1.DatePart_TIME), want: []string{"time"}},
+		{in: ptr(paginationV1.DatePart_HOUR), want: []string{"hour"}},
+		{in: ptr(paginationV1.DatePart_MINUTE), want: []string{"minute", "min"}},
+		{in: ptr(paginationV1.DatePart_SECOND), want: []string{"second", "sec"}},
+		{in: ptr(paginationV1.DatePart_MICROSECOND), want: []string{"microsecond"}},
+
+		// nil input -> empty string
+		{in: nil, want: []string{""}},
+
+		// unknown enum value -> empty string
+		{in: ptr(paginationV1.DatePart(9999)), want: []string{""}},
+	}
+
+	for _, c := range cases {
+		got := ConverterDatePartToString(c.in)
+		ok := false
+		for _, w := range c.want {
+			if got == w {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			t.Fatalf("ConverterDatePartToString(%v) = %q, want one of %v", c.in, got, c.want)
+		}
+	}
+}
