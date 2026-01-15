@@ -3,8 +3,10 @@ package pagination
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -203,4 +205,102 @@ func equalInterface(a, b any) bool {
 		return true
 	}
 	return false
+}
+
+func fieldsOf(conds []*paginationV1.FilterCondition) []string {
+	if conds == nil {
+		return nil
+	}
+	fs := make([]string, 0, len(conds))
+	for _, c := range conds {
+		if c == nil {
+			fs = append(fs, "<nil>")
+		} else {
+			fs = append(fs, c.Field)
+		}
+	}
+	return fs
+}
+
+func TestRemoveExcludedConditions(t *testing.T) {
+	t.Run("nil filterExpr", func(t *testing.T) {
+		got := RemoveExcludedConditions(nil, []string{"a"})
+		if len(got) != 0 {
+			t.Fatalf("expected empty result for nil filterExpr, got %v", got)
+		}
+	})
+
+	t.Run("empty conditions", func(t *testing.T) {
+		fe := &paginationV1.FilterExpr{}
+		got := RemoveExcludedConditions(fe, nil)
+		if len(got) != 0 || len(fe.Conditions) != 0 {
+			t.Fatalf("expected no changes for empty conditions, got res=%v, conditions=%v", got, fe.Conditions)
+		}
+	})
+
+	t.Run("exclude none", func(t *testing.T) {
+		fe := &paginationV1.FilterExpr{
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "a"},
+				{Field: "b"},
+			},
+		}
+		got := RemoveExcludedConditions(fe, nil)
+		if len(got) != 0 {
+			t.Fatalf("expected no excluded, got %v", fieldsOf(got))
+		}
+		if !reflect.DeepEqual(fieldsOf(fe.Conditions), []string{"a", "b"}) {
+			t.Fatalf("expected conditions unchanged, got %v", fieldsOf(fe.Conditions))
+		}
+	})
+
+	t.Run("exclude some", func(t *testing.T) {
+		fe := &paginationV1.FilterExpr{
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "a"},
+				{Field: "b"},
+				{Field: "c"},
+			},
+		}
+		got := RemoveExcludedConditions(fe, []string{"b"})
+		if !reflect.DeepEqual(fieldsOf(got), []string{"b"}) {
+			t.Fatalf("expected excluded [b], got %v", fieldsOf(got))
+		}
+		if !reflect.DeepEqual(fieldsOf(fe.Conditions), []string{"a", "c"}) {
+			t.Fatalf("expected remaining [a c], got %v", fieldsOf(fe.Conditions))
+		}
+	})
+
+	t.Run("exclude non-existent", func(t *testing.T) {
+		fe := &paginationV1.FilterExpr{
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "a"},
+			},
+		}
+		got := RemoveExcludedConditions(fe, []string{"x"})
+		if len(got) != 0 {
+			t.Fatalf("expected no excluded for non-existent field, got %v", fieldsOf(got))
+		}
+		if !reflect.DeepEqual(fieldsOf(fe.Conditions), []string{"a"}) {
+			t.Fatalf("expected conditions unchanged, got %v", fieldsOf(fe.Conditions))
+		}
+	})
+
+	t.Run("skip nil and empty field", func(t *testing.T) {
+		fe := &paginationV1.FilterExpr{
+			Conditions: []*paginationV1.FilterCondition{
+				nil,
+				{Field: ""},
+				{Field: "a"},
+			},
+		}
+		got := RemoveExcludedConditions(fe, nil)
+		// nil and empty-field conditions are dropped by the implementation
+		if !reflect.DeepEqual(fieldsOf(fe.Conditions), []string{"a"}) {
+			t.Fatalf("expected remaining [a], got %v", fieldsOf(fe.Conditions))
+		}
+		if len(got) != 0 {
+			t.Fatalf("expected no excluded, got %v", fieldsOf(got))
+		}
+	})
 }

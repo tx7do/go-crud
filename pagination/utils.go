@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// AnyToStructValue 将任意值转换为 structpb.Value（nil 安全）
 func AnyToStructValue(v any) *structpb.Value {
 	sv, err := structpb.NewValue(v)
 	if err != nil {
@@ -15,6 +17,7 @@ func AnyToStructValue(v any) *structpb.Value {
 	return sv
 }
 
+// StructValueToString 将 structpb.Value 转换为字符串表现形式
 func StructValueToString(sv *structpb.Value) string {
 	if sv == nil {
 		return ""
@@ -66,4 +69,37 @@ func AnyToString(v any) string {
 		s := fmt.Sprintf("%v", t)
 		return s
 	}
+}
+
+// RemoveExcludedConditions 从 filterExpr 中移除指定的字段条件（就地修改），
+// 并返回被移除的条件列表。
+func RemoveExcludedConditions(filterExpr *paginationV1.FilterExpr, excludeFields []string) []*paginationV1.FilterCondition {
+	if filterExpr == nil || len(filterExpr.Conditions) == 0 {
+		return []*paginationV1.FilterCondition{}
+	}
+
+	exclude := make(map[string]struct{}, len(excludeFields))
+	for _, f := range excludeFields {
+		if f == "" {
+			continue
+		}
+		exclude[f] = struct{}{}
+	}
+
+	includeConditions := make([]*paginationV1.FilterCondition, 0, len(filterExpr.Conditions))
+	excludeConditions := make([]*paginationV1.FilterCondition, 0, len(filterExpr.Conditions))
+	for _, cond := range filterExpr.Conditions {
+		if cond == nil || cond.Field == "" {
+			continue
+		}
+		if _, skip := exclude[cond.Field]; skip {
+			excludeConditions = append(excludeConditions, cond)
+			continue
+		}
+		includeConditions = append(includeConditions, cond)
+	}
+
+	filterExpr.Conditions = includeConditions
+
+	return excludeConditions
 }
