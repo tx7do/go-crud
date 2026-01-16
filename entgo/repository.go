@@ -6,6 +6,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/go-kratos/kratos/v2/log"
+
 	"github.com/tx7do/go-utils/fieldmaskutil"
 	"github.com/tx7do/go-utils/mapper"
 	"github.com/tx7do/go-utils/trans"
@@ -39,8 +40,7 @@ type Repository[
 	pagePaginator   *paging.PagePaginator
 	tokenPaginator  *paging.TokenPaginator
 
-	queryStringFilter *filter.QueryStringFilter
-	structuredFilter  *filter.StructuredFilter
+	structuredFilter *filter.StructuredFilter
 
 	queryStringConverter  *paginationFilter.QueryStringConverter
 	filterStringConverter *paginationFilter.FilterStringConverter
@@ -77,8 +77,7 @@ func NewRepository[
 		pagePaginator:   paging.NewPagePaginator(),
 		tokenPaginator:  paging.NewTokenPaginator(),
 
-		queryStringFilter: filter.NewQueryStringFilter(),
-		structuredFilter:  filter.NewStructuredFilter(),
+		structuredFilter: filter.NewStructuredFilter(),
 
 		fieldSelector: field.NewFieldSelector(),
 
@@ -320,17 +319,6 @@ func (r *Repository[
 	var selectSelector func(s *sql.Selector)
 
 	// filters
-	//if req.Query != nil || req.OrQuery != nil {
-	//	whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
-	//	if err != nil {
-	//		log.Errorf("build query string filter selectors failed: %s", err.Error())
-	//	}
-	//} else if req.FilterExpr != nil {
-	//	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
-	//	if err != nil {
-	//		log.Errorf("build structured filter selectors failed: %s", err.Error())
-	//	}
-	//}
 	filterExpr, err := r.ConvertFilterByPagingRequest(req)
 	if err != nil {
 		log.Errorf("convert filter by pagination request failed: %s", err.Error())
@@ -561,17 +549,6 @@ func (r *Repository[
 	var selectSelector func(s *sql.Selector)
 
 	// filters
-	//if req.Query != nil || req.OrQuery != nil {
-	//	whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
-	//	if err != nil {
-	//		log.Errorf("build query string filter selectors failed: %s", err.Error())
-	//	}
-	//} else if req.FilterExpr != nil {
-	//	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
-	//	if err != nil {
-	//		log.Errorf("build structured filter selectors failed: %s", err.Error())
-	//	}
-	//}
 	filterExpr, err := r.ConvertFilterByPaginationRequest(req)
 	if err != nil {
 		log.Errorf("convert filter by pagination request failed: %s", err.Error())

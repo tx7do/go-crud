@@ -16,6 +16,7 @@ func (TenantID) Fields() []ent.Field {
 		field.Uint32("tenant_id").
 			Comment("租户ID").
 			Immutable().
+			Default(0).
 			Nillable().
 			Optional(),
 	}
@@ -33,6 +34,7 @@ func (TenantID64) Fields() []ent.Field {
 		field.Uint64("tenant_id").
 			Comment("租户ID").
 			Immutable().
+			Default(0).
 			Nillable().
 			Optional(),
 	}
