@@ -6,13 +6,13 @@ import "context"
 // 增加了权限相关方法，便于在 Hook/Policy 中判断是否允许更新/删除等操作。
 type Context interface {
 	// UserID 返回当前用户ID
-	UserID() uint32
+	UserID() uint64
 
 	// TenantID 返回租户ID
-	TenantID() uint32
+	TenantID() uint64
 
 	// OrgUnitID 返回当前身份挂载的组织单元 ID
-	OrgUnitID() uint32
+	OrgUnitID() uint64
 
 	// Permissions 返回当前 Viewer 的权限列表（可用于细粒度判断）
 	Permissions() []string
@@ -54,4 +54,17 @@ func FromContext(ctx context.Context) (Context, bool) {
 	v := ctx.Value(contextKey{})
 	vc, ok := v.(Context)
 	return vc, ok
+}
+
+// MustFromContext 从 context 中提取 Context，若不存在则返回一个默认的 NoopContext
+func MustFromContext(ctx context.Context) Context {
+	if ctx == nil {
+		return NewNoopContext()
+	}
+	if v := ctx.Value(contextKey{}); v != nil {
+		if vc, ok := v.(Context); ok && vc != nil {
+			return vc
+		}
+	}
+	return NewNoopContext()
 }

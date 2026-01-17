@@ -14,9 +14,3 @@ type Auditor interface {
 	// 应该在应用程序关闭、测试结束或需要强制持久化时调用
 	Flush(ctx context.Context) error
 }
-
-// NopAuditor 是一个不执行任何操作的 Auditor，用于默认情况或测试
-type NopAuditor struct{}
-
-func (*NopAuditor) Record(_ context.Context, _ *Entry) error { return nil }
-func (*NopAuditor) Flush(_ context.Context) error            { return nil }
