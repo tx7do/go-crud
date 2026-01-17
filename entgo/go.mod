@@ -6,6 +6,10 @@ replace github.com/tx7do/go-crud/api => ../api
 
 replace github.com/tx7do/go-crud/pagination => ../pagination
 
+replace github.com/tx7do/go-crud/audit => ../audit
+
+replace github.com/tx7do/go-crud/viewer => ../viewer
+
 require (
 	entgo.io/ent v0.14.5
 	github.com/XSAM/otelsql v0.41.0
@@ -13,12 +17,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.4
-	github.com/tx7do/go-crud/viewer v0.0.1
+	github.com/tx7do/go-crud/audit v0.0.2
 	github.com/tx7do/go-crud/pagination v0.0.6
+	github.com/tx7do/go-crud/viewer v0.0.5
 	github.com/tx7do/go-utils v1.1.34
 	github.com/tx7do/go-utils/id v0.0.2
 	github.com/tx7do/go-utils/mapper v0.0.3
-	github.com/xiaoqidun/entps v1.42.2
+	github.com/xiaoqidun/entps v1.44.1
 	go.opentelemetry.io/otel v1.39.0
 	google.golang.org/protobuf v1.36.11
 )
@@ -66,8 +71,8 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260114163908-3f89685c29c3 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260114163908-3f89685c29c3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/libc v1.67.4 // indirect
+	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.44.0 // indirect
+	modernc.org/sqlite v1.44.1 // indirect
 )

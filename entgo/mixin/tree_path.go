@@ -3,6 +3,7 @@ package mixin
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -46,21 +47,89 @@ func (TreePath) Fields() []ent.Field {
 
 func (TreePath) Hooks() []ent.Hook {
 	return []ent.Hook{
-		// 阻止无效路径变更
-		func(next ent.Mutator) ent.Mutator {
-			return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-				if v, ok := m.Field("path"); ok {
-					if p, ok2 := v.(string); ok2 && p != "" {
-						if !strings.HasSuffix(p, "/") {
-							return nil, fmt.Errorf("path must end with '/' (e.g., '/1/2/3/')")
-						}
-						if len(p) > 1 && !strings.HasPrefix(p, "/") {
-							return nil, fmt.Errorf("path must start with '/'")
-						}
+		validatePathHook(),
+		computedPathHook(),
+	}
+}
+
+// validatePathHook 返回用于校验 path 字段的 Hook
+func validatePathHook() ent.Hook {
+	return func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if v, ok := m.Field("path"); ok {
+				if p, ok2 := v.(string); ok2 && p != "" {
+					if !strings.HasSuffix(p, "/") {
+						return nil, fmt.Errorf("path must end with '/' (e.g., '/1/2/3/')")
+					}
+					if len(p) > 1 && !strings.HasPrefix(p, "/") {
+						return nil, fmt.Errorf("path must start with '/'")
 					}
 				}
-				return next.Mutate(ctx, m)
-			})
-		},
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+}
+
+// ensureComputedPath: 当未显式设置 path 时，尝试根据 parent_id 或 parent edge 计算并设置 path。
+// 若 mutation 支持 SetField，会调用 setter；否则不做修改（不阻塞）。
+func ensureComputedPath(m ent.Mutation) {
+	// 如果已经显式设置了 path（且非空），则不覆盖
+	if v, ok := m.Field("path"); ok {
+		if s, ok2 := v.(string); ok2 && s != "" {
+			return
+		}
+	}
+
+	// 尝试从 parent_id 字段或 edge parent 提取 parent id
+	var parentID int
+	if v, ok := m.Field("parent_id"); ok {
+		switch id := v.(type) {
+		case int:
+			parentID = id
+		case int32:
+			parentID = int(id)
+		case int64:
+			parentID = int(id)
+		}
+	} else {
+		// 兼容生成的 mutation 提供 EdgeIDs 方法
+		if ei, ok := m.(interface{ EdgeIDs(string) []int }); ok {
+			ids := ei.EdgeIDs("parent")
+			if len(ids) > 0 {
+				parentID = ids[0]
+			}
+		}
+	}
+
+	// 构造简单 path：root 或 "/{parentID}/"
+	var computed string
+	if parentID == 0 {
+		computed = "/"
+	} else {
+		computed = fmt.Sprintf("/%d/", parentID)
+	}
+
+	// 尝试通过反射调用 SetField 方法，避免接口字面量断言引起的歧义
+	rv := reflect.ValueOf(m)
+	if mf := rv.MethodByName("SetField"); mf.IsValid() {
+		if mf.Type().Kind() == reflect.Func && mf.Type().NumIn() == 2 {
+			// 检查第一个参数是否为 string（常见签名为 SetField(string, any/interface{})）
+			if mf.Type().In(0).Kind() == reflect.String {
+				// 调用 SetField("path", computed)
+				mf.Call([]reflect.Value{reflect.ValueOf("path"), reflect.ValueOf(computed)})
+			}
+		}
+	}
+}
+
+// computedPathHook 返回用于在创建/更新前自动注入 path 的 Hook
+func computedPathHook() ent.Hook {
+	return func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			// 在下游 Mutator 之前尝试设置 path（若未显式设置）
+			ensureComputedPath(m)
+			return next.Mutate(ctx, m)
+		})
 	}
 }
