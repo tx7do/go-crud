@@ -25,6 +25,6 @@ const (
 
 // DataScope 定义数据权限范围
 type DataScope struct {
-	ScopeType string   // 数据权限范围类型
-	TargetIDs []uint64 // 具体的 ID 集合
+	ScopeType ScopeType // 数据权限范围类型
+	TargetIDs []uint64  // 具体的 ID 集合
 }
