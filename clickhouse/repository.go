@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-kratos/kratos/v2/log"
+	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 	"github.com/tx7do/go-utils/mapper"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
@@ -37,8 +38,10 @@ type Repository[DTO any, ENTITY any] struct {
 	pagePaginator   *paging.PagePaginator
 	tokenPaginator  *paging.TokenPaginator
 
-	queryStringFilter *filter.QueryStringFilter
-	structuredFilter  *filter.StructuredFilter
+	structuredFilter *filter.StructuredFilter
+
+	queryStringConverter  *paginationFilter.QueryStringConverter
+	filterStringConverter *paginationFilter.FilterStringConverter
 
 	fieldSelector *field.Selector
 
@@ -63,8 +66,10 @@ func NewRepository[DTO any, ENTITY any](client *Client, mapper *mapper.CopierMap
 		pagePaginator:   paging.NewPagePaginator(),
 		tokenPaginator:  paging.NewTokenPaginator(),
 
-		queryStringFilter: filter.NewQueryStringFilter(),
-		structuredFilter:  filter.NewStructuredFilter(),
+		structuredFilter: filter.NewStructuredFilter(),
+
+		queryStringConverter:  paginationFilter.NewQueryStringConverter(),
+		filterStringConverter: paginationFilter.NewFilterStringConverter(),
 
 		fieldSelector: field.NewFieldSelector(),
 	}
@@ -149,16 +154,23 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	var err error
 
 	// filters
-	if req.Query != nil || req.OrQuery != nil {
-		_, err = r.queryStringFilter.BuildSelectors(queryBuilder, req.GetQuery(), req.GetOrQuery())
+	if req.GetQuery() != "" {
+		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
 		if err != nil {
-			log.Errorf("build query string filter selectors failed: %s", err.Error())
+			log.Errorf("convert query to filter expr failed: %s", err.Error())
+			return nil, err
 		}
-	} else if req.FilterExpr != nil {
-		_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
+	} else if req.GetFilter() != "" {
+		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
 		if err != nil {
-			log.Errorf("build structured filter selectors failed: %s", err.Error())
+			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+			return nil, err
 		}
+	}
+
+	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
+	if err != nil {
+		log.Errorf("build structured filter selectors failed: %s", err.Error())
 	}
 
 	// 计数
@@ -236,16 +248,23 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	var err error
 
 	// filters
-	if req.Query != nil || req.OrQuery != nil {
-		_, err = r.queryStringFilter.BuildSelectors(queryBuilder, req.GetQuery(), req.GetOrQuery())
+	if req.GetQuery() != "" {
+		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
 		if err != nil {
-			log.Errorf("build query string filter selectors failed: %s", err.Error())
+			log.Errorf("convert query to filter expr failed: %s", err.Error())
+			return nil, err
 		}
-	} else if req.FilterExpr != nil {
-		_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
+	} else if req.GetFilter() != "" {
+		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
 		if err != nil {
-			log.Errorf("build structured filter selectors failed: %s", err.Error())
+			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+			return nil, err
 		}
+	}
+
+	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
+	if err != nil {
+		log.Errorf("build structured filter selectors failed: %s", err.Error())
 	}
 
 	// 计数

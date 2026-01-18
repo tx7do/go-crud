@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-kratos/kratos/v2/log"
+	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/influxdb/field"
@@ -24,8 +25,10 @@ type Repository[DTO any, ENTITY any] struct {
 	pagePaginator   *paging.PagePaginator
 	tokenPaginator  *paging.TokenPaginator
 
-	queryStringFilter *filter.QueryStringFilter
-	structuredFilter  *filter.StructuredFilter
+	structuredFilter *filter.StructuredFilter
+
+	queryStringConverter  *paginationFilter.QueryStringConverter
+	filterStringConverter *paginationFilter.FilterStringConverter
 
 	fieldSelector *field.Selector
 
@@ -48,8 +51,10 @@ func NewRepository[DTO any, ENTITY any](client *Client, collection string, logge
 		pagePaginator:   paging.NewPagePaginator(),
 		tokenPaginator:  paging.NewTokenPaginator(),
 
-		queryStringFilter: filter.NewQueryStringFilter(),
-		structuredFilter:  filter.NewStructuredFilter(),
+		structuredFilter: filter.NewStructuredFilter(),
+
+		queryStringConverter:  paginationFilter.NewQueryStringConverter(),
+		filterStringConverter: paginationFilter.NewFilterStringConverter(),
 
 		fieldSelector: field.NewFieldSelector(),
 	}
@@ -66,15 +71,25 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 
 	qb := query.NewQueryBuilder(r.collection)
 
+	var err error
+
 	// apply filters
-	if req.GetQuery() != "" || req.GetOrQuery() != "" {
-		if _, err := r.queryStringFilter.BuildSelectors(qb, req.GetQuery(), req.GetOrQuery()); err != nil {
+	if req.GetQuery() != "" {
+		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
+		if err != nil {
+			log.Errorf("convert query to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
-	} else if req.FilterExpr != nil {
-		if _, err := r.structuredFilter.BuildSelectors(qb, req.FilterExpr); err != nil {
+	} else if req.GetFilter() != "" {
+		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
+		if err != nil {
+			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
+	}
+
+	if _, err = r.structuredFilter.BuildSelectors(qb, req.FilterExpr); err != nil {
+		return nil, 0, err
 	}
 
 	// select fields
@@ -122,15 +137,25 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 
 	qb := query.NewQueryBuilder(r.collection)
 
+	var err error
+
 	// apply filters
-	if req.GetQuery() != "" || req.GetOrQuery() != "" {
-		if _, err := r.queryStringFilter.BuildSelectors(qb, req.GetQuery(), req.GetOrQuery()); err != nil {
+	if req.GetQuery() != "" {
+		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
+		if err != nil {
+			log.Errorf("convert query to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
-	} else if req.FilterExpr != nil {
-		if _, err := r.structuredFilter.BuildSelectors(qb, req.FilterExpr); err != nil {
+	} else if req.GetFilter() != "" {
+		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
+		if err != nil {
+			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
+	}
+
+	if _, err = r.structuredFilter.BuildSelectors(qb, req.FilterExpr); err != nil {
+		return nil, 0, err
 	}
 
 	// select fields
@@ -167,7 +192,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 }
 
 // Create 插入一条记录
-func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO) (*DTO, error) {
+func (r *Repository[DTO, ENTITY]) Create(_ context.Context, dto *DTO) (*DTO, error) {
 	if r.client == nil {
 		return nil, errors.New("influxdb database is nil")
 	}
@@ -182,7 +207,7 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO) (*DTO, e
 }
 
 // BatchCreate 批量插入
-func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) ([]*DTO, error) {
+func (r *Repository[DTO, ENTITY]) BatchCreate(_ context.Context, dtos []*DTO) ([]*DTO, error) {
 	if r.client == nil {
 		return nil, errors.New("influxdb database is nil")
 	}

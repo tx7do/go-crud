@@ -1019,8 +1019,8 @@ func (r *Repository[
 	}
 
 	// 优先使用 query/or_query 转换
-	if req.GetQuery() != "" || req.GetOrQuery() != "" {
-		return r.queryStringConverter.Convert(req.GetQuery(), req.GetOrQuery())
+	if req.GetQuery() != "" {
+		return r.queryStringConverter.Convert(req.GetQuery())
 	}
 
 	// 最后使用 filter 字符串转换
@@ -1051,8 +1051,8 @@ func (r *Repository[
 	}
 
 	// 优先使用 query/or_query 转换
-	if req.GetQuery() != "" || req.GetOrQuery() != "" {
-		return r.queryStringConverter.Convert(req.GetQuery(), req.GetOrQuery())
+	if req.GetQuery() != "" {
+		return r.queryStringConverter.Convert(req.GetQuery())
 	}
 
 	// 最后使用 filter 字符串转换

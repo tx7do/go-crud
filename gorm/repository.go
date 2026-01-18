@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -47,8 +48,10 @@ type Repository[DTO any, ENTITY any] struct {
 	pagePaginator   *paging.PagePaginator
 	tokenPaginator  *paging.TokenPaginator
 
-	queryStringFilter *filter.QueryStringFilter
-	structuredFilter  *filter.StructuredFilter
+	structuredFilter *filter.StructuredFilter
+
+	queryStringConverter  *paginationFilter.QueryStringConverter
+	filterStringConverter *paginationFilter.FilterStringConverter
 
 	fieldSelector *field.Selector
 }
@@ -64,8 +67,10 @@ func NewRepository[DTO any, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]
 		pagePaginator:   paging.NewPagePaginator(),
 		tokenPaginator:  paging.NewTokenPaginator(),
 
-		queryStringFilter: filter.NewQueryStringFilter(),
-		structuredFilter:  filter.NewStructuredFilter(),
+		structuredFilter: filter.NewStructuredFilter(),
+
+		queryStringConverter:  paginationFilter.NewQueryStringConverter(),
+		filterStringConverter: paginationFilter.NewFilterStringConverter(),
 
 		fieldSelector: field.NewFieldSelector(),
 	}
@@ -154,16 +159,23 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, db *gorm.D
 	var pagingSelector func(*gorm.DB) *gorm.DB
 
 	// filters
-	if req.Query != nil || req.OrQuery != nil {
-		whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
+	if req.GetQuery() != "" {
+		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
 		if err != nil {
-			log.Errorf("build query string filter selectors failed: %s", err.Error())
+			log.Errorf("convert query to filter expr failed: %s", err.Error())
+			return nil, err
 		}
-	} else if req.FilterExpr != nil {
-		whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
+	} else if req.GetFilter() != "" {
+		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
 		if err != nil {
-			log.Errorf("build structured filter selectors failed: %s", err.Error())
+			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+			return nil, err
 		}
+	}
+
+	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
+	if err != nil {
+		log.Errorf("build structured filter selectors failed: %s", err.Error())
 	}
 
 	// select fields
@@ -252,16 +264,23 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, db *go
 	var pagingSelector func(*gorm.DB) *gorm.DB
 
 	// filters
-	if req.Query != nil || req.OrQuery != nil {
-		whereSelectors, err = r.queryStringFilter.BuildSelectors(req.GetQuery(), req.GetOrQuery())
+	if req.GetQuery() != "" {
+		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
 		if err != nil {
-			log.Errorf("build query string filter selectors failed: %s", err.Error())
+			log.Errorf("convert query to filter expr failed: %s", err.Error())
+			return nil, err
 		}
-	} else if req.FilterExpr != nil {
-		whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
+	} else if req.GetFilter() != "" {
+		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
 		if err != nil {
-			log.Errorf("build structured filter selectors failed: %s", err.Error())
+			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+			return nil, err
 		}
+	}
+
+	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
+	if err != nil {
+		log.Errorf("build structured filter selectors failed: %s", err.Error())
 	}
 
 	// select fields
