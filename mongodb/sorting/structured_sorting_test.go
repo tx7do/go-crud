@@ -24,12 +24,12 @@ func TestStructuredSorting_BuildOrderClause_Orderings(t *testing.T) {
 	qb := query.NewQueryBuilder()
 
 	orders := []*paginationV1.Sorting{
-		{Field: "name", Order: paginationV1.Sorting_ASC},
-		{Field: "age", Order: paginationV1.Sorting_DESC},
+		{Field: "name", Direction: paginationV1.Sorting_ASC},
+		{Field: "age", Direction: paginationV1.Sorting_DESC},
 		nil,
-		{Field: "", Order: paginationV1.Sorting_ASC},
-		{Field: "UserProfile.name", Order: paginationV1.Sorting_ASC}, // first segment -> snake_case
-		{Field: "created_at", Order: paginationV1.Sorting_ASC},
+		{Field: "", Direction: paginationV1.Sorting_ASC},
+		{Field: "UserProfile.name", Direction: paginationV1.Sorting_ASC}, // first segment -> snake_case
+		{Field: "created_at", Direction: paginationV1.Sorting_ASC},
 	}
 
 	gotBuilder := ss.BuildOrderClause(qb, orders)
@@ -92,7 +92,7 @@ func TestStructuredSorting_BuildOrderClauseWithDefaultField(t *testing.T) {
 
 	// 提供 orders 时应优先使用 orders 而非默认字段
 	qb2 := query.NewQueryBuilder()
-	gotBuilder2 := ss.BuildOrderClauseWithDefaultField(qb2, []*paginationV1.Sorting{{Field: "score", Order: paginationV1.Sorting_DESC}}, "created_at", true)
+	gotBuilder2 := ss.BuildOrderClauseWithDefaultField(qb2, []*paginationV1.Sorting{{Field: "score", Direction: paginationV1.Sorting_DESC}}, "created_at", true)
 	_, opts2 := gotBuilder2.Build()
 	if opts2.Sort == nil {
 		t.Fatalf("expected sort applied, got nil")

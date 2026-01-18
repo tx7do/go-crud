@@ -14,6 +14,7 @@ import (
 	"github.com/tx7do/go-crud/mongodb/query"
 	"github.com/tx7do/go-crud/mongodb/sorting"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
+	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -23,17 +24,16 @@ import (
 type Repository[DTO any, ENTITY any] struct {
 	mapper *mapper.CopierMapper[DTO, ENTITY]
 
-	queryStringSorting *sorting.QueryStringSorting
-	structuredSorting  *sorting.StructuredSorting
-
 	offsetPaginator *paging.OffsetPaginator
 	pagePaginator   *paging.PagePaginator
 	tokenPaginator  *paging.TokenPaginator
 
-	structuredFilter *filter.StructuredFilter
-
+	structuredFilter      *filter.StructuredFilter
 	queryStringConverter  *paginationFilter.QueryStringConverter
 	filterStringConverter *paginationFilter.FilterStringConverter
+
+	structuredSorting      *sorting.StructuredSorting
+	orderByStringConverter *paginationSorting.OrderByStringConverter
 
 	fieldSelector *field.Selector
 
@@ -50,8 +50,7 @@ func NewRepository[DTO any, ENTITY any](client *Client, collection string, mappe
 		mapper: mapper,
 		log:    logger,
 
-		queryStringSorting: sorting.NewQueryStringSorting(),
-		structuredSorting:  sorting.NewStructuredSorting(),
+		structuredSorting: sorting.NewStructuredSorting(),
 
 		offsetPaginator: paging.NewOffsetPaginator(),
 		pagePaginator:   paging.NewPagePaginator(),
@@ -61,6 +60,8 @@ func NewRepository[DTO any, ENTITY any](client *Client, collection string, mappe
 
 		queryStringConverter:  paginationFilter.NewQueryStringConverter(),
 		filterStringConverter: paginationFilter.NewFilterStringConverter(),
+
+		orderByStringConverter: paginationSorting.NewOrderByStringConverter(),
 
 		fieldSelector: field.NewFieldSelector(),
 	}
@@ -81,20 +82,24 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 
 	// apply filters
 	if req.GetQuery() != "" {
-		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
+		var filterExpr *paginationV1.FilterExpr
+		filterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
 		if err != nil {
 			log.Errorf("convert query to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
+		req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
 	} else if req.GetFilter() != "" {
-		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
+		var filterExpr *paginationV1.FilterExpr
+		filterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
 		if err != nil {
 			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
+		req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
 	}
 
-	if _, err = r.structuredFilter.BuildSelectors(qb, req.FilterExpr); err != nil {
+	if _, err = r.structuredFilter.BuildSelectors(qb, req.GetFilterExpr()); err != nil {
 		return nil, 0, err
 	}
 
@@ -106,10 +111,16 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	}
 
 	// sorting
-	if len(req.GetSorting()) > 0 {
+	if len(req.GetOrderBy()) > 0 {
+		var sortings []*paginationV1.Sorting
+		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
+		if err != nil {
+			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			return nil, 0, err
+		}
+		_ = r.structuredSorting.BuildOrderClause(qb, sortings)
+	} else if len(req.GetSorting()) > 0 {
 		_ = r.structuredSorting.BuildOrderClause(qb, req.GetSorting())
-	} else if len(req.GetOrderBy()) > 0 {
-		_ = r.queryStringSorting.BuildOrderClause(qb, req.GetOrderBy())
 	}
 
 	// pagination
@@ -167,20 +178,24 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 
 	// apply filters
 	if req.GetQuery() != "" {
-		req.FilterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
+		var filterExpr *paginationV1.FilterExpr
+		filterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
 		if err != nil {
 			log.Errorf("convert query to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
+		req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
 	} else if req.GetFilter() != "" {
-		req.FilterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
+		var filterExpr *paginationV1.FilterExpr
+		filterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
 		if err != nil {
 			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
 			return nil, 0, err
 		}
+		req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
 	}
 
-	if _, err = r.structuredFilter.BuildSelectors(qb, req.FilterExpr); err != nil {
+	if _, err = r.structuredFilter.BuildSelectors(qb, req.GetFilterExpr()); err != nil {
 		return nil, 0, err
 	}
 
@@ -192,10 +207,16 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	}
 
 	// sorting
-	if len(req.GetSorting()) > 0 {
+	if len(req.GetOrderBy()) > 0 {
+		var sortings []*paginationV1.Sorting
+		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
+		if err != nil {
+			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			return nil, 0, err
+		}
+		_ = r.structuredSorting.BuildOrderClause(qb, sortings)
+	} else if len(req.GetSorting()) > 0 {
 		_ = r.structuredSorting.BuildOrderClause(qb, req.GetSorting())
-	} else if len(req.GetOrderBy()) > 0 {
-		_ = r.queryStringSorting.BuildOrderClause(qb, req.GetOrderBy())
 	}
 
 	// pagination

@@ -21,6 +21,7 @@ import (
 	"github.com/tx7do/go-crud/entgo/sorting"
 	"github.com/tx7do/go-crud/entgo/update"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
+	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 )
 
 // Repository Ent查询器
@@ -33,17 +34,16 @@ type Repository[
 ] struct {
 	mapper *mapper.CopierMapper[DTO, ENTITY]
 
-	queryStringSorting *sorting.QueryStringSorting
-	structuredSorting  *sorting.StructuredSorting
-
 	offsetPaginator *paging.OffsetPaginator
 	pagePaginator   *paging.PagePaginator
 	tokenPaginator  *paging.TokenPaginator
 
-	structuredFilter *filter.StructuredFilter
-
+	structuredFilter      *filter.StructuredFilter
 	queryStringConverter  *paginationFilter.QueryStringConverter
 	filterStringConverter *paginationFilter.FilterStringConverter
+
+	structuredSorting      *sorting.StructuredSorting
+	orderByStringConverter *paginationSorting.OrderByStringConverter
 
 	fieldSelector *field.Selector
 }
@@ -70,19 +70,18 @@ func NewRepository[
 	]{
 		mapper: mapper,
 
-		queryStringSorting: sorting.NewQueryStringSorting(),
-		structuredSorting:  sorting.NewStructuredSorting(),
-
 		offsetPaginator: paging.NewOffsetPaginator(),
 		pagePaginator:   paging.NewPagePaginator(),
 		tokenPaginator:  paging.NewTokenPaginator(),
 
-		structuredFilter: filter.NewStructuredFilter(),
-
 		fieldSelector: field.NewFieldSelector(),
 
+		structuredFilter:      filter.NewStructuredFilter(),
 		queryStringConverter:  paginationFilter.NewQueryStringConverter(),
 		filterStringConverter: paginationFilter.NewFilterStringConverter(),
+
+		structuredSorting:      sorting.NewStructuredSorting(),
+		orderByStringConverter: paginationSorting.NewOrderByStringConverter(),
 	}
 }
 
@@ -350,7 +349,14 @@ func (r *Repository[
 			log.Errorf("build structured sorting selector failed: %s", err.Error())
 		}
 	} else if len(req.GetOrderBy()) > 0 {
-		sortingSelector, err = r.queryStringSorting.BuildSelector(req.GetOrderBy())
+		var sortings []*paginationV1.Sorting
+		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
+		if err != nil {
+			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			return nil, nil, err
+		}
+
+		sortingSelector, err = r.structuredSorting.BuildSelector(sortings)
 		if err != nil {
 			log.Errorf("build query string sorting selector failed: %s", err.Error())
 		}
@@ -576,7 +582,14 @@ func (r *Repository[
 			log.Errorf("build structured sorting selector failed: %s", err.Error())
 		}
 	} else if len(req.GetOrderBy()) > 0 {
-		sortingSelector, err = r.queryStringSorting.BuildSelector(req.GetOrderBy())
+		var sortings []*paginationV1.Sorting
+		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
+		if err != nil {
+			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			return nil, nil, err
+		}
+
+		sortingSelector, err = r.structuredSorting.BuildSelector(sortings)
 		if err != nil {
 			log.Errorf("build query string sorting selector failed: %s", err.Error())
 		}

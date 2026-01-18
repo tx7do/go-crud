@@ -238,7 +238,7 @@ func TestRepository_Candle_ListWithPaging(t *testing.T) {
 	// 使用 FieldMask 仅选择 symbol 和 close，并按 timestamp 降序（最新在前）
 	req := &paginationV1.PagingRequest{
 		FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"symbol", "close"}},
-		OrderBy:   []string{"timestamp DESC"},
+		OrderBy:   trans.Ptr("timestamp DESC"),
 		// 不显式分页参数 -> 不会强制限制（ListWithPaging 的实现在无分页参数时返回全部）
 	}
 

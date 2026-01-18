@@ -46,7 +46,7 @@ func (ss StructuredSorting) BuildOrderClause(builder *query.Builder, orders []*p
 		}
 
 		dir := int32(1)
-		if o.GetOrder() == paginationV1.Sorting_DESC {
+		if o.GetDirection() == paginationV1.Sorting_DESC {
 			dir = -1
 		}
 		sortFields = append(sortFields, bsonV2.E{Key: col, Value: dir})
@@ -74,8 +74,8 @@ func (ss StructuredSorting) BuildOrderClauseWithDefaultField(builder *query.Buil
 		}
 		orders = []*paginationV1.Sorting{
 			{
-				Field: defaultOrderField,
-				Order: order,
+				Field:     defaultOrderField,
+				Direction: order,
 			},
 		}
 	}

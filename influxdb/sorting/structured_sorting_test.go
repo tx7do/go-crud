@@ -8,6 +8,21 @@ import (
 	"github.com/tx7do/go-crud/influxdb/query"
 )
 
+func extractOrderClause(q string) string {
+	idx := strings.Index(q, "ORDER BY ")
+	if idx == -1 {
+		return ""
+	}
+	s := q[idx+len("ORDER BY "):]
+	// 截断到可能的后续子句（LIMIT/GROUP BY/WHERE/OFFSET）
+	for _, delim := range []string{" LIMIT", " GROUP BY", " WHERE", " OFFSET"} {
+		if p := strings.Index(s, delim); p != -1 {
+			s = s[:p]
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
 func TestStructuredSorting_BuildOrderClause_NoOrders_NoSort(t *testing.T) {
 	ss := NewStructuredSorting()
 	qb := query.NewQueryBuilder("m")
@@ -27,12 +42,12 @@ func TestStructuredSorting_BuildOrderClause_Orderings(t *testing.T) {
 	qb := query.NewQueryBuilder("m")
 
 	orders := []*paginationV1.Sorting{
-		{Field: "name", Order: paginationV1.Sorting_ASC},
-		{Field: "age", Order: paginationV1.Sorting_DESC},
+		{Field: "name", Direction: paginationV1.Sorting_ASC},
+		{Field: "age", Direction: paginationV1.Sorting_DESC},
 		nil,
-		{Field: "", Order: paginationV1.Sorting_ASC},
-		{Field: "UserProfile.name", Order: paginationV1.Sorting_ASC}, // first segment -> snake_case
-		{Field: "created_at", Order: paginationV1.Sorting_ASC},
+		{Field: "", Direction: paginationV1.Sorting_ASC},
+		{Field: "UserProfile.name", Direction: paginationV1.Sorting_ASC}, // first segment -> snake_case
+		{Field: "created_at", Direction: paginationV1.Sorting_ASC},
 	}
 
 	gotBuilder := ss.BuildOrderClause(qb, orders)
@@ -88,7 +103,7 @@ func TestStructuredSorting_BuildOrderClauseWithDefaultField(t *testing.T) {
 
 	// 提供 orders 时应优先使用 orders 而非默认字段
 	qb2 := query.NewQueryBuilder("m")
-	provided := []*paginationV1.Sorting{{Field: "score", Order: paginationV1.Sorting_DESC}}
+	provided := []*paginationV1.Sorting{{Field: "score", Direction: paginationV1.Sorting_DESC}}
 	gotBuilder2 := ss.BuildOrderClauseWithDefaultField(qb2, provided, "created_at", true)
 	if gotBuilder2 == nil {
 		t.Fatalf("expected builder returned, got nil")

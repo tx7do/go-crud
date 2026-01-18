@@ -36,7 +36,7 @@ func (ss StructuredSorting) BuildScope(orders []*paginationV1.Sorting) func(*gor
 				continue
 			}
 			dir := "ASC"
-			if o.GetOrder() == paginationV1.Sorting_DESC {
+			if o.GetDirection() == paginationV1.Sorting_DESC {
 				dir = "DESC"
 			}
 			db = db.Order(fmt.Sprintf("%s %s", field, dir))

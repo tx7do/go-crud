@@ -173,8 +173,9 @@ func TestRepository_ListWithPaging_ConditionQuery(t *testing.T) {
 
 	// 按条件查询 id:2（根据项目的 queryStringFilter 语法，若语法不同请调整 Query 字符串）
 	req := &paginationV1.PagingRequest{
-		Query: trans.Ptr("{\"id\": 2}"),
-		//Query:    trans.Ptr("{\"name\": \"Item1\"}"),
+		FilteringType: &paginationV1.PagingRequest_Query{
+			Query: "{\"id\": 2}",
+		},
 		NoPaging: trans.Ptr(true),
 	}
 

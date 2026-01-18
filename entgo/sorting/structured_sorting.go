@@ -23,7 +23,7 @@ func (ss StructuredSorting) BuildSelector(orders []*paginationV1.Sorting) (func(
 				continue
 			}
 
-			buildOrderBySelector(s, order.Field, order.GetOrder() == paginationV1.Sorting_DESC)
+			buildOrderBySelector(s, order.Field, order.GetDirection() == paginationV1.Sorting_DESC)
 		}
 	}, nil
 }

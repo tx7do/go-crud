@@ -4,8 +4,40 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
+
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
+
+// 简单模型用于构建 SQL
+type User struct {
+	ID        int
+	Name      string
+	Age       int
+	CreatedAt int64
+	Score     int
+}
+
+func openDryRunDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		DryRun: true,
+	})
+	if err != nil {
+		t.Fatalf("failed to open dry-run db: %v", err)
+	}
+	return db
+}
+
+func sqlOfScope(t *testing.T, scope func(*gorm.DB) *gorm.DB) string {
+	db := openDryRunDB(t)
+	var users []User
+	tx := db.Session(&gorm.Session{DryRun: true}).Model(&User{}).Scopes(scope).Find(&users)
+	if tx.Error != nil {
+		t.Fatalf("unexpected error executing dummy query: %v", tx.Error)
+	}
+	return tx.Statement.SQL.String()
+}
 
 func TestStructuredSorting_BuildScope_Empty(t *testing.T) {
 	ss := NewStructuredSorting()
@@ -21,11 +53,11 @@ func TestStructuredSorting_BuildScope_Orderings(t *testing.T) {
 	ss := NewStructuredSorting()
 
 	orders := []*paginationV1.Sorting{
-		{Field: "name", Order: paginationV1.Sorting_ASC},
-		{Field: "age", Order: paginationV1.Sorting_DESC},
+		{Field: "name", Direction: paginationV1.Sorting_ASC},
+		{Field: "age", Direction: paginationV1.Sorting_DESC},
 		nil,
-		{Field: "", Order: paginationV1.Sorting_ASC},
-		{Field: "created_at", Order: paginationV1.Sorting_ASC},
+		{Field: "", Direction: paginationV1.Sorting_ASC},
+		{Field: "created_at", Direction: paginationV1.Sorting_ASC},
 	}
 
 	scope := ss.BuildScope(orders)
@@ -58,7 +90,7 @@ func TestStructuredSorting_BuildScopeWithDefaultField(t *testing.T) {
 	}
 
 	// 提供 orders 时应优先使用 orders 而非默认字段
-	scope2 := ss.BuildScopeWithDefaultField([]*paginationV1.Sorting{{Field: "score", Order: paginationV1.Sorting_DESC}}, "created_at", true)
+	scope2 := ss.BuildScopeWithDefaultField([]*paginationV1.Sorting{{Field: "score", Direction: paginationV1.Sorting_DESC}}, "created_at", true)
 	sql2 := sqlOfScope(t, scope2)
 	up2 := strings.ToUpper(sql2)
 	if strings.Contains(up2, "CREATED_AT") {

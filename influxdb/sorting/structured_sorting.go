@@ -43,7 +43,7 @@ func (ss StructuredSorting) BuildOrderClause(builder *query.Builder, orders []*p
 			col = stringcase.ToSnakeCase(field)
 		}
 
-		desc := o.GetOrder() == paginationV1.Sorting_DESC
+		desc := o.GetDirection() == paginationV1.Sorting_DESC
 		builder = builder.OrderBy(col, desc)
 	}
 
@@ -65,8 +65,8 @@ func (ss StructuredSorting) BuildOrderClauseWithDefaultField(builder *query.Buil
 		}
 		orders = []*paginationV1.Sorting{
 			{
-				Field: defaultOrderField,
-				Order: order,
+				Field:     defaultOrderField,
+				Direction: order,
 			},
 		}
 	}

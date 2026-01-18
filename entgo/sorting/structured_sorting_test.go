@@ -25,11 +25,11 @@ func TestStructuredSorting_BuildSelector_Orderings(t *testing.T) {
 	ss := NewStructuredSorting()
 
 	orders := []*paginationV1.Sorting{
-		{Field: "name", Order: paginationV1.Sorting_ASC},
-		{Field: "age", Order: paginationV1.Sorting_DESC},
+		{Field: "name", Direction: paginationV1.Sorting_ASC},
+		{Field: "age", Direction: paginationV1.Sorting_DESC},
 		nil,
-		{Field: "", Order: paginationV1.Sorting_ASC},
-		{Field: "created_at", Order: paginationV1.Sorting_ASC},
+		{Field: "", Direction: paginationV1.Sorting_ASC},
+		{Field: "created_at", Direction: paginationV1.Sorting_ASC},
 	}
 
 	selFunc, err := ss.BuildSelector(orders)
@@ -77,7 +77,7 @@ func TestStructuredSorting_BuildSelectorWithDefaultField(t *testing.T) {
 	}
 
 	// 提供 orders 时，应优先使用 orders 而非默认字段
-	selFunc2, err := ss.BuildSelectorWithDefaultField([]*paginationV1.Sorting{{Field: "score", Order: paginationV1.Sorting_DESC}}, "created_at", true)
+	selFunc2, err := ss.BuildSelectorWithDefaultField([]*paginationV1.Sorting{{Field: "score", Direction: paginationV1.Sorting_DESC}}, "created_at", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
