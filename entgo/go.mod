@@ -16,7 +16,7 @@ require (
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
-	github.com/tx7do/go-crud/api v0.0.4
+	github.com/tx7do/go-crud/api v0.0.5
 	github.com/tx7do/go-crud/audit v0.0.2
 	github.com/tx7do/go-crud/pagination v0.0.6
 	github.com/tx7do/go-crud/viewer v0.0.5
