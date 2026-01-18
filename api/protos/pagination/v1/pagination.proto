@@ -40,6 +40,7 @@ message Sorting {
   // 排序字段（如"id"、"create_time"）
   string field = 1;
 
+  // 排序方向
   Order order = 2;
 }
 
@@ -281,45 +282,47 @@ message PagingRequest {
     }
   ];
 
-  // 排序条件，其语法为JSON字符串，例如：{"val1", "-val2"}。字段名前加'-'为降序，否则为升序。
-  repeated string order_by = 10 [
+  oneof filtering_type {
+    // JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+    string query = 10 [
+      json_name = "query",
+      (gnostic.openapi.v3.property) = {
+        description: "JSON字符串过滤条件，基础语法：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md",
+        example: {yaml: "{\"field1\":\"val1\", \"field2___icontains\":\"val2\"}"}
+      }
+    ];
+
+    // Google AIP规范字符串过滤条件
+    string filter = 11 [
+      json_name = "filter",
+      (gnostic.openapi.v3.property) = {
+        description: "Google AIP规范字符串过滤条件。"
+      }
+    ];
+
+    // 复杂过滤表达式（优先使用）
+    FilterExpr filter_expr = 12 [
+      json_name = "filterExpr",
+      (gnostic.openapi.v3.property) = {
+        description: "复杂过滤表达式，优先于已弃用的 query/or_query。服务端应以此为准并执行严格校验与参数化。"
+      }
+    ];
+  }
+
+  // 排序条件
+  optional string order_by = 20 [
     json_name = "orderBy",
     (gnostic.openapi.v3.property) = {
-      description: "排序条件，其语法为JSON字符串，例如：{\"val1\", \"-val2\"}。字段名前加'-'为降序，否则为升序。"
+      description: "排序条件"
       example: {yaml: "{\"val1\", \"-val2\"}"}
     }
   ];
 
-  // JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
-  optional string query = 11 [
-    json_name = "query",
-    (gnostic.openapi.v3.property) = {
-      description: "JSON字符串过滤条件，基础语法：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md",
-      example: {yaml: "{\"field1\":\"val1\", \"field2___icontains\":\"val2\"}"}
-    }
-  ];
-
-  // Google AIP规范字符串过滤条件
-  optional string filter = 12 [
-    json_name = "filter",
-    (gnostic.openapi.v3.property) = {
-      description: "Google AIP规范字符串过滤条件。"
-    }
-  ];
-
-  // 排序规则（可选，建议必传以保证分页结果稳定）
-  repeated Sorting sorting = 20 [
+  // 排序规则
+  repeated Sorting sorting = 21 [
     json_name = "sorting",
     (gnostic.openapi.v3.property) = {
-      description: "排序规则（可选，建议必传以保证分页结果稳定）"
-    }
-  ];
-
-  // 复杂过滤表达式
-  optional FilterExpr filter_expr = 21 [
-    json_name = "filterExpr",
-    (gnostic.openapi.v3.property) = {
-      description: "复杂过滤表达式"
+      description: "排序规则"
     }
   ];
 
@@ -449,45 +452,47 @@ message PaginationRequest {
     ];
   }
 
-  // 排序条件，其语法为JSON字符串，例如：{"val1", "-val2"}。字段名前加'-'为降序，否则为升序。
-  repeated string order_by = 10 [
+  oneof filtering_type {
+    // JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+    string query = 10 [
+      json_name = "query",
+      (gnostic.openapi.v3.property) = {
+        description: "JSON字符串过滤条件，基础语法：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md",
+        example: {yaml: "{\"field1\":\"val1\", \"field2___icontains\":\"val2\"}"}
+      }
+    ];
+
+    // Google AIP规范字符串过滤条件
+    string filter = 11 [
+      json_name = "filter",
+      (gnostic.openapi.v3.property) = {
+        description: "Google AIP规范字符串过滤条件。"
+      }
+    ];
+
+    // 复杂过滤表达式（优先使用）
+    FilterExpr filter_expr = 12 [
+      json_name = "filterExpr",
+      (gnostic.openapi.v3.property) = {
+        description: "复杂过滤表达式，优先于已弃用的 query/or_query。服务端应以此为准并执行严格校验与参数化。"
+      }
+    ];
+  }
+
+  // 排序条件
+  optional string order_by = 20 [
     json_name = "orderBy",
     (gnostic.openapi.v3.property) = {
-      description: "排序条件，其语法为JSON字符串，例如：{\"val1\", \"-val2\"}。字段名前加'-'为降序，否则为升序。"
+      description: "排序条件"
       example: {yaml: "{\"val1\", \"-val2\"}"}
     }
   ];
 
-  // JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
-  optional string query = 11 [
-    json_name = "query",
-    (gnostic.openapi.v3.property) = {
-      description: "JSON字符串过滤条件，基础语法：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md",
-      example: {yaml: "{\"field1\":\"val1\", \"field2___icontains\":\"val2\"}"}
-    }
-  ];
-
-  // Google AIP规范字符串过滤条件
-  optional string filter = 12 [
-    json_name = "filter",
-    (gnostic.openapi.v3.property) = {
-      description: "Google AIP规范字符串过滤条件。"
-    }
-  ];
-
-  // 排序规则（可选，建议必传以保证分页结果稳定）
-  repeated Sorting sorting = 20 [
+  // 排序规则
+  repeated Sorting sorting = 21 [
     json_name = "sorting",
     (gnostic.openapi.v3.property) = {
-      description: "排序规则（可选，建议必传以保证分页结果稳定）"
-    }
-  ];
-
-  // 复杂过滤表达式（优先使用）
-  optional FilterExpr filter_expr = 21 [
-    json_name = "filterExpr",
-    (gnostic.openapi.v3.property) = {
-      description: "复杂过滤表达式，优先于已弃用的 query/or_query。服务端应以此为准并执行严格校验与参数化。"
+      description: "排序规则"
     }
   ];
 
