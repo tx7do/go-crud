@@ -1,5 +1,5 @@
-git tag api/v0.0.6 --force
-git tag pagination/v0.0.7 --force
+git tag api/v0.0.7 --force
+git tag pagination/v0.0.8 --force
 git tag viewer/v0.0.5 --force
 git tag audit/v0.0.2 --force
 

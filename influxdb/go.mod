@@ -10,7 +10,7 @@ require (
 	github.com/InfluxCommunity/influxdb3-go/v2 v2.12.0
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tx7do/go-crud/api v0.0.5
+	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-crud/pagination v0.0.7
 	github.com/tx7do/go-utils v1.1.34
 	google.golang.org/protobuf v1.36.11

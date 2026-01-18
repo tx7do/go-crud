@@ -33,8 +33,8 @@ import "gnostic/openapi/v3/annotations.proto";
 message Sorting {
   // 排序方向（ASC/DESC，默认ASC）
   enum Direction {
-    ASC = 0;
-    DESC = 1;
+    ASC = 0; // 升序
+    DESC = 1; // 降序
   }
 
   // 排序字段（如"id"、"create_time"）

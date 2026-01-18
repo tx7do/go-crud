@@ -7,7 +7,7 @@ replace github.com/tx7do/go-crud/api => ../api
 require (
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/google/go-cmp v0.7.0
-	github.com/tx7do/go-crud/api v0.0.5
+	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-utils v1.1.34
 	go.einride.tech/aip v0.79.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260114163908-3f89685c29c3
