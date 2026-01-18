@@ -32,7 +32,7 @@ import "gnostic/openapi/v3/annotations.proto";
 // 排序规则（分页场景通常需配合排序保证结果稳定）
 message Sorting {
   // 排序方向（ASC/DESC，默认ASC）
-  enum Order {
+  enum Direction {
     ASC = 0;
     DESC = 1;
   }
@@ -41,7 +41,7 @@ message Sorting {
   string field = 1;
 
   // 排序方向
-  Order order = 2;
+  Direction direction = 2;
 }
 
 // 操作符枚举

@@ -299,49 +299,49 @@ func (ExprType) EnumDescriptor() ([]byte, []int) {
 }
 
 // 排序方向（ASC/DESC，默认ASC）
-type Sorting_Order int32
+type Sorting_Direction int32
 
 const (
-	Sorting_ASC  Sorting_Order = 0
-	Sorting_DESC Sorting_Order = 1
+	Sorting_ASC  Sorting_Direction = 0
+	Sorting_DESC Sorting_Direction = 1
 )
 
-// Enum value maps for Sorting_Order.
+// Enum value maps for Sorting_Direction.
 var (
-	Sorting_Order_name = map[int32]string{
+	Sorting_Direction_name = map[int32]string{
 		0: "ASC",
 		1: "DESC",
 	}
-	Sorting_Order_value = map[string]int32{
+	Sorting_Direction_value = map[string]int32{
 		"ASC":  0,
 		"DESC": 1,
 	}
 )
 
-func (x Sorting_Order) Enum() *Sorting_Order {
-	p := new(Sorting_Order)
+func (x Sorting_Direction) Enum() *Sorting_Direction {
+	p := new(Sorting_Direction)
 	*p = x
 	return p
 }
 
-func (x Sorting_Order) String() string {
+func (x Sorting_Direction) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (Sorting_Order) Descriptor() protoreflect.EnumDescriptor {
+func (Sorting_Direction) Descriptor() protoreflect.EnumDescriptor {
 	return file_pagination_v1_pagination_proto_enumTypes[3].Descriptor()
 }
 
-func (Sorting_Order) Type() protoreflect.EnumType {
+func (Sorting_Direction) Type() protoreflect.EnumType {
 	return &file_pagination_v1_pagination_proto_enumTypes[3]
 }
 
-func (x Sorting_Order) Number() protoreflect.EnumNumber {
+func (x Sorting_Direction) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use Sorting_Order.Descriptor instead.
-func (Sorting_Order) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use Sorting_Direction.Descriptor instead.
+func (Sorting_Direction) EnumDescriptor() ([]byte, []int) {
 	return file_pagination_v1_pagination_proto_rawDescGZIP(), []int{0, 0}
 }
 
@@ -351,7 +351,7 @@ type Sorting struct {
 	// 排序字段（如"id"、"create_time"）
 	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
 	// 排序方向
-	Order         Sorting_Order `protobuf:"varint,2,opt,name=order,proto3,enum=pagination.Sorting_Order" json:"order,omitempty"`
+	Direction     Sorting_Direction `protobuf:"varint,2,opt,name=direction,proto3,enum=pagination.Sorting_Direction" json:"direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -393,9 +393,9 @@ func (x *Sorting) GetField() string {
 	return ""
 }
 
-func (x *Sorting) GetOrder() Sorting_Order {
+func (x *Sorting) GetDirection() Sorting_Direction {
 	if x != nil {
-		return x.Order
+		return x.Direction
 	}
 	return Sorting_ASC
 }
@@ -1419,11 +1419,11 @@ var File_pagination_v1_pagination_proto protoreflect.FileDescriptor
 const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\n" +
 	"\x1epagination/v1/pagination.proto\x12\n" +
-	"pagination\x1a google/protobuf/field_mask.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x19google/protobuf/any.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a$gnostic/openapi/v3/annotations.proto\"l\n" +
+	"pagination\x1a google/protobuf/field_mask.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x19google/protobuf/any.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a$gnostic/openapi/v3/annotations.proto\"|\n" +
 	"\aSorting\x12\x14\n" +
-	"\x05field\x18\x01 \x01(\tR\x05field\x12/\n" +
-	"\x05order\x18\x02 \x01(\x0e2\x19.pagination.Sorting.OrderR\x05order\"\x1a\n" +
-	"\x05Order\x12\a\n" +
+	"\x05field\x18\x01 \x01(\tR\x05field\x12;\n" +
+	"\tdirection\x18\x02 \x01(\x0e2\x1d.pagination.Sorting.DirectionR\tdirection\"\x1e\n" +
+	"\tDirection\x12\a\n" +
 	"\x03ASC\x10\x00\x12\b\n" +
 	"\x04DESC\x10\x01\"\xbb\x02\n" +
 	"\x0fFilterCondition\x12\x14\n" +
@@ -1614,7 +1614,7 @@ var file_pagination_v1_pagination_proto_goTypes = []any{
 	(Operator)(0),                  // 0: pagination.Operator
 	(DatePart)(0),                  // 1: pagination.DatePart
 	(ExprType)(0),                  // 2: pagination.ExprType
-	(Sorting_Order)(0),             // 3: pagination.Sorting.Order
+	(Sorting_Direction)(0),         // 3: pagination.Sorting.Direction
 	(*Sorting)(nil),                // 4: pagination.Sorting
 	(*FilterCondition)(nil),        // 5: pagination.FilterCondition
 	(*FilterExpr)(nil),             // 6: pagination.FilterExpr
@@ -1634,7 +1634,7 @@ var file_pagination_v1_pagination_proto_goTypes = []any{
 	(*anypb.Any)(nil),              // 20: google.protobuf.Any
 }
 var file_pagination_v1_pagination_proto_depIdxs = []int32{
-	3,  // 0: pagination.Sorting.order:type_name -> pagination.Sorting.Order
+	3,  // 0: pagination.Sorting.direction:type_name -> pagination.Sorting.Direction
 	0,  // 1: pagination.FilterCondition.op:type_name -> pagination.Operator
 	16, // 2: pagination.FilterCondition.json_value:type_name -> google.protobuf.Value
 	1,  // 3: pagination.FilterCondition.date_part:type_name -> pagination.DatePart
