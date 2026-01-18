@@ -816,16 +816,14 @@ type PagingRequest struct {
 	NoPaging *bool `protobuf:"varint,6,opt,name=no_paging,json=noPaging,proto3,oneof" json:"no_paging,omitempty"`
 	// 排序条件，其语法为JSON字符串，例如：{"val1", "-val2"}。字段名前加'-'为降序，否则为升序。
 	OrderBy []string `protobuf:"bytes,10,rep,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
+	// JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+	Query *string `protobuf:"bytes,11,opt,name=query,proto3,oneof" json:"query,omitempty"`
+	// Google AIP规范字符串过滤条件
+	Filter *string `protobuf:"bytes,12,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
 	// 排序规则（可选，建议必传以保证分页结果稳定）
-	Sorting []*Sorting `protobuf:"bytes,11,rep,name=sorting,proto3" json:"sorting,omitempty"`
-	// AND过滤参数，其语法为json格式的字符串，如：{"key1":"val1","key2":"val2"}，具体请参见：https://github.com/tx7do/go-utils/tree/main/entgo/query/README.md
-	Query *string `protobuf:"bytes,20,opt,name=query,proto3,oneof" json:"query,omitempty"`
-	// OR过滤参数，语法同AND过滤参数。
-	OrQuery *string `protobuf:"bytes,21,opt,name=or_query,json=or,proto3,oneof" json:"or_query,omitempty"`
+	Sorting []*Sorting `protobuf:"bytes,20,rep,name=sorting,proto3" json:"sorting,omitempty"`
 	// 复杂过滤表达式
-	FilterExpr *FilterExpr `protobuf:"bytes,22,opt,name=filter_expr,json=filterExpr,proto3,oneof" json:"filter_expr,omitempty"`
-	// 过滤字符串，基于AIP规范的过滤表达式。
-	Filter *string `protobuf:"bytes,23,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
+	FilterExpr *FilterExpr `protobuf:"bytes,21,opt,name=filter_expr,json=filterExpr,proto3,oneof" json:"filter_expr,omitempty"`
 	// 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
 	FieldMask     *fieldmaskpb.FieldMask `protobuf:"bytes,30,opt,name=field_mask,json=fieldMask,proto3,oneof" json:"field_mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -911,13 +909,6 @@ func (x *PagingRequest) GetOrderBy() []string {
 	return nil
 }
 
-func (x *PagingRequest) GetSorting() []*Sorting {
-	if x != nil {
-		return x.Sorting
-	}
-	return nil
-}
-
 func (x *PagingRequest) GetQuery() string {
 	if x != nil && x.Query != nil {
 		return *x.Query
@@ -925,11 +916,18 @@ func (x *PagingRequest) GetQuery() string {
 	return ""
 }
 
-func (x *PagingRequest) GetOrQuery() string {
-	if x != nil && x.OrQuery != nil {
-		return *x.OrQuery
+func (x *PagingRequest) GetFilter() string {
+	if x != nil && x.Filter != nil {
+		return *x.Filter
 	}
 	return ""
+}
+
+func (x *PagingRequest) GetSorting() []*Sorting {
+	if x != nil {
+		return x.Sorting
+	}
+	return nil
 }
 
 func (x *PagingRequest) GetFilterExpr() *FilterExpr {
@@ -937,13 +935,6 @@ func (x *PagingRequest) GetFilterExpr() *FilterExpr {
 		return x.FilterExpr
 	}
 	return nil
-}
-
-func (x *PagingRequest) GetFilter() string {
-	if x != nil && x.Filter != nil {
-		return *x.Filter
-	}
-	return ""
 }
 
 func (x *PagingRequest) GetFieldMask() *fieldmaskpb.FieldMask {
@@ -1127,23 +1118,15 @@ type PaginationRequest struct {
 	//	*PaginationRequest_NoPaging
 	PaginationType isPaginationRequest_PaginationType `protobuf_oneof:"pagination_type"`
 	// 排序条件，其语法为JSON字符串，例如：{"val1", "-val2"}。字段名前加'-'为降序，否则为升序。
-	//
-	// Deprecated: Marked as deprecated in pagination/v1/pagination.proto.
 	OrderBy []string `protobuf:"bytes,10,rep,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
+	// JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+	Query *string `protobuf:"bytes,11,opt,name=query,proto3,oneof" json:"query,omitempty"`
+	// Google AIP规范字符串过滤条件
+	Filter *string `protobuf:"bytes,12,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
 	// 排序规则（可选，建议必传以保证分页结果稳定）
-	Sorting []*Sorting `protobuf:"bytes,11,rep,name=sorting,proto3" json:"sorting,omitempty"`
-	// AND过滤参数，其语法为json格式的字符串，如：{"key1":"val1","key2":"val2"}，具体请参见：https://github.com/tx7do/go-utils/tree/main/entgo/query/README.md
-	//
-	// Deprecated: Marked as deprecated in pagination/v1/pagination.proto.
-	Query *string `protobuf:"bytes,20,opt,name=query,proto3,oneof" json:"query,omitempty"`
-	// OR过滤参数，语法同AND过滤参数。
-	//
-	// Deprecated: Marked as deprecated in pagination/v1/pagination.proto.
-	OrQuery *string `protobuf:"bytes,21,opt,name=or_query,json=or,proto3,oneof" json:"or_query,omitempty"`
+	Sorting []*Sorting `protobuf:"bytes,20,rep,name=sorting,proto3" json:"sorting,omitempty"`
 	// 复杂过滤表达式（优先使用）
-	FilterExpr *FilterExpr `protobuf:"bytes,22,opt,name=filter_expr,json=filterExpr,proto3,oneof" json:"filter_expr,omitempty"`
-	// 过滤字符串，基于AIP规范的过滤表达式。
-	Filter *string `protobuf:"bytes,23,opt,name=filter,proto3,oneof" json:"filter,omitempty"`
+	FilterExpr *FilterExpr `protobuf:"bytes,21,opt,name=filter_expr,json=filterExpr,proto3,oneof" json:"filter_expr,omitempty"`
 	// 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
 	FieldMask     *fieldmaskpb.FieldMask `protobuf:"bytes,30,opt,name=field_mask,json=fieldMask,proto3,oneof" json:"field_mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1223,12 +1206,25 @@ func (x *PaginationRequest) GetNoPaging() *NoPaging {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in pagination/v1/pagination.proto.
 func (x *PaginationRequest) GetOrderBy() []string {
 	if x != nil {
 		return x.OrderBy
 	}
 	return nil
+}
+
+func (x *PaginationRequest) GetQuery() string {
+	if x != nil && x.Query != nil {
+		return *x.Query
+	}
+	return ""
+}
+
+func (x *PaginationRequest) GetFilter() string {
+	if x != nil && x.Filter != nil {
+		return *x.Filter
+	}
+	return ""
 }
 
 func (x *PaginationRequest) GetSorting() []*Sorting {
@@ -1238,34 +1234,11 @@ func (x *PaginationRequest) GetSorting() []*Sorting {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in pagination/v1/pagination.proto.
-func (x *PaginationRequest) GetQuery() string {
-	if x != nil && x.Query != nil {
-		return *x.Query
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in pagination/v1/pagination.proto.
-func (x *PaginationRequest) GetOrQuery() string {
-	if x != nil && x.OrQuery != nil {
-		return *x.OrQuery
-	}
-	return ""
-}
-
 func (x *PaginationRequest) GetFilterExpr() *FilterExpr {
 	if x != nil {
 		return x.FilterExpr
 	}
 	return nil
-}
-
-func (x *PaginationRequest) GetFilter() string {
-	if x != nil && x.Filter != nil {
-		return *x.Filter
-	}
-	return ""
 }
 
 func (x *PaginationRequest) GetFieldMask() *fieldmaskpb.FieldMask {
@@ -1407,7 +1380,7 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tBW\xbaGT\x92\x02Q上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）R\x05token\x12d\n" +
 	"\tpage_size\x18\x02 \x01(\rBG\xbaGD\x8a\x02\t\t\x00\x00\x00\x00\x00\x00$@\x92\x025每页条数（默认10，建议设置上限如100）R\bpageSize\"\n" +
 	"\n" +
-	"\bNoPaging\"\xbc\x0e\n" +
+	"\bNoPaging\"\xd3\r\n" +
 	"\rPagingRequest\x12Q\n" +
 	"\x04page\x18\x01 \x01(\rB8\xbaG5\x8a\x02\t\t\x00\x00\x00\x00\x00\x00\xf0?\x92\x02&当前页码（从1开始，默认1）H\x00R\x04page\x88\x01\x01\x12i\n" +
 	"\tpage_size\x18\x02 \x01(\rBG\xbaGD\x8a\x02\t\t\x00\x00\x00\x00\x00\x00$@\x92\x025每页条数（默认10，建议设置上限如100）H\x01R\bpageSize\x88\x01\x01\x12[\n" +
@@ -1416,16 +1389,14 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x05token\x18\x05 \x01(\tBW\xbaGT\x92\x02Q上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）H\x04R\x05token\x88\x01\x01\x12k\n" +
 	"\tno_paging\x18\x06 \x01(\bBI\xbaGF\x92\x02C是否不分页，如果为true，则page和pageSize参数无效。H\x05R\bnoPaging\x88\x01\x01\x12\xb0\x01\n" +
 	"\border_by\x18\n" +
-	" \x03(\tB\x94\x01\xbaG\x90\x01:\x13\x12\x11{\"val1\", \"-val2\"}\x92\x02x排序条件，其语法为JSON字符串，例如：{\"val1\", \"-val2\"}。字段名前加'-'为降序，否则为升序。R\aorderBy\x12w\n" +
-	"\asorting\x18\v \x03(\v2\x13.pagination.SortingBH\xbaGE\x92\x02B排序规则（可选，建议必传以保证分页结果稳定）R\asorting\x12\xf5\x01\n" +
-	"\x05query\x18\x14 \x01(\tB\xd9\x01\xbaG\xd5\x01:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\xb0\x01AND过滤参数，其语法为json格式的字符串，如：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-utils/tree/main/entgo/query/README.mdH\x06R\x05query\x88\x01\x01\x12P\n" +
-	"\bor_query\x18\x15 \x01(\tB5\xbaG2:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\x0eOR过滤参数H\aR\x02or\x88\x01\x01\x12Y\n" +
-	"\vfilter_expr\x18\x16 \x01(\v2\x16.pagination.FilterExprB\x1b\xbaG\x18\x92\x02\x15复杂过滤表达式H\bR\n" +
-	"filterExpr\x88\x01\x01\x12Y\n" +
-	"\x06filter\x18\x17 \x01(\tB<\xbaG9\x92\x026过滤字符串，基于AIP规范的过滤表达式。H\tR\x06filter\x88\x01\x01\x12\x8d\x02\n" +
+	" \x03(\tB\x94\x01\xbaG\x90\x01:\x13\x12\x11{\"val1\", \"-val2\"}\x92\x02x排序条件，其语法为JSON字符串，例如：{\"val1\", \"-val2\"}。字段名前加'-'为降序，否则为升序。R\aorderBy\x12\xf9\x01\n" +
+	"\x05query\x18\v \x01(\tB\xdd\x01\xbaG\xd9\x01:0\x12.{\"field1\":\"val1\", \"field2___icontains\":\"val2\"}\x92\x02\xa3\x01JSON字符串过滤条件，基础语法：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.mdH\x06R\x05query\x88\x01\x01\x12K\n" +
+	"\x06filter\x18\f \x01(\tB.\xbaG+\x92\x02(Google AIP规范字符串过滤条件。H\aR\x06filter\x88\x01\x01\x12w\n" +
+	"\asorting\x18\x14 \x03(\v2\x13.pagination.SortingBH\xbaGE\x92\x02B排序规则（可选，建议必传以保证分页结果稳定）R\asorting\x12Y\n" +
+	"\vfilter_expr\x18\x15 \x01(\v2\x16.pagination.FilterExprB\x1b\xbaG\x18\x92\x02\x15复杂过滤表达式H\bR\n" +
+	"filterExpr\x88\x01\x01\x12\x8d\x02\n" +
 	"\n" +
-	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\n" +
-	"R\tfieldMask\x88\x01\x01B\a\n" +
+	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\tR\tfieldMask\x88\x01\x01B\a\n" +
 	"\x05_pageB\f\n" +
 	"\n" +
 	"_page_sizeB\t\n" +
@@ -1434,10 +1405,9 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x06_tokenB\f\n" +
 	"\n" +
 	"_no_pagingB\b\n" +
-	"\x06_queryB\v\n" +
-	"\t_or_queryB\x0e\n" +
-	"\f_filter_exprB\t\n" +
-	"\a_filterB\r\n" +
+	"\x06_queryB\t\n" +
+	"\a_filterB\x0e\n" +
+	"\f_filter_exprB\r\n" +
 	"\v_field_mask\"\xea\x06\n" +
 	"\x16PaginationResponseMeta\x12\x8e\x01\n" +
 	"\x05total\x18\x01 \x01(\v2\x1c.google.protobuf.UInt64ValueBU\xbaGR\x92\x02O总记录数（仅Page/Offset分页有效，Token分页通常不返回总数）H\x00R\x05total\x88\x01\x01\x12l\n" +
@@ -1461,29 +1431,27 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x0ePagingResponse\x12\x8e\x01\n" +
 	"\x05total\x18\x01 \x01(\v2\x1c.google.protobuf.UInt64ValueBU\xbaGR\x92\x02O总记录数（仅Page/Offset分页有效，Token分页通常不返回总数）H\x00R\x05total\x88\x01\x01\x12\x14\n" +
 	"\x05items\x18\x02 \x03(\fR\x05itemsB\b\n" +
-	"\x06_total\"\x92\r\n" +
+	"\x06_total\"\xa3\f\n" +
 	"\x11PaginationRequest\x12c\n" +
 	"\n" +
 	"page_based\x18\x01 \x01(\v2\x1f.pagination.PageBasedPaginationB!\xbaG\x1e\x92\x02\x1b基于页码的分页方式H\x00R\tpageBased\x12l\n" +
 	"\foffset_based\x18\x02 \x01(\v2!.pagination.OffsetBasedPaginationB$\xbaG!\x92\x02\x1e基于偏移量的分页方式H\x00R\voffsetBased\x12f\n" +
 	"\vtoken_based\x18\x03 \x01(\v2 .pagination.TokenBasedPaginationB!\xbaG\x1e\x92\x02\x1b基于令牌的分页方式H\x00R\n" +
 	"tokenBased\x12D\n" +
-	"\tno_paging\x18\x04 \x01(\v2\x14.pagination.NoPagingB\x0f\xbaG\f\x92\x02\t不分页H\x00R\bnoPaging\x12\xb2\x01\n" +
+	"\tno_paging\x18\x04 \x01(\v2\x14.pagination.NoPagingB\x0f\xbaG\f\x92\x02\t不分页H\x00R\bnoPaging\x12\xb0\x01\n" +
 	"\border_by\x18\n" +
-	" \x03(\tB\x96\x01\xbaG\x90\x01:\x13\x12\x11{\"val1\", \"-val2\"}\x92\x02x排序条件，其语法为JSON字符串，例如：{\"val1\", \"-val2\"}。字段名前加'-'为降序，否则为升序。\x18\x01R\aorderBy\x12w\n" +
-	"\asorting\x18\v \x03(\v2\x13.pagination.SortingBH\xbaGE\x92\x02B排序规则（可选，建议必传以保证分页结果稳定）R\asorting\x12\xf7\x01\n" +
-	"\x05query\x18\x14 \x01(\tB\xdb\x01\xbaG\xd5\x01:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\xb0\x01AND过滤参数，其语法为json格式的字符串，如：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-utils/tree/main/entgo/query/README.md\x18\x01H\x01R\x05query\x88\x01\x01\x12R\n" +
-	"\bor_query\x18\x15 \x01(\tB7\xbaG2:\x1f\x12\x1d{\"key1\":\"val1\",\"key2\":\"val2\"}\x92\x02\x0eOR过滤参数\x18\x01H\x02R\x02or\x88\x01\x01\x12\xc0\x01\n" +
-	"\vfilter_expr\x18\x16 \x01(\v2\x16.pagination.FilterExprB\x81\x01\xbaG~\x92\x02{复杂过滤表达式，优先于已弃用的 query/or_query。服务端应以此为准并执行严格校验与参数化。H\x03R\n" +
-	"filterExpr\x88\x01\x01\x12Y\n" +
-	"\x06filter\x18\x17 \x01(\tB<\xbaG9\x92\x026过滤字符串，基于AIP规范的过滤表达式。H\x04R\x06filter\x88\x01\x01\x12\x8d\x02\n" +
+	" \x03(\tB\x94\x01\xbaG\x90\x01:\x13\x12\x11{\"val1\", \"-val2\"}\x92\x02x排序条件，其语法为JSON字符串，例如：{\"val1\", \"-val2\"}。字段名前加'-'为降序，否则为升序。R\aorderBy\x12\xf9\x01\n" +
+	"\x05query\x18\v \x01(\tB\xdd\x01\xbaG\xd9\x01:0\x12.{\"field1\":\"val1\", \"field2___icontains\":\"val2\"}\x92\x02\xa3\x01JSON字符串过滤条件，基础语法：{\"key1\":\"val1\",\"key2\":\"val2\"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.mdH\x01R\x05query\x88\x01\x01\x12K\n" +
+	"\x06filter\x18\f \x01(\tB.\xbaG+\x92\x02(Google AIP规范字符串过滤条件。H\x02R\x06filter\x88\x01\x01\x12w\n" +
+	"\asorting\x18\x14 \x03(\v2\x13.pagination.SortingBH\xbaGE\x92\x02B排序规则（可选，建议必传以保证分页结果稳定）R\asorting\x12\xc0\x01\n" +
+	"\vfilter_expr\x18\x15 \x01(\v2\x16.pagination.FilterExprB\x81\x01\xbaG~\x92\x02{复杂过滤表达式，优先于已弃用的 query/or_query。服务端应以此为准并执行严格校验与参数化。H\x03R\n" +
+	"filterExpr\x88\x01\x01\x12\x8d\x02\n" +
 	"\n" +
-	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\x05R\tfieldMask\x88\x01\x01B\x11\n" +
+	"field_mask\x18\x1e \x01(\v2\x1a.google.protobuf.FieldMaskB\xcc\x01\xbaG\xc8\x01:\x16\x12\x14id,realName,userName\x92\x02\xac\x01字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。H\x04R\tfieldMask\x88\x01\x01B\x11\n" +
 	"\x0fpagination_typeB\b\n" +
-	"\x06_queryB\v\n" +
-	"\t_or_queryB\x0e\n" +
-	"\f_filter_exprB\t\n" +
-	"\a_filterB\r\n" +
+	"\x06_queryB\t\n" +
+	"\a_filterB\x0e\n" +
+	"\f_filter_exprB\r\n" +
 	"\v_field_mask\"v\n" +
 	"\x12PaginationResponse\x126\n" +
 	"\x04meta\x18\x02 \x01(\v2\".pagination.PaginationResponseMetaR\x04meta\x12(\n" +

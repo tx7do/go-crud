@@ -1,6 +1,8 @@
 package filter
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,8 +15,10 @@ import (
 )
 
 const (
-	QueryDelimiter     = "__" // 分隔符
-	JsonFieldDelimiter = "."  // JSON字段分隔符
+	QueryDelimiter          = "__"   // 分隔符
+	QueryJsonFieldDelimiter = "."    // JSON字段分隔符
+	QueryAnd                = "$and" // 与
+	QueryOr                 = "$or"  // 或
 )
 
 type QueryMap map[string]any
@@ -28,6 +32,11 @@ func NewQueryStringConverter() *QueryStringConverter {
 	return &QueryStringConverter{
 		codec: encoding.GetCodec("json"),
 	}
+}
+
+// Convert 将查询字符串转换为 FilterExpr
+func (qsc *QueryStringConverter) Convert(queryJSON string) (*paginationV1.FilterExpr, error) {
+	return qsc.ParseQuery(queryJSON)
 }
 
 // QueryStringToMap 将查询字符串转换为 map
@@ -51,71 +60,150 @@ func (qsc *QueryStringConverter) QueryStringToMap(queryString string) (QueryMapA
 	return nil, fmt.Errorf("parse as object failed: %v; parse as array failed: %v", errObj, errArr)
 }
 
-func (qsc *QueryStringConverter) Convert(andQueryString, orQueryString string) (*paginationV1.FilterExpr, error) {
-	if len(andQueryString) == 0 && len(orQueryString) == 0 {
-		return nil, nil
+// ParseQuery 入口函数：解析JSON格式的query字符串
+// 支持两种顶层格式：
+// 1. 数组：[{"deptId":1}, {"entryTime__gte":"2024-01-01"}] → 等价于$and
+// 2. 对象：{"$and":[...], "$or":[...]}
+func (qsc *QueryStringConverter) ParseQuery(queryJSON string) (*paginationV1.FilterExpr, error) {
+	// 先将JSON字符串解析为any（兼容数组/对象）
+	var raw any
+	var err error
+	if err = json.Unmarshal([]byte(queryJSON), &raw); err != nil {
+		return nil, fmt.Errorf("json解析失败: %w", err)
 	}
 
-	addQueryMapArray, err := qsc.QueryStringToMap(andQueryString)
-	if err != nil {
-		return nil, err
-	}
-
-	orQueryMapArray, err := qsc.QueryStringToMap(orQueryString)
-	if err != nil {
-		return nil, err
-	}
-
-	var filterExpr *paginationV1.FilterExpr
-	filterExpr = &paginationV1.FilterExpr{
+	root := &paginationV1.FilterExpr{
 		Type: paginationV1.ExprType_AND,
 	}
 
-	for _, queryMap := range addQueryMapArray {
-		err = qsc.processQueryMap(filterExpr, queryMap, false)
-		if err != nil {
-			return nil, err
-		}
+	// 递归解析核心逻辑
+	if err = qsc.parseRawQuery(root, raw); err != nil {
+		return nil, err
 	}
 
-	for _, queryMap := range orQueryMapArray {
-		err = qsc.processQueryMap(filterExpr, queryMap, true)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return filterExpr, nil
+	return root, nil
 }
 
-// processQueryMap 处理查询映射表
-func (qsc *QueryStringConverter) processQueryMap(filterExpr *paginationV1.FilterExpr, queryMap QueryMap, isOr bool) error {
-	if len(queryMap) == 0 {
-		return nil
-	}
-
-	if isOr {
-		orFilterExpr := &paginationV1.FilterExpr{
-			Type: paginationV1.ExprType_OR,
+// parseRawQuery 递归解析原始的any类型query
+func (qsc *QueryStringConverter) parseRawQuery(node *paginationV1.FilterExpr, raw any) error {
+	switch v := raw.(type) {
+	// 场景1：顶层是数组（默认AND逻辑）
+	case []any:
+		andFilterExpr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
 		}
+		node.Groups = append(node.Groups, andFilterExpr)
 
-		for k, v := range queryMap {
-			keys := qsc.splitQueryKey(k)
-			if err := qsc.MakeFieldFilter(orFilterExpr, keys, v); err != nil {
+		for _, item := range v {
+			// 如果元素本身是数组，扁平化：把子元素直接解析到当前 andFilterExpr
+			if subArr, ok := item.([]any); ok {
+				for _, sub := range subArr {
+					if err := qsc.parseRawQuery(andFilterExpr, sub); err != nil {
+						return err
+					}
+				}
+				continue
+			}
+			// 兼容 []interface{}
+			if s, ok := item.([]interface{}); ok {
+				for _, sub := range s {
+					if err := qsc.parseRawQuery(andFilterExpr, sub); err != nil {
+						return err
+					}
+				}
+				continue
+			}
+
+			if err := qsc.parseRawQuery(andFilterExpr, item); err != nil {
 				return err
 			}
 		}
 
-		// 仅在 OR 组中有实际条件或子组时追加
-		if len(orFilterExpr.Conditions) > 0 || len(orFilterExpr.Groups) > 0 {
-			filterExpr.Groups = append(filterExpr.Groups, orFilterExpr)
-		}
 		return nil
-	}
 
-	for k, v := range queryMap {
+	// 场景2：顶层是对象（处理$and/$or，或基础条件）
+	case map[string]any:
+		// 先判断是否是逻辑节点（包含$and/$or）
+		andNodes, hasAnd := v[QueryAnd]
+		orNodes, hasOr := v[QueryOr]
+
+		// 逻辑节点校验：一个对象只能有$and 或 $or，不能同时有
+		if hasAnd && hasOr {
+			return errors.New("单个逻辑节点不能同时包含$and和$or")
+		}
+
+		// 处理$and逻辑
+		if hasAnd {
+			andList, ok := andNodes.([]any)
+			if !ok {
+				// 兼容 []interface{}
+				if s, ok2 := andNodes.([]interface{}); ok2 {
+					andList = make([]any, len(s))
+					for i := range s {
+						andList[i] = s[i]
+					}
+				} else {
+					return errors.New("$and的值必须是数组")
+				}
+			}
+
+			andFilterExpr := &paginationV1.FilterExpr{
+				Type: paginationV1.ExprType_AND,
+			}
+			node.Groups = append(node.Groups, andFilterExpr)
+
+			for _, item := range andList {
+				if err := qsc.parseRawQuery(andFilterExpr, item); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		// 处理$or逻辑
+		if hasOr {
+			orList, ok := orNodes.([]any)
+			if !ok {
+				// 兼容 []interface{}
+				if s, ok2 := orNodes.([]interface{}); ok2 {
+					orList = make([]any, len(s))
+					for i := range s {
+						orList[i] = s[i]
+					}
+				} else {
+					return errors.New("$or的值必须是数组")
+				}
+			}
+
+			orFilterExpr := &paginationV1.FilterExpr{
+				Type: paginationV1.ExprType_OR,
+			}
+			node.Groups = append(node.Groups, orFilterExpr)
+
+			for _, item := range orList {
+				if err := qsc.parseRawQuery(orFilterExpr, item); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		// 不是逻辑节点 → 基础条件（如{"deptId":1}、{"entryTime__gte":"2024-01-01"}）
+		return qsc.parseBaseCondition(node, v)
+
+	// 非法类型
+	default:
+		return fmt.Errorf("不支持的query类型: %T", raw)
+	}
+}
+
+// parseBaseCondition 解析基础条件对象（如{"deptId":1} → Condition{Field:"deptId", Op:"eq", Value:1}）
+func (qsc *QueryStringConverter) parseBaseCondition(node *paginationV1.FilterExpr, conditionMap map[string]any) error {
+	for k, v := range conditionMap {
 		keys := qsc.splitQueryKey(k)
-		if err := qsc.MakeFieldFilter(filterExpr, keys, v); err != nil {
+		if err := qsc.MakeFieldFilter(node, keys, v); err != nil {
 			return err
 		}
 	}
@@ -290,12 +378,12 @@ func (qsc *QueryStringConverter) splitQueryKey(key string) []string {
 
 // splitJsonFieldKey 分割JSON字段键
 func (qsc *QueryStringConverter) splitJsonFieldKey(key string) []string {
-	return strings.Split(key, JsonFieldDelimiter)
+	return strings.Split(key, QueryJsonFieldDelimiter)
 }
 
 // isJsonFieldKey 是否为JSON字段键
 func (qsc *QueryStringConverter) isJsonFieldKey(key string) bool {
-	return strings.Contains(key, JsonFieldDelimiter)
+	return strings.Contains(key, QueryJsonFieldDelimiter)
 }
 
 // hasOperations 是否有操作
