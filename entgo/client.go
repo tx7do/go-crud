@@ -19,30 +19,39 @@ import (
 	entSql "entgo.io/ent/dialect/sql"
 )
 
-type EntClientInterface interface {
-	Close() error
+type entTx interface {
+	Rollback() error
+	Commit() error
 }
 
-type EntClient[T EntClientInterface] struct {
+type entClientInterface interface {
+	Close() error
+	Tx(ctx context.Context) (entTx, error)
+}
+
+type EntClient[T entClientInterface] struct {
 	db  T
 	drv *entSql.Driver
 }
 
-func NewEntClient[T EntClientInterface](db T, drv *entSql.Driver) *EntClient[T] {
+func NewEntClient[T entClientInterface](db T, drv *entSql.Driver) *EntClient[T] {
 	return &EntClient[T]{
 		db:  db,
 		drv: drv,
 	}
 }
 
+// Client 获取 Ent Client 实例
 func (c *EntClient[T]) Client() T {
 	return c.db
 }
 
+// Driver 获取 Ent SQL Driver 实例
 func (c *EntClient[T]) Driver() *entSql.Driver {
 	return c.drv
 }
 
+// DB 获取底层 sql.DB 实例
 func (c *EntClient[T]) DB() *sql.DB {
 	return c.drv.DB()
 }
@@ -57,8 +66,33 @@ func (c *EntClient[T]) Query(ctx context.Context, query string, args, v any) err
 	return c.Driver().Query(ctx, query, args, v)
 }
 
+// Exec 执行命令
 func (c *EntClient[T]) Exec(ctx context.Context, query string, args, v any) error {
 	return c.Driver().Exec(ctx, query, args, v)
+}
+
+// BeginTx 开始事务
+func (c *EntClient[T]) BeginTx(ctx context.Context) (tx entTx, cleanup func(), err error) {
+	tx, err = c.Client().Tx(ctx)
+	if err != nil {
+		log.Errorf("start transaction failed: %s", err.Error())
+		return nil, nil, errors.New("start transaction failed")
+	}
+
+	cleanup = func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Errorf("transaction rollback failed: %s", rollbackErr.Error())
+			}
+			return
+		}
+		if commitErr := tx.Commit(); commitErr != nil {
+			log.Errorf("transaction commit failed: %s", commitErr.Error())
+			err = errors.New("transaction commit failed")
+		}
+	}
+
+	return tx, cleanup, nil
 }
 
 // SetConnectionOption 设置连接配置
@@ -71,6 +105,7 @@ func (c *EntClient[T]) SetConnectionOption(maxIdleConnections, maxOpenConnection
 	c.DB().SetConnMaxLifetime(connMaxLifetime)
 }
 
+// driverNameToSemConvKeyValue 将数据库驱动名称映射到 OpenTelemetry 语义约定的 KeyValue
 func driverNameToSemConvKeyValue(driverName string) attribute.KeyValue {
 	switch driverName {
 	case "mariadb":
@@ -140,7 +175,7 @@ func Rollback[T Rollbacker](tx T, err error) error {
 }
 
 // QueryAllChildrenIds 使用CTE递归查询所有子节点ID
-func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *EntClient[T], tableName string, parentID uint32) ([]uint32, error) {
+func QueryAllChildrenIds[T entClientInterface](ctx context.Context, entClient *EntClient[T], tableName string, parentID uint32) ([]uint32, error) {
 	var query string
 	switch entClient.Driver().Dialect() {
 	case dialect.MySQL:
@@ -212,7 +247,7 @@ func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *E
 }
 
 // SyncSequence 同步数据库序列
-func SyncSequence[T EntClientInterface](ctx context.Context, entClient *EntClient[T], schema, table, column string) error {
+func SyncSequence[T entClientInterface](ctx context.Context, entClient *EntClient[T], schema, table, column string) error {
 	// 校验输入
 	if err := ValidateSchemaTableColumn(schema, table, column); err != nil {
 		return fmt.Errorf("invalid identifier: %w", err)
