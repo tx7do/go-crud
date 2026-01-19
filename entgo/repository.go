@@ -379,7 +379,7 @@ func (r *Repository[
 		querySelectors = append(querySelectors, pagingSelector)
 	}
 
-	if querySelectors != nil {
+	if len(querySelectors) != 0 {
 		builder.Modify(querySelectors...)
 	}
 
@@ -611,7 +611,7 @@ func (r *Repository[
 		querySelectors = append(querySelectors, pagingSelector)
 	}
 
-	if querySelectors != nil {
+	if len(querySelectors) != 0 {
 		builder.Modify(querySelectors...)
 	}
 

@@ -64,10 +64,10 @@ func TenantFilterRule(ctx context.Context, f Filter) error {
 
 	tid := vc.TenantID()
 
+	tenantPred := entql.Uint64EQ(tid).Field("tenant_id")
+
 	// 注入租户过滤谓词
-	f.Where(
-		entql.Uint64EQ(tid).Field("tenant_id"),
-	)
+	f.Where(tenantPred)
 
 	return nil
 }
