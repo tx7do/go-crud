@@ -27,10 +27,8 @@ func NewStructuredFilter() *StructuredFilter {
 
 // BuildSelectors 构建过滤选择器
 func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func(s *sql.Selector), error) {
-	var queryConditions []func(s *sql.Selector)
-
 	if expr == nil {
-		return queryConditions, nil
+		return nil, nil
 	}
 
 	// Skip unspecified expressions
@@ -43,6 +41,8 @@ func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func
 	if err != nil {
 		return nil, err
 	}
+
+	var queryConditions []func(s *sql.Selector)
 	if selector != nil {
 		queryConditions = append(queryConditions, selector)
 	}
@@ -86,11 +86,13 @@ func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (f
 		}
 
 		// Combine predicates based on expression type
-		switch expr.GetType() {
-		case paginationV1.ExprType_AND:
-			s.Where(sql.And(ps...))
-		case paginationV1.ExprType_OR:
-			s.Where(sql.Or(ps...))
+		if len(ps) > 0 {
+			switch expr.GetType() {
+			case paginationV1.ExprType_AND:
+				s.Where(sql.And(ps...))
+			case paginationV1.ExprType_OR:
+				s.Where(sql.Or(ps...))
+			}
 		}
 	}
 
