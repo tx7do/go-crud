@@ -19,14 +19,14 @@ import (
 	entSql "entgo.io/ent/dialect/sql"
 )
 
-type entTx interface {
+type EntTx interface {
 	Rollback() error
 	Commit() error
 }
 
 type EntClientInterface interface {
 	Close() error
-	Tx(ctx context.Context) (entTx, error)
+	Tx(ctx context.Context) (EntTx, error)
 }
 
 type EntClient[T EntClientInterface] struct {
@@ -72,7 +72,7 @@ func (c *EntClient[T]) Exec(ctx context.Context, query string, args, v any) erro
 }
 
 // BeginTx 开始事务
-func (c *EntClient[T]) BeginTx(ctx context.Context) (tx entTx, cleanup func(), err error) {
+func (c *EntClient[T]) BeginTx(ctx context.Context) (tx EntTx, cleanup func(), err error) {
 	tx, err = c.Client().Tx(ctx)
 	if err != nil {
 		log.Errorf("start transaction failed: %s", err.Error())
