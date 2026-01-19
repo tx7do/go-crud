@@ -24,17 +24,17 @@ type entTx interface {
 	Commit() error
 }
 
-type entClientInterface interface {
+type EntClientInterface interface {
 	Close() error
 	Tx(ctx context.Context) (entTx, error)
 }
 
-type EntClient[T entClientInterface] struct {
+type EntClient[T EntClientInterface] struct {
 	db  T
 	drv *entSql.Driver
 }
 
-func NewEntClient[T entClientInterface](db T, drv *entSql.Driver) *EntClient[T] {
+func NewEntClient[T EntClientInterface](db T, drv *entSql.Driver) *EntClient[T] {
 	return &EntClient[T]{
 		db:  db,
 		drv: drv,
@@ -175,7 +175,7 @@ func Rollback[T Rollbacker](tx T, err error) error {
 }
 
 // QueryAllChildrenIds 使用CTE递归查询所有子节点ID
-func QueryAllChildrenIds[T entClientInterface](ctx context.Context, entClient *EntClient[T], tableName string, parentID uint32) ([]uint32, error) {
+func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *EntClient[T], tableName string, parentID uint32) ([]uint32, error) {
 	var query string
 	switch entClient.Driver().Dialect() {
 	case dialect.MySQL:
@@ -247,7 +247,7 @@ func QueryAllChildrenIds[T entClientInterface](ctx context.Context, entClient *E
 }
 
 // SyncSequence 同步数据库序列
-func SyncSequence[T entClientInterface](ctx context.Context, entClient *EntClient[T], schema, table, column string) error {
+func SyncSequence[T EntClientInterface](ctx context.Context, entClient *EntClient[T], schema, table, column string) error {
 	// 校验输入
 	if err := ValidateSchemaTableColumn(schema, table, column); err != nil {
 		return fmt.Errorf("invalid identifier: %w", err)
