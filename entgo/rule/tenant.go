@@ -66,17 +66,7 @@ func TenantFilterRule(ctx context.Context, f Filter) error {
 
 	// 注入租户过滤谓词
 	f.Where(
-		entql.Or(
-			// 1. 尝试作为 uint64 匹配
-			entql.Uint64EQ(tid).Field("tenant_id"),
-			// 2. 尝试作为 uint32 匹配（强制转换）
-			entql.Uint32EQ(uint32(tid)).Field("tenant_id"),
-
-			// 公共数据兼容
-			entql.Uint64EQ(0).Field("tenant_id"),
-			entql.Uint32EQ(0).Field("tenant_id"),
-			entql.FieldNil("tenant_id"),
-		),
+		entql.Uint64EQ(tid).Field("tenant_id"),
 	)
 
 	return nil
