@@ -26,7 +26,6 @@ type EntTx interface {
 
 type EntClientInterface interface {
 	Close() error
-	Tx(ctx context.Context) (EntTx, error)
 }
 
 type EntClient[T EntClientInterface] struct {
@@ -69,30 +68,6 @@ func (c *EntClient[T]) Query(ctx context.Context, query string, args, v any) err
 // Exec 执行命令
 func (c *EntClient[T]) Exec(ctx context.Context, query string, args, v any) error {
 	return c.Driver().Exec(ctx, query, args, v)
-}
-
-// BeginTx 开始事务
-func (c *EntClient[T]) BeginTx(ctx context.Context) (tx EntTx, cleanup func(), err error) {
-	tx, err = c.Client().Tx(ctx)
-	if err != nil {
-		log.Errorf("start transaction failed: %s", err.Error())
-		return nil, nil, errors.New("start transaction failed")
-	}
-
-	cleanup = func() {
-		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Errorf("transaction rollback failed: %s", rollbackErr.Error())
-			}
-			return
-		}
-		if commitErr := tx.Commit(); commitErr != nil {
-			log.Errorf("transaction commit failed: %s", commitErr.Error())
-			err = errors.New("transaction commit failed")
-		}
-	}
-
-	return tx, cleanup, nil
 }
 
 // SetConnectionOption 设置连接配置
@@ -158,12 +133,8 @@ func CreateDriver(driverName, dsn string, enableTrace, enableMetrics bool) (*ent
 	return drv, nil
 }
 
-type Rollbacker interface {
-	Rollback() error
-}
-
 // Rollback calls to tx.Rollback and wraps the given error
-func Rollback[T Rollbacker](tx T, err error) error {
+func Rollback[T EntTx](tx T, err error) error {
 	if rErr := tx.Rollback(); rErr != nil {
 		if err == nil {
 			err = rErr
@@ -172,6 +143,54 @@ func Rollback[T Rollbacker](tx T, err error) error {
 		}
 	}
 	return err
+}
+
+// MakeTxCleanup 创建一个用于事务清理的函数
+func MakeTxCleanup(tx EntTx, errPtr *error) func() {
+	return func() {
+		// 如果调用者没有传入 errPtr，仍然要处理 panic 和提交失败（但无法回传错误）
+		if errPtr == nil {
+			// 处理 panic：回滚并重新 panic
+			if p := recover(); p != nil {
+				if rbErr := tx.Rollback(); rbErr != nil {
+					log.Errorf("transaction rollback failed during panic: %v", rbErr)
+				}
+				panic(p)
+			}
+			// 尝试提交并记录错误
+			if commitErr := tx.Commit(); commitErr != nil {
+				log.Errorf("transaction commit failed: %v", commitErr)
+			}
+			return
+		}
+
+		// errPtr != nil 的情况
+		// 处理 panic：将 panic 信息作为错误并回滚，随后重新 panic
+		if p := recover(); p != nil {
+			// 把 panic 作为错误传入 Rollback，以便合并回滚错误（如果有）
+			panicErr := fmt.Errorf("panic: %v", p)
+			*errPtr = Rollback(tx, panicErr)
+			if *errPtr == nil {
+				*errPtr = panicErr
+			}
+			panic(p)
+		}
+
+		// 如果已有错误，尝试回滚并合并回滚错误
+		if *errPtr != nil {
+			*errPtr = Rollback(tx, *errPtr)
+			if *errPtr != nil {
+				log.Errorf("transaction rollback encountered error: %v", *errPtr)
+			}
+			return
+		}
+
+		// 否则尝试提交，提交失败时包装错误返回
+		if commitErr := tx.Commit(); commitErr != nil {
+			log.Errorf("transaction commit failed: %v", commitErr)
+			*errPtr = fmt.Errorf("transaction commit failed: %w", commitErr)
+		}
+	}
 }
 
 // QueryAllChildrenIds 使用CTE递归查询所有子节点ID
