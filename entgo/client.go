@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -356,4 +357,15 @@ func QuoteIdent(d string, s string) string {
 // EscapeLiteral 对作为 SQL 字面量传入的字符串做单引号转义（Postgres 用于 pg_get_serial_sequence 的第一个参数）
 func EscapeLiteral(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+// ComputeTreePath 计算树节点路径
+func ComputeTreePath(parentPath string, nodeID uint32) string {
+	if parentPath == "" {
+		return "/"
+	}
+	if parentPath[len(parentPath)-1] != '/' {
+		parentPath += "/"
+	}
+	return parentPath + strconv.FormatUint(uint64(nodeID), 10) + "/"
 }

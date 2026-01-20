@@ -153,6 +153,16 @@ func PathHasSuffix(v string) predicate.Menu {
 	return predicate.Menu(sql.FieldHasSuffix(FieldPath, v))
 }
 
+// PathIsNil applies the IsNil predicate on the "path" field.
+func PathIsNil() predicate.Menu {
+	return predicate.Menu(sql.FieldIsNull(FieldPath))
+}
+
+// PathNotNil applies the NotNil predicate on the "path" field.
+func PathNotNil() predicate.Menu {
+	return predicate.Menu(sql.FieldNotNull(FieldPath))
+}
+
 // PathEqualFold applies the EqualFold predicate on the "path" field.
 func PathEqualFold(v string) predicate.Menu {
 	return predicate.Menu(sql.FieldEqualFold(FieldPath, v))

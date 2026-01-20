@@ -18,9 +18,6 @@ import (
 // to their package variables.
 func init() {
 	menuMixin := schema.Menu{}.Mixin()
-	menuMixinHooks2 := menuMixin[2].Hooks()
-	menu.Hooks[0] = menuMixinHooks2[0]
-	menu.Hooks[1] = menuMixinHooks2[1]
 	menuMixinFields0 := menuMixin[0].Fields()
 	_ = menuMixinFields0
 	menuMixinFields2 := menuMixin[2].Fields()
@@ -30,21 +27,7 @@ func init() {
 	// menuDescPath is the schema descriptor for path field.
 	menuDescPath := menuMixinFields2[0].Descriptor()
 	// menu.PathValidator is a validator for the "path" field. It is called by the builders before save.
-	menu.PathValidator = func() func(string) error {
-		validators := menuDescPath.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-		}
-		return func(_path string) error {
-			for _, fn := range fns {
-				if err := fn(_path); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
+	menu.PathValidator = menuDescPath.Validators[0].(func(string) error)
 	// menuDescName is the schema descriptor for name field.
 	menuDescName := menuFields[0].Descriptor()
 	// menu.NameValidator is a validator for the "name" field. It is called by the builders before save.

@@ -6,7 +6,6 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/go-kratos/kratos/v2/log"
-
 	"github.com/tx7do/go-utils/fieldmaskutil"
 	"github.com/tx7do/go-utils/mapper"
 	"github.com/tx7do/go-utils/trans"
@@ -100,7 +99,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Count(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
 	predicates ...func(s *sql.Selector),
 ) (int, error) {
 	if builder == nil {
@@ -129,7 +128,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Exists(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
 	predicates ...func(s *sql.Selector),
 ) (bool, error) {
 	if builder == nil {
@@ -627,7 +626,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Get(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
 	viewMask *fieldmaskpb.FieldMask,
 	predicates ...func(s *sql.Selector),
 ) (*DTO, error) {
@@ -662,7 +661,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Only(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
 	viewMask *fieldmaskpb.FieldMask,
 	predicates ...func(s *sql.Selector),
 ) (*DTO, error) {

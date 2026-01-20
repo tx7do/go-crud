@@ -41,6 +41,14 @@ func (_c *MenuCreate) SetPath(v string) *MenuCreate {
 	return _c
 }
 
+// SetNillablePath sets the "path" field if the given value is not nil.
+func (_c *MenuCreate) SetNillablePath(v *string) *MenuCreate {
+	if v != nil {
+		_c.SetPath(*v)
+	}
+	return _c
+}
+
 // SetName sets the "name" field.
 func (_c *MenuCreate) SetName(v string) *MenuCreate {
 	_c.mutation.SetName(v)
@@ -107,9 +115,6 @@ func (_c *MenuCreate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *MenuCreate) check() error {
-	if _, ok := _c.mutation.Path(); !ok {
-		return &ValidationError{Name: "path", err: errors.New(`ent: missing required field "Menu.path"`)}
-	}
 	if v, ok := _c.mutation.Path(); ok {
 		if err := menu.PathValidator(v); err != nil {
 			return &ValidationError{Name: "path", err: fmt.Errorf(`ent: validator failed for field "Menu.path": %w`, err)}
@@ -284,6 +289,12 @@ func (u *MenuUpsert) UpdatePath() *MenuUpsert {
 	return u
 }
 
+// ClearPath clears the value of the "path" field.
+func (u *MenuUpsert) ClearPath() *MenuUpsert {
+	u.SetNull(menu.FieldPath)
+	return u
+}
+
 // SetName sets the "name" field.
 func (u *MenuUpsert) SetName(v string) *MenuUpsert {
 	u.Set(menu.FieldName, v)
@@ -376,6 +387,13 @@ func (u *MenuUpsertOne) SetPath(v string) *MenuUpsertOne {
 func (u *MenuUpsertOne) UpdatePath() *MenuUpsertOne {
 	return u.Update(func(s *MenuUpsert) {
 		s.UpdatePath()
+	})
+}
+
+// ClearPath clears the value of the "path" field.
+func (u *MenuUpsertOne) ClearPath() *MenuUpsertOne {
+	return u.Update(func(s *MenuUpsert) {
+		s.ClearPath()
 	})
 }
 
@@ -638,6 +656,13 @@ func (u *MenuUpsertBulk) SetPath(v string) *MenuUpsertBulk {
 func (u *MenuUpsertBulk) UpdatePath() *MenuUpsertBulk {
 	return u.Update(func(s *MenuUpsert) {
 		s.UpdatePath()
+	})
+}
+
+// ClearPath clears the value of the "path" field.
+func (u *MenuUpsertBulk) ClearPath() *MenuUpsertBulk {
+	return u.Update(func(s *MenuUpsert) {
+		s.ClearPath()
 	})
 }
 

@@ -349,8 +349,7 @@ func (c *MenuClient) QueryChildren(_m *Menu) *MenuQuery {
 
 // Hooks returns the client hooks.
 func (c *MenuClient) Hooks() []Hook {
-	hooks := c.hooks.Menu
-	return append(hooks[:len(hooks):len(hooks)], menu.Hooks[:]...)
+	return c.hooks.Menu
 }
 
 // Interceptors returns the client interceptors.

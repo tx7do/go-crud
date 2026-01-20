@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/mixin"
+	"github.com/tx7do/go-crud/entgo/rule"
 )
 
 var pathRe = regexp.MustCompile(`^/(?:\d+/)*$`)
@@ -30,25 +31,25 @@ func (TreePath) Fields() []ent.Field {
 - 禁止空字符串（NULL 表示未设置）
 - 示例: "/", "/101/", "/101/202/303/"`).
 			MaxLen(1024).
-			Nillable().
-			//Immutable().
-			Validate(func(s string) error {
-				// NULL 会被 Nillable 处理，空字符串视为未设置
-				if s == "" {
-					return nil
-				}
-				if !pathRe.MatchString(s) {
-					return fmt.Errorf("path must be in format: '/', '/1/', '/1/2/'")
-				}
-				return nil
-			}),
+			Optional().
+			Nillable(),
+		//Validate(func(s string) error {
+		//	// NULL 会被 Nillable 处理，空字符串视为未设置
+		//	if s == "" {
+		//		return nil
+		//	}
+		//	if !pathRe.MatchString(s) {
+		//		return fmt.Errorf("path must be in format: '/', '/1/', '/1/2/'")
+		//	}
+		//	return nil
+		//}),
 	}
 }
 
 func (TreePath) Hooks() []ent.Hook {
 	return []ent.Hook{
-		validatePathHook(),
-		computedPathHook(),
+		//validatePathHook(),
+		//computedPathHook(),
 	}
 }
 
@@ -79,6 +80,16 @@ func ensureComputedPath(m ent.Mutation) {
 		if s, ok2 := v.(string); ok2 && s != "" {
 			return
 		}
+	}
+
+	type clientGetter interface {
+		Client() any
+	}
+
+	_, ok := rule.GetClientFromMutation(m)
+	if !ok {
+		fmt.Println("Mutation does not implement Client()")
+		return
 	}
 
 	type ParentQuerier interface {

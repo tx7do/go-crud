@@ -1,8 +1,11 @@
 package entgo
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
+	"github.com/tx7do/go-crud/entgo/ent/menu"
 	"github.com/tx7do/go-crud/entgo/ent/migrate"
 	"github.com/tx7do/go-crud/viewer"
 	_ "github.com/xiaoqidun/entps"
@@ -44,27 +47,79 @@ func TestEntClient_Close(t *testing.T) {
 	defer cli.Close()
 }
 
+func setMenuPath(ctx context.Context, cli *EntClient[*ent.Client], entity *ent.Menu) (err error) {
+	var parentPath string
+	if entity.ParentID != nil {
+		fmt.Println("setMenuPath entity:", entity.ParentID)
+
+		var parentEntity *ent.Menu
+		parentEntity, err = cli.Client().Debug().Menu.Query().
+			Where(
+				menu.IDEQ(*entity.ParentID),
+			).
+			Select(menu.FieldPath).
+			Only(ctx)
+		if err != nil {
+			return err
+		} else {
+			if parentEntity.Path != nil {
+				parentPath = *parentEntity.Path
+			}
+		}
+	}
+	err = cli.Client().Debug().Menu.UpdateOneID(entity.ID).
+		SetPath(ComputeTreePath(parentPath, entity.ID)).
+		Exec(ctx)
+
+	return err
+}
+
 func TestEntClient_Menu(t *testing.T) {
 	cli := createTestEntClient(t)
 	defer cli.Close()
 
-	entity, err := cli.Client().Menu.Create().SetName("test").Save(t.Context())
+	entity, err := cli.Client().Debug().Menu.Create().
+		SetName("test").
+		Save(t.Context())
 	if err != nil {
 		t.Fatalf("failed creating menu: %v", err)
 	}
 	t.Logf("created menu: %v", entity)
+	setMenuPath(t.Context(), cli, entity)
 
-	entity, err = cli.Client().Menu.Create().
+	entity, err = cli.Client().Debug().Menu.Create().
 		SetName("test1").
 		SetParentID(entity.ID).
 		Save(t.Context())
 	t.Logf("created menu: %v", entity)
+	setMenuPath(t.Context(), cli, entity)
 
-	entity, err = cli.Client().Menu.Create().
+	builder := cli.Client().Debug().Menu.Create()
+	entity, err = builder.
 		SetName("test2").
 		SetParentID(entity.ID).
 		Save(t.Context())
 	t.Logf("created menu: %v", entity)
+	setMenuPath(t.Context(), cli, entity)
+
+	entities, err := cli.Client().Debug().Menu.Query().All(t.Context())
+	if err != nil {
+		t.Fatalf("failed querying menus: %v", err)
+	}
+	t.Logf("queried menus: %v", entities)
+
+	//builder = cli.Client().Debug().Menu.Create()
+	ids := builder.Mutation().ParentIDs()
+	t.Logf("parent ids: %v", ids)
+
+	var parentEntity *ent.Menu
+	parentEntity, err = cli.Client().Debug().Menu.QueryParent(entity).Only(t.Context())
+	if err != nil {
+		t.Fatalf("failed querying parent menu: %v", err)
+	}
+	t.Logf("parent menu: %v", parentEntity)
+
+	//cli.Client().Debug().Menu.Query().Que
 }
 
 type testContext struct{}

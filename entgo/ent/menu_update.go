@@ -62,6 +62,12 @@ func (_u *MenuUpdate) SetNillablePath(v *string) *MenuUpdate {
 	return _u
 }
 
+// ClearPath clears the value of the "path" field.
+func (_u *MenuUpdate) ClearPath() *MenuUpdate {
+	_u.mutation.ClearPath()
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *MenuUpdate) SetName(v string) *MenuUpdate {
 	_u.mutation.SetName(v)
@@ -190,6 +196,9 @@ func (_u *MenuUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Path(); ok {
 		_spec.SetField(menu.FieldPath, field.TypeString, value)
+	}
+	if _u.mutation.PathCleared() {
+		_spec.ClearField(menu.FieldPath, field.TypeString)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(menu.FieldName, field.TypeString, value)
@@ -321,6 +330,12 @@ func (_u *MenuUpdateOne) SetNillablePath(v *string) *MenuUpdateOne {
 	if v != nil {
 		_u.SetPath(*v)
 	}
+	return _u
+}
+
+// ClearPath clears the value of the "path" field.
+func (_u *MenuUpdateOne) ClearPath() *MenuUpdateOne {
+	_u.mutation.ClearPath()
 	return _u
 }
 
@@ -482,6 +497,9 @@ func (_u *MenuUpdateOne) sqlSave(ctx context.Context) (_node *Menu, err error) {
 	}
 	if value, ok := _u.mutation.Path(); ok {
 		_spec.SetField(menu.FieldPath, field.TypeString, value)
+	}
+	if _u.mutation.PathCleared() {
+		_spec.ClearField(menu.FieldPath, field.TypeString)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(menu.FieldName, field.TypeString, value)

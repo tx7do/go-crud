@@ -231,9 +231,22 @@ func (m *MenuMutation) OldPath(ctx context.Context) (v *string, err error) {
 	return oldValue.Path, nil
 }
 
+// ClearPath clears the value of the "path" field.
+func (m *MenuMutation) ClearPath() {
+	m._path = nil
+	m.clearedFields[menu.FieldPath] = struct{}{}
+}
+
+// PathCleared returns if the "path" field was cleared in this mutation.
+func (m *MenuMutation) PathCleared() bool {
+	_, ok := m.clearedFields[menu.FieldPath]
+	return ok
+}
+
 // ResetPath resets all changes to the "path" field.
 func (m *MenuMutation) ResetPath() {
 	m._path = nil
+	delete(m.clearedFields, menu.FieldPath)
 }
 
 // SetName sets the "name" field.
@@ -492,6 +505,9 @@ func (m *MenuMutation) ClearedFields() []string {
 	if m.FieldCleared(menu.FieldParentID) {
 		fields = append(fields, menu.FieldParentID)
 	}
+	if m.FieldCleared(menu.FieldPath) {
+		fields = append(fields, menu.FieldPath)
+	}
 	return fields
 }
 
@@ -508,6 +524,9 @@ func (m *MenuMutation) ClearField(name string) error {
 	switch name {
 	case menu.FieldParentID:
 		m.ClearParentID()
+		return nil
+	case menu.FieldPath:
+		m.ClearPath()
 		return nil
 	}
 	return fmt.Errorf("unknown Menu nullable field %s", name)

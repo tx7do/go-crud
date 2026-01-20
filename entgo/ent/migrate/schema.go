@@ -11,7 +11,7 @@ var (
 	// MenusColumns holds the columns for the "menus" table.
 	MenusColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint32, Increment: true},
-		{Name: "path", Type: field.TypeString, Size: 1024},
+		{Name: "path", Type: field.TypeString, Nullable: true, Size: 1024},
 		{Name: "name", Type: field.TypeString},
 		{Name: "parent_id", Type: field.TypeUint32, Nullable: true},
 	}
