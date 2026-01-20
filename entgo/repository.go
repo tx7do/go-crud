@@ -99,7 +99,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Count(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	predicates ...func(s *sql.Selector),
 ) (int, error) {
 	if builder == nil {
@@ -128,7 +128,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Exists(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	predicates ...func(s *sql.Selector),
 ) (bool, error) {
 	if builder == nil {
@@ -626,7 +626,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Get(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	viewMask *fieldmaskpb.FieldMask,
 	predicates ...func(s *sql.Selector),
 ) (*DTO, error) {
@@ -661,7 +661,7 @@ func (r *Repository[
 	PREDICATE, DTO, ENTITY,
 ]) Only(
 	ctx context.Context,
-	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY, PREDICATE],
+	builder QueryBuilder[ENT_QUERY, ENT_SELECT, ENTITY],
 	viewMask *fieldmaskpb.FieldMask,
 	predicates ...func(s *sql.Selector),
 ) (*DTO, error) {

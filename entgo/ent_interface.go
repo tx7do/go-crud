@@ -6,7 +6,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-type QueryBuilder[ENT_QUERY any, ENT_SELECT any, ENTITY any, PREDICATE any] interface {
+type QueryBuilder[ENT_QUERY any, ENT_SELECT any, ENTITY any] interface {
 	Modify(modifiers ...func(s *sql.Selector)) *ENT_SELECT
 
 	Clone() *ENT_QUERY
@@ -18,8 +18,6 @@ type QueryBuilder[ENT_QUERY any, ENT_SELECT any, ENTITY any, PREDICATE any] inte
 	Count(ctx context.Context) (int, error)
 
 	Select(fields ...string) *ENT_SELECT
-
-	Where(ps ...PREDICATE) *ENT_SELECT
 
 	Exist(ctx context.Context) (bool, error)
 }
