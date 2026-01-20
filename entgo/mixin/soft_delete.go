@@ -3,6 +3,8 @@ package mixin
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/mixin"
+
+	"github.com/tx7do/go-crud/entgo/interceptor"
 )
 
 var _ ent.Mixin = (*SoftDelete)(nil)
@@ -18,6 +20,12 @@ func (SoftDelete) Fields() []ent.Field {
 	return fields
 }
 
+func (SoftDelete) Interceptors() []ent.Interceptor {
+	return []ent.Interceptor{
+		interceptor.SoftDeleteInterceptor(),
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var _ ent.Mixin = (*SoftDelete64)(nil)
@@ -31,4 +39,10 @@ func (SoftDelete64) Fields() []ent.Field {
 	fields = append(fields, DeletedAt{}.Fields()...)
 	fields = append(fields, DeletedBy64{}.Fields()...)
 	return fields
+}
+
+func (SoftDelete64) Interceptors() []ent.Interceptor {
+	return []ent.Interceptor{
+		interceptor.SoftDeleteInterceptor(),
+	}
 }

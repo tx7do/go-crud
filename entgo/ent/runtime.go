@@ -2,23 +2,4 @@
 
 package ent
 
-import (
-	"github.com/tx7do/go-crud/entgo/ent/schema"
-	"github.com/tx7do/go-crud/entgo/ent/user"
-)
-
-// The init function reads all schema descriptors with runtime code
-// (default values, validators, hooks and policies) and stitches it
-// to their package variables.
-func init() {
-	userFields := schema.User{}.Fields()
-	_ = userFields
-	// userDescName is the schema descriptor for name field.
-	userDescName := userFields[0].Descriptor()
-	// user.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	user.NameValidator = userDescName.Validators[0].(func(string) error)
-	// userDescAge is the schema descriptor for age field.
-	userDescAge := userFields[1].Descriptor()
-	// user.DefaultAge holds the default value on creation for the age field.
-	user.DefaultAge = userDescAge.Default.(uint32)
-}
+// The schema-stitching logic is generated in github.com/tx7do/go-crud/entgo/ent/runtime/runtime.go

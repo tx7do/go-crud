@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/tx7do/go-crud/entgo/ent/menu"
 	"github.com/tx7do/go-crud/entgo/ent/user"
 )
 
@@ -73,6 +74,7 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			menu.Table: menu.ValidColumn,
 			user.Table: user.ValidColumn,
 		})
 	})

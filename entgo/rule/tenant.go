@@ -3,8 +3,10 @@ package rule
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/entql"
 	"entgo.io/ent/privacy"
 
@@ -19,18 +21,6 @@ type (
 		Where(entql.P)
 	}
 )
-
-// DenyIfNoViewer is a rule that denies the operation if there is no viewer in the context.
-func DenyIfNoViewer() privacy.QueryMutationRule {
-	return privacy.ContextQueryMutationRule(func(ctx context.Context) error {
-		_, exist := viewer.FromContext(ctx)
-		if !exist {
-			return privacy.Denyf("viewer-context is missing")
-		}
-		// Skip to the next privacy rule (equivalent to returning nil).
-		return privacy.Skip
-	})
-}
 
 // AllowIfAdmin is a rule that returns Allow decision if the viewer is admin.
 func AllowIfAdmin() privacy.QueryMutationRule {
@@ -72,7 +62,11 @@ func TenantFilterRule(ctx context.Context, f Filter) error {
 	return nil
 }
 
-func OwnerOnlyRule(ctx context.Context, f Filter) error {
+type TenantPrivacy[T uint32 | uint64] struct {
+	decision error
+}
+
+func (f TenantPrivacy[T]) EvalQuery(ctx context.Context, query ent.Query) error {
 	vc, exist := viewer.FromContext(ctx)
 	// 如果身份丢失，安全起见应直接拒绝操作（Deny），而不是跳过
 	if !exist {
@@ -80,183 +74,156 @@ func OwnerOnlyRule(ctx context.Context, f Filter) error {
 	}
 
 	// 平台管理视图/系统视图放行：允许查看全量数据
-	if vc.IsPlatformContext() || vc.IsSystemContext() {
-		return nil // 在 Privacy 逻辑中 nil 相当于 Skip
-	}
-
-	uid := vc.UserID()
-
-	// 注入归属者过滤谓词
-	f.Where(
-		entql.Or(
-			entql.Uint64EQ(uid).Field("created_by"),
-			entql.Uint32EQ(uint32(uid)).Field("created_by"),
-		),
-	)
-
-	return nil
-}
-
-// PermissionRule 是一个通用的数据权限过滤规则，用于在查询时注入基于数据权限范围的过滤条件。
-// 该规则会根据当前 ViewerContext 中的数据权限信息，动态添加过滤谓词，确保数据访问符合权限要求。
-// 适用于包含 org_unit_id 和 created_by 字段的实体查询。
-func PermissionRule(ctx context.Context, f Filter) error {
-	vc, exist := viewer.FromContext(ctx)
-	// 如果身份丢失，安全起见应直接拒绝操作（Deny），而不是跳过
-	if !exist {
-		return fmt.Errorf("security: missing ViewerContext in context")
-	}
-
-	// 平台管理视图/系统视图放行：允许查看全量数据
-	if vc.IsPlatformContext() || vc.IsSystemContext() {
-		return nil // 在 Privacy 逻辑中 nil 相当于 Skip
-	}
-
-	// 获取数据范围列表
-	scopes := vc.DataScope()
-	if len(scopes) == 0 {
-		// 如果没有任何定义的 scope，默认应拒绝访问（安全兜底）
-		return fmt.Errorf("security: no data scope defined for current user")
-	}
-
-	// 构建并集谓词 (OR 逻辑)
-	var predicates []entql.P
-	for _, s := range scopes {
-		switch s.ScopeType {
-		case viewer.ScopeTypeAll:
-			return nil // 只要有一个 scope 是 All，直接放行
-
-		case viewer.ScopeTypeSelf:
-			uid := vc.UserID()
-			// 仅限本人：匹配 created_by 字段
-			predicates = append(predicates, entql.Or(
-				entql.Uint64EQ(uid).Field("created_by"),
-				entql.Uint32EQ(uint32(uid)).Field("created_by"),
-			))
-
-		case viewer.ScopeTypeUnit:
-			// 匹配组织单元 ID
-			for _, id := range s.TargetIDs {
-				predicates = append(predicates, entql.Or(
-					entql.Uint64EQ(id).Field("org_unit_id"),
-					entql.Uint32EQ(uint32(id)).Field("org_unit_id"),
-				))
-			}
-
-		case viewer.ScopeTypeUser:
-			// 匹配指定用户 ID
-			for _, id := range s.TargetIDs {
-				predicates = append(predicates, entql.Or(
-					entql.Uint64EQ(id).Field("created_by"),
-					entql.Uint32EQ(uint32(id)).Field("created_by"),
-				))
-			}
-
-		case viewer.ScopeTypeNone:
-			// 显式禁止访问：如果命中 None，直接返回错误或在该 Case 下清空谓词并 Deny
-			return fmt.Errorf("security: data access is explicitly denied by policy")
-
-		default:
-			// 未知的 scope 类型，忽略处理
-			continue
-		}
-	}
-
-	// 5. 将所有 scope 逻辑通过 OR 连接，注入 Where 子句
-	if len(predicates) > 0 {
-		p := predicates[0]
-		for i := 1; i < len(predicates); i++ {
-			p = entql.Or(p, predicates[i])
-		}
-		f.Where(p)
-	} else {
-		// 有 scope 但没解析出有效谓词，防御性拒绝
-		return fmt.Errorf("security: invalid data scope configuration")
-	}
-
-	return nil
-}
-
-// SoftDeleteRule 注入软删除过滤规则，隐藏已软删除的数据记录
-func SoftDeleteRule(ctx context.Context, f Filter) error {
-	vc, exist := viewer.FromContext(ctx)
-	// 如果身份丢失，安全起见应直接拒绝操作（Deny），而不是跳过
-	if !exist {
-		return fmt.Errorf("security: missing ViewerContext in context")
-	}
-
-	// 平台管理视图/系统视图放行：允许查看全量数据
-	if vc.IsPlatformContext() || vc.IsSystemContext() {
-		return nil // 在 Privacy 逻辑中 nil 相当于 Skip
-	}
-
-	// 注入软删除过滤谓词
-	f.Where(
-		entql.FieldNil("deleted_at"),
-	)
-
-	return nil
-}
-
-// DenyFieldsMutationRule 彻底解耦版：不依赖任何 ent 相关包
-// 参数说明:
-// ctx: 上下文
-// m: 传入的对象，在 Mutation 阶段它是具体的 Mutation 实例
-// fields: 需要保护（禁止修改）的字段名
-func DenyFieldsMutationRule(ctx context.Context, m ent.Mutation, fields ...string) error {
-	// 获取 Viewer
-	vc, ok := viewer.FromContext(ctx)
-	if !ok || vc == nil {
-		return fmt.Errorf("security: missing viewer context")
-	}
-
-	// 平台管理视图/系统视图放行
 	if vc.IsPlatformContext() || vc.IsSystemContext() {
 		return nil
 	}
 
-	for _, fieldName := range fields {
-		// 检查字段是否被 Set (赋值)
-		if _, set := m.Field(fieldName); set {
-			return fmt.Errorf("security: field '%s' is read-only for current user", fieldName)
-		}
-		// 检查字段是否被 Clear (针对可选字段的置空操作)
-		if m.FieldCleared(fieldName) {
-			return fmt.Errorf("security: field '%s' cannot be cleared by current user", fieldName)
-		}
+	tid := vc.TenantID()
+
+	if err := f.injectTenantWhere(query, T(tid)); err != nil {
+		return err
 	}
 
-	// 如果 f 不是 Mutation (例如是 Query)，或者通过了校验，则跳过
 	return nil
 }
 
-// LimitFieldAccessRule 限制特定字段的访问修改权限
-// 参数说明:
-// ctx: 上下文
-// m: 传入的对象，在 Mutation 阶段它是具体的 Mutation 实例
-// field: 需要保护的字段名
-// requiredPermission: 修改该字段所需的权限标识
-func LimitFieldAccessRule(ctx context.Context, m ent.Mutation, field string, requiredPermission string) error {
-	vc, ok := viewer.FromContext(ctx)
-	if !ok || vc == nil {
-		return fmt.Errorf("security: missing viewer context")
+func (f TenantPrivacy[T]) EvalMutation(ctx context.Context, m ent.Mutation) error {
+	vc, exist := viewer.FromContext(ctx)
+	if !exist {
+		return fmt.Errorf("missing ViewerContext in context")
 	}
 
-	// 平台管理视图/系统视图放行
-	if vc.IsPlatformContext() || vc.IsSystemContext() {
+	op := m.Op()
+	if !op.Is(ent.OpCreate) {
 		return nil
 	}
 
-	// 检查是否拥有修改该字段的权限
-	if !vc.HasPermission(requiredPermission, m.Type()) {
-		_, isSet := m.Field(field)
-		isCleared := m.FieldCleared(field)
+	tid := vc.TenantID()
 
-		if isSet || isCleared {
-			return fmt.Errorf("security: insufficient permission '%s' to modify field '%s' on %s",
-				requiredPermission, field, m.Type())
+	if vc.IsPlatformContext() {
+		// 如果管理员在代码里写了 .SetTenantID(101)，则尊重管理员的选择
+		if _, set := m.Field("tenant_id"); set {
+			return nil
+		}
+		// 如果管理员没设置，且当前上下文也没指定目标租户，则按管理员逻辑执行（可能设为 0）
+		return nil
+	}
+
+	// 普通用户：强制覆盖，防止越权
+	// 优先使用强类型接口（生成代码常见）
+	if s, ok := m.(interface{ SetTenantID(T) }); ok {
+		s.SetTenantID(T(tid))
+		return nil
+	}
+
+	// 兜底：尝试通过反射调用 SetField，以避免编译期因方法签名差异导致的模糊错误
+	rv := reflect.ValueOf(m)
+	if mf := rv.MethodByName("SetField"); mf.IsValid() && mf.Kind() == reflect.Func {
+		// 仅在方法接受两个参数时调用，避免 panic
+		if mf.Type().NumIn() == 2 {
+			mf.Call([]reflect.Value{reflect.ValueOf("tenant_id"), reflect.ValueOf(tid)})
+			return nil
 		}
 	}
 
+	// 如果都不可用，则直接返回错误以便上层可感知（也可选择直接 next.Mutate）
+	return fmt.Errorf("unable to set tenant_id on mutation")
+}
+
+// injectTenantWhere 尝试通过反射在 query 上调用 Where\(...\) 并注入 tenant_id 过滤。
+// 返回可能被 Where 链式调用替换后的 ent.Query（若 Where 返回链式值）。
+func (f TenantPrivacy[T]) injectTenantWhere(query ent.Query, tenantID T) error {
+	rv := reflect.ValueOf(query)
+	mf := rv.MethodByName("Where")
+	if !mf.IsValid() || mf.Kind() != reflect.Func {
+		return nil
+	}
+
+	mt := mf.Type()
+	// 期待形如 Where(...T) 且只有一个参数（变参）
+	if !mt.IsVariadic() || mt.NumIn() != 1 {
+		return nil
+	}
+
+	// mt.In(0) 是 slice 元素类型（可能为命名类型），取其 Elem
+	elem := mt.In(0).Elem()
+	// 元素应为函数且第一个参数为 *sql.Selector
+	selPtrType := reflect.TypeOf((*sql.Selector)(nil))
+	if elem.Kind() != reflect.Func || elem.NumIn() < 1 || elem.In(0) != selPtrType {
+		return nil
+	}
+
+	// 通用实现（原生类型 func(*sql.Selector)）
+	fn := func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C("tenant_id"), tenantID))
+	}
+	valFn := reflect.ValueOf(fn)
+
+	// 若目标类型与匿名函数类型不一致，尝试转换或用 MakeFunc 生成目标类型
+	if valFn.Type() != elem {
+		if valFn.Type().ConvertibleTo(elem) {
+			valFn = valFn.Convert(elem)
+		} else {
+			valFn = reflect.MakeFunc(elem, func(in []reflect.Value) []reflect.Value {
+				// 第一个参数为 *sql.Selector
+				s := in[0].Interface().(*sql.Selector)
+				fn(s)
+				return nil
+			})
+		}
+	}
+
+	// 构造变参 slice 并调用 Where
+	slice := reflect.MakeSlice(reflect.SliceOf(elem), 1, 1)
+	slice.Index(0).Set(valFn)
+	mf.CallSlice([]reflect.Value{slice})
+
 	return nil
+}
+
+// tenantIDMutator 提取的 mutator，负责从 TenantContext 读取 tenant id 并注入 Mutation。
+// 假设生成的 SetTenantID 使用 uint32 类型。
+func tenantIDMutator[T uint32 | uint64](next ent.Mutator) ent.Mutator {
+	return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+		vc, exist := viewer.FromContext(ctx)
+		if !exist {
+			return nil, fmt.Errorf("missing ViewerContext in context")
+		}
+
+		op := m.Op()
+		if !op.Is(ent.OpCreate) {
+			return next.Mutate(ctx, m)
+		}
+
+		tid := vc.TenantID()
+
+		if vc.IsPlatformContext() {
+			// 如果管理员在代码里写了 .SetTenantID(101)，则尊重管理员的选择
+			if _, set := m.Field("tenant_id"); set {
+				return next.Mutate(ctx, m)
+			}
+			// 如果管理员没设置，且当前上下文也没指定目标租户，则按管理员逻辑执行（可能设为 0）
+			return next.Mutate(ctx, m)
+		}
+
+		// 普通用户：强制覆盖，防止越权
+		// 优先使用强类型接口（生成代码常见）
+		if s, ok := m.(interface{ SetTenantID(T) }); ok {
+			s.SetTenantID(T(tid))
+			return next.Mutate(ctx, m)
+		}
+
+		// 兜底：尝试通过反射调用 SetField，以避免编译期因方法签名差异导致的模糊错误
+		rv := reflect.ValueOf(m)
+		if mf := rv.MethodByName("SetField"); mf.IsValid() && mf.Kind() == reflect.Func {
+			// 仅在方法接受两个参数时调用，避免 panic
+			if mf.Type().NumIn() == 2 {
+				mf.Call([]reflect.Value{reflect.ValueOf("tenant_id"), reflect.ValueOf(tid)})
+				return next.Mutate(ctx, m)
+			}
+		}
+
+		// 如果都不可用，则直接返回错误以便上层可感知（也可选择直接 next.Mutate）
+		return nil, fmt.Errorf("unable to set tenant_id on mutation")
+	})
 }

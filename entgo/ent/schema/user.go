@@ -3,6 +3,7 @@ package schema
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
+	"github.com/tx7do/go-crud/entgo/mixin"
 )
 
 // User holds the schema definition for the User entity.
@@ -17,13 +18,16 @@ func (User) Fields() []ent.Field {
 		field.String("name").
 			NotEmpty().
 			Comment("user name"),
+
 		field.Uint32("age").
 			Default(0).
 			Comment("user age"),
 	}
 }
 
-// Edges of the User.
-func (User) Edges() []ent.Edge {
-	return nil
+func (User) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		mixin.AutoIncrementId{},
+		mixin.TenantID[uint32]{},
+	}
 }

@@ -8,30 +8,30 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/tx7do/go-crud/entgo/ent/menu"
 	"github.com/tx7do/go-crud/entgo/ent/predicate"
-	"github.com/tx7do/go-crud/entgo/ent/user"
 )
 
-// UserDelete is the builder for deleting a User entity.
-type UserDelete struct {
+// MenuDelete is the builder for deleting a Menu entity.
+type MenuDelete struct {
 	config
 	hooks    []Hook
-	mutation *UserMutation
+	mutation *MenuMutation
 }
 
-// Where appends a list predicates to the UserDelete builder.
-func (_d *UserDelete) Where(ps ...predicate.User) *UserDelete {
+// Where appends a list predicates to the MenuDelete builder.
+func (_d *MenuDelete) Where(ps ...predicate.Menu) *MenuDelete {
 	_d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query and returns how many vertices were deleted.
-func (_d *UserDelete) Exec(ctx context.Context) (int, error) {
+func (_d *MenuDelete) Exec(ctx context.Context) (int, error) {
 	return withHooks(ctx, _d.sqlExec, _d.mutation, _d.hooks)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *UserDelete) ExecX(ctx context.Context) int {
+func (_d *MenuDelete) ExecX(ctx context.Context) int {
 	n, err := _d.Exec(ctx)
 	if err != nil {
 		panic(err)
@@ -39,8 +39,8 @@ func (_d *UserDelete) ExecX(ctx context.Context) int {
 	return n
 }
 
-func (_d *UserDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(user.Table, sqlgraph.NewFieldSpec(user.FieldID, field.TypeUint32))
+func (_d *MenuDelete) sqlExec(ctx context.Context) (int, error) {
+	_spec := sqlgraph.NewDeleteSpec(menu.Table, sqlgraph.NewFieldSpec(menu.FieldID, field.TypeUint32))
 	if ps := _d.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -56,32 +56,32 @@ func (_d *UserDelete) sqlExec(ctx context.Context) (int, error) {
 	return affected, err
 }
 
-// UserDeleteOne is the builder for deleting a single User entity.
-type UserDeleteOne struct {
-	_d *UserDelete
+// MenuDeleteOne is the builder for deleting a single Menu entity.
+type MenuDeleteOne struct {
+	_d *MenuDelete
 }
 
-// Where appends a list predicates to the UserDelete builder.
-func (_d *UserDeleteOne) Where(ps ...predicate.User) *UserDeleteOne {
+// Where appends a list predicates to the MenuDelete builder.
+func (_d *MenuDeleteOne) Where(ps ...predicate.Menu) *MenuDeleteOne {
 	_d._d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query.
-func (_d *UserDeleteOne) Exec(ctx context.Context) error {
+func (_d *MenuDeleteOne) Exec(ctx context.Context) error {
 	n, err := _d._d.Exec(ctx)
 	switch {
 	case err != nil:
 		return err
 	case n == 0:
-		return &NotFoundError{user.Label}
+		return &NotFoundError{menu.Label}
 	default:
 		return nil
 	}
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *UserDeleteOne) ExecX(ctx context.Context) {
+func (_d *MenuDeleteOne) ExecX(ctx context.Context) {
 	if err := _d.Exec(ctx); err != nil {
 		panic(err)
 	}

@@ -2,7 +2,90 @@
 
 package runtime
 
-// The schema-stitching logic is generated in github.com/tx7do/go-crud/entgo/ent/runtime.go
+import (
+	"context"
+
+	"github.com/tx7do/go-crud/entgo/ent/menu"
+	"github.com/tx7do/go-crud/entgo/ent/schema"
+	"github.com/tx7do/go-crud/entgo/ent/user"
+
+	"entgo.io/ent"
+	"entgo.io/ent/privacy"
+)
+
+// The init function reads all schema descriptors with runtime code
+// (default values, validators, hooks and policies) and stitches it
+// to their package variables.
+func init() {
+	menuMixin := schema.Menu{}.Mixin()
+	menuMixinHooks2 := menuMixin[2].Hooks()
+	menu.Hooks[0] = menuMixinHooks2[0]
+	menu.Hooks[1] = menuMixinHooks2[1]
+	menuMixinFields0 := menuMixin[0].Fields()
+	_ = menuMixinFields0
+	menuMixinFields2 := menuMixin[2].Fields()
+	_ = menuMixinFields2
+	menuFields := schema.Menu{}.Fields()
+	_ = menuFields
+	// menuDescPath is the schema descriptor for path field.
+	menuDescPath := menuMixinFields2[0].Descriptor()
+	// menu.PathValidator is a validator for the "path" field. It is called by the builders before save.
+	menu.PathValidator = func() func(string) error {
+		validators := menuDescPath.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(_path string) error {
+			for _, fn := range fns {
+				if err := fn(_path); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// menuDescName is the schema descriptor for name field.
+	menuDescName := menuFields[0].Descriptor()
+	// menu.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	menu.NameValidator = menuDescName.Validators[0].(func(string) error)
+	// menuDescID is the schema descriptor for id field.
+	menuDescID := menuMixinFields0[0].Descriptor()
+	// menu.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	menu.IDValidator = menuDescID.Validators[0].(func(uint32) error)
+	userMixin := schema.User{}.Mixin()
+	user.Policy = privacy.NewPolicies(userMixin[1], schema.User{})
+	user.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := user.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	userMixinFields0 := userMixin[0].Fields()
+	_ = userMixinFields0
+	userMixinFields1 := userMixin[1].Fields()
+	_ = userMixinFields1
+	userFields := schema.User{}.Fields()
+	_ = userFields
+	// userDescTenantID is the schema descriptor for tenant_id field.
+	userDescTenantID := userMixinFields1[0].Descriptor()
+	// user.DefaultTenantID holds the default value on creation for the tenant_id field.
+	user.DefaultTenantID = userDescTenantID.Default.(uint32)
+	// userDescName is the schema descriptor for name field.
+	userDescName := userFields[0].Descriptor()
+	// user.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	user.NameValidator = userDescName.Validators[0].(func(string) error)
+	// userDescAge is the schema descriptor for age field.
+	userDescAge := userFields[1].Descriptor()
+	// user.DefaultAge holds the default value on creation for the age field.
+	user.DefaultAge = userDescAge.Default.(uint32)
+	// userDescID is the schema descriptor for id field.
+	userDescID := userMixinFields0[0].Descriptor()
+	// user.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	user.IDValidator = userDescID.Validators[0].(func(uint32) error)
+}
 
 const (
 	Version = "v0.14.5"                                         // Version of ent codegen.

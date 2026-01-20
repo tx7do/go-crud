@@ -111,6 +111,30 @@ func DenyMutationOperationRule(op ent.Op) MutationRule {
 	return OnMutationOperation(rule, op)
 }
 
+// The MenuQueryRuleFunc type is an adapter to allow the use of ordinary
+// functions as a query rule.
+type MenuQueryRuleFunc func(context.Context, *ent.MenuQuery) error
+
+// EvalQuery return f(ctx, q).
+func (f MenuQueryRuleFunc) EvalQuery(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.MenuQuery); ok {
+		return f(ctx, q)
+	}
+	return Denyf("ent/privacy: unexpected query type %T, expect *ent.MenuQuery", q)
+}
+
+// The MenuMutationRuleFunc type is an adapter to allow the use of ordinary
+// functions as a mutation rule.
+type MenuMutationRuleFunc func(context.Context, *ent.MenuMutation) error
+
+// EvalMutation calls f(ctx, m).
+func (f MenuMutationRuleFunc) EvalMutation(ctx context.Context, m ent.Mutation) error {
+	if m, ok := m.(*ent.MenuMutation); ok {
+		return f(ctx, m)
+	}
+	return Denyf("ent/privacy: unexpected mutation type %T, expect *ent.MenuMutation", m)
+}
+
 // The UserQueryRuleFunc type is an adapter to allow the use of ordinary
 // functions as a query rule.
 type UserQueryRuleFunc func(context.Context, *ent.UserQuery) error
@@ -170,6 +194,8 @@ var _ QueryMutationRule = FilterFunc(nil)
 
 func queryFilter(q ent.Query) (Filter, error) {
 	switch q := q.(type) {
+	case *ent.MenuQuery:
+		return q.Filter(), nil
 	case *ent.UserQuery:
 		return q.Filter(), nil
 	default:
@@ -179,6 +205,8 @@ func queryFilter(q ent.Query) (Filter, error) {
 
 func mutationFilter(m ent.Mutation) (Filter, error) {
 	switch m := m.(type) {
+	case *ent.MenuMutation:
+		return m.Filter(), nil
 	case *ent.UserMutation:
 		return m.Filter(), nil
 	default:

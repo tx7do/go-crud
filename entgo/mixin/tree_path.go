@@ -81,23 +81,39 @@ func ensureComputedPath(m ent.Mutation) {
 		}
 	}
 
+	type ParentQuerier interface {
+		ParentID() (id uint32, exists bool)
+	}
+	if m.Op().Is(ent.OpCreate) {
+		if pq, ok := m.(ParentQuerier); ok {
+			pid, exists := pq.ParentID()
+			fmt.Printf("ParentID from ParentQuerier: %d, exists: %v\n", pid, exists)
+		}
+	}
+
 	// 尝试从 parent_id 字段或 edge parent 提取 parent id
-	var parentID int
+	var parentID uint64
 	if v, ok := m.Field("parent_id"); ok {
 		switch id := v.(type) {
 		case int:
-			parentID = id
+			parentID = uint64(id)
 		case int32:
-			parentID = int(id)
+			parentID = uint64(id)
 		case int64:
-			parentID = int(id)
+			parentID = uint64(id)
+		case uint:
+			parentID = uint64(id)
+		case uint32:
+			parentID = uint64(id)
+		case uint64:
+			parentID = id
 		}
 	} else {
 		// 兼容生成的 mutation 提供 EdgeIDs 方法
 		if ei, ok := m.(interface{ EdgeIDs(string) []int }); ok {
 			ids := ei.EdgeIDs("parent")
 			if len(ids) > 0 {
-				parentID = ids[0]
+				parentID = uint64(ids[0])
 			}
 		}
 	}

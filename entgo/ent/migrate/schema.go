@@ -8,9 +8,31 @@ import (
 )
 
 var (
+	// MenusColumns holds the columns for the "menus" table.
+	MenusColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint32, Increment: true},
+		{Name: "path", Type: field.TypeString, Size: 1024},
+		{Name: "name", Type: field.TypeString},
+		{Name: "parent_id", Type: field.TypeUint32, Nullable: true},
+	}
+	// MenusTable holds the schema information for the "menus" table.
+	MenusTable = &schema.Table{
+		Name:       "menus",
+		Columns:    MenusColumns,
+		PrimaryKey: []*schema.Column{MenusColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "menus_menus_children",
+				Columns:    []*schema.Column{MenusColumns[3]},
+				RefColumns: []*schema.Column{MenusColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint32, Increment: true},
+		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Default: 0},
 		{Name: "name", Type: field.TypeString},
 		{Name: "age", Type: field.TypeUint32, Default: 0},
 	}
@@ -22,9 +44,11 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		MenusTable,
 		UsersTable,
 	}
 )
 
 func init() {
+	MenusTable.ForeignKeys[0].RefTable = MenusTable
 }

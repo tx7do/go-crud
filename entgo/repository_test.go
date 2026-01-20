@@ -1,27 +1,8 @@
 package entgo
 
 import (
-	"context"
-	"testing"
-
-	"entgo.io/ent/dialect"
-	"github.com/tx7do/go-crud/entgo/ent"
-	"github.com/tx7do/go-crud/entgo/ent/enttest"
-
 	_ "github.com/xiaoqidun/entps"
 )
-
-func createTestEntClient(t *testing.T) *ent.Client {
-	ctx := context.Background()
-
-	client := enttest.Open(t, dialect.SQLite, "file:ent?mode=memory&cache=shared&_fk=1")
-
-	if err := client.Schema.Create(ctx); err != nil {
-		t.Fatalf("failed creating schema: %v", err)
-	}
-
-	return client
-}
 
 //func createUserRepo(m *mapper.CopierMapper[User, ent.User]) *Repository[
 //	ent.UserQuery, ent.UserSelect,
