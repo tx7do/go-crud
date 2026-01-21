@@ -8,11 +8,13 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+
 	"github.com/tx7do/go-crud/influxdb/field"
 	"github.com/tx7do/go-crud/influxdb/filter"
 	paging "github.com/tx7do/go-crud/influxdb/pagination"
 	"github.com/tx7do/go-crud/influxdb/query"
 	"github.com/tx7do/go-crud/influxdb/sorting"
+
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 )
@@ -23,9 +25,7 @@ type Repository[DTO any, ENTITY any] struct {
 	pagePaginator   *paging.PagePaginator
 	tokenPaginator  *paging.TokenPaginator
 
-	structuredFilter      *filter.StructuredFilter
-	queryStringConverter  *paginationFilter.QueryStringConverter
-	filterStringConverter *paginationFilter.FilterStringConverter
+	structuredFilter *filter.StructuredFilter
 
 	structuredSorting      *sorting.StructuredSorting
 	orderByStringConverter *paginationSorting.OrderByStringConverter
@@ -52,9 +52,6 @@ func NewRepository[DTO any, ENTITY any](client *Client, collection string, logge
 
 		structuredFilter: filter.NewStructuredFilter(),
 
-		queryStringConverter:  paginationFilter.NewQueryStringConverter(),
-		filterStringConverter: paginationFilter.NewFilterStringConverter(),
-
 		orderByStringConverter: paginationSorting.NewOrderByStringConverter(),
 
 		fieldSelector: field.NewFieldSelector(),
@@ -75,23 +72,13 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	var err error
 
 	// apply filters
-	if req.GetQuery() != "" {
-		var filterExpr *paginationV1.FilterExpr
-		filterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
-		if err != nil {
-			log.Errorf("convert query to filter expr failed: %s", err.Error())
-			return nil, 0, err
-		}
-		req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
-	} else if req.GetFilter() != "" {
-		var filterExpr *paginationV1.FilterExpr
-		filterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
-		if err != nil {
-			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
-			return nil, 0, err
-		}
-		req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
+	var filterExpr *paginationV1.FilterExpr
+	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
+	if err != nil {
+		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		return nil, 0, err
 	}
+	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
 
 	if _, err = r.structuredFilter.BuildSelectors(qb, req.GetFilterExpr()); err != nil {
 		return nil, 0, err
@@ -151,23 +138,13 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	var err error
 
 	// apply filters
-	if req.GetQuery() != "" {
-		var filterExpr *paginationV1.FilterExpr
-		filterExpr, err = r.queryStringConverter.Convert(req.GetQuery())
-		if err != nil {
-			log.Errorf("convert query to filter expr failed: %s", err.Error())
-			return nil, 0, err
-		}
-		req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
-	} else if req.GetFilter() != "" {
-		var filterExpr *paginationV1.FilterExpr
-		filterExpr, err = r.filterStringConverter.Convert(req.GetFilter())
-		if err != nil {
-			log.Errorf("convert filter string to filter expr failed: %s", err.Error())
-			return nil, 0, err
-		}
-		req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
+	var filterExpr *paginationV1.FilterExpr
+	filterExpr, err = paginationFilter.ConvertFilterByPaginationRequest(req)
+	if err != nil {
+		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		return nil, 0, err
 	}
+	req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
 
 	if _, err = r.structuredFilter.BuildSelectors(qb, req.GetFilterExpr()); err != nil {
 		return nil, 0, err

@@ -11,7 +11,7 @@ require (
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/google/uuid v1.6.0
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/pagination v0.0.10
+	github.com/tx7do/go-crud/pagination v0.0.11
 	github.com/tx7do/go-utils v1.1.34
 	github.com/tx7do/go-utils/id v0.0.2
 	github.com/tx7do/go-utils/mapper v0.0.3
