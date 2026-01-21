@@ -192,3 +192,71 @@ func TestFilterStringConverter_mapOperator(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterStringConverter_Convert_AllOperators(t *testing.T) {
+	fsc := NewFilterStringConverter()
+
+	cases := []struct {
+		filter   string
+		wantOp   paginationV1.Operator
+		wantType *paginationV1.ExprType // nil 表示不检查 ExprType
+	}{
+		//{"name = 'a'", paginationV1.Operator_EQ, nil},
+		//{"name != 'a'", paginationV1.Operator_NEQ, nil},
+		//{"age > 10", paginationV1.Operator_GT, nil},
+		//{"age >= 10", paginationV1.Operator_GTE, nil},
+		//{"age < 10", paginationV1.Operator_LT, nil},
+		//{"age <= 10", paginationV1.Operator_LTE, nil},
+		//{"name = 'a' OR name = 'b'", paginationV1.Operator_EQ, nil},
+		{"NOT (name = 'a' OR name = 'b')", paginationV1.Operator_NEQ, nil},
+		{"NOT (name = 'a' AND name = 'b')", paginationV1.Operator_NEQ, nil},
+		{"in(name, 'a','b')", paginationV1.Operator_IN, nil},
+		{"notin(name, 'x')", paginationV1.Operator_NIN, nil},
+		{"contains(name, 'ex')", paginationV1.Operator_CONTAINS, nil},
+		{"startsWith(name, 'pre')", paginationV1.Operator_STARTS_WITH, nil},
+		{"endsWith(name, 'suf')", paginationV1.Operator_ENDS_WITH, nil},
+		{"isNull(name)", paginationV1.Operator_IS_NULL, nil},
+		{"isNotNull(name)", paginationV1.Operator_IS_NOT_NULL, nil},
+		{"-name:*", paginationV1.Operator_NEQ, nil},
+		{"name:*", paginationV1.Operator_STARTS_WITH, nil},
+
+		// 组合逻辑：检查顶层 ExprType
+		{"a = 1 AND b = 2", paginationV1.Operator_EQ, func() *paginationV1.ExprType { e := paginationV1.ExprType_AND; return &e }()},
+		{"a = 1 OR b = 2", paginationV1.Operator_EQ, func() *paginationV1.ExprType { e := paginationV1.ExprType_OR; return &e }()},
+
+		// 未知/不支持运算符（期望返回 OPERATOR_UNSPECIFIED）
+		{"custom_op(name, 'x')", paginationV1.Operator_OPERATOR_UNSPECIFIED, nil},
+	}
+
+	for _, tc := range cases {
+		got, err := fsc.Convert(tc.filter)
+		if err != nil {
+			t.Fatalf("Convert(%q) returned error: %v", tc.filter, err)
+		}
+		if got == nil {
+			t.Fatalf("Convert(%q) returned nil", tc.filter)
+		}
+		if tc.wantType != nil {
+			if got.Type != *tc.wantType {
+				t.Fatalf("Convert(%q) ExprType = %v, want %v", tc.filter, got.Type, *tc.wantType)
+			}
+		}
+
+		// 找到第一个非空的 condition 并获取其 Op
+		var condOp = paginationV1.Operator_OPERATOR_UNSPECIFIED
+		found := false
+		for _, c := range got.Conditions {
+			if c != nil {
+				condOp = c.Op
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("Convert(%q) produced no conditions", tc.filter)
+		}
+		if condOp != tc.wantOp {
+			t.Fatalf("Convert(%q) op = %v, want %v", tc.filter, condOp, tc.wantOp)
+		}
+	}
+}
