@@ -201,13 +201,13 @@ func TestFilterStringConverter_Convert_AllOperators(t *testing.T) {
 		wantOp   paginationV1.Operator
 		wantType *paginationV1.ExprType // nil 表示不检查 ExprType
 	}{
-		//{"name = 'a'", paginationV1.Operator_EQ, nil},
-		//{"name != 'a'", paginationV1.Operator_NEQ, nil},
-		//{"age > 10", paginationV1.Operator_GT, nil},
-		//{"age >= 10", paginationV1.Operator_GTE, nil},
-		//{"age < 10", paginationV1.Operator_LT, nil},
-		//{"age <= 10", paginationV1.Operator_LTE, nil},
-		//{"name = 'a' OR name = 'b'", paginationV1.Operator_EQ, nil},
+		{"name = 'a'", paginationV1.Operator_EQ, nil},
+		{"name != 'a'", paginationV1.Operator_NEQ, nil},
+		{"age > 10", paginationV1.Operator_GT, nil},
+		{"age >= 10", paginationV1.Operator_GTE, nil},
+		{"age < 10", paginationV1.Operator_LT, nil},
+		{"age <= 10", paginationV1.Operator_LTE, nil},
+		{"name = 'a' OR name = 'b'", paginationV1.Operator_EQ, nil},
 		{"NOT (name = 'a' OR name = 'b')", paginationV1.Operator_NEQ, nil},
 		{"NOT (name = 'a' AND name = 'b')", paginationV1.Operator_NEQ, nil},
 		{"in(name, 'a','b')", paginationV1.Operator_IN, nil},
