@@ -11,7 +11,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
-	"github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-crud/pagination/filter"
 )
 
 // StructuredFilter 基于 FilterExpr 的过滤器
@@ -444,7 +444,7 @@ func (sf StructuredFilter) DatePart(s *sql.Selector, p *sql.Predicate, condition
 		return p
 	}
 
-	datePart := pagination.ConverterDatePartToString(condition.DatePart)
+	datePart := filter.ConverterDatePartToString(condition.DatePart)
 	datePart = strings.ToUpper(datePart)
 
 	p.Append(func(b *sql.Builder) {
@@ -484,7 +484,7 @@ func (sf StructuredFilter) DatePartField(s *sql.Selector, condition *paginationV
 		return ""
 	}
 
-	datePart := pagination.ConverterDatePartToString(condition.DatePart)
+	datePart := filter.ConverterDatePartToString(condition.DatePart)
 	datePart = strings.ToUpper(datePart)
 
 	p := sql.P()

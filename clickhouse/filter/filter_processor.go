@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/go-kratos/kratos/v2/encoding"
-	"github.com/tx7do/go-crud/clickhouse/query"
-	"github.com/tx7do/go-crud/pagination"
 	"github.com/tx7do/go-utils/stringcase"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-crud/clickhouse/query"
+	"github.com/tx7do/go-crud/pagination/filter"
 )
 
 var jsonKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_.]+$`)
@@ -427,7 +427,7 @@ func (poc Processor) Search(builder *query.Builder, field, value string) *query.
 
 // DatePartField 为 ClickHouse 提供简单的 date part 表达式，如 YEAR(col)
 func (poc Processor) DatePartField(datePart, field string) string {
-	if !pagination.IsValidDatePartString(datePart) || strings.TrimSpace(field) == "" {
+	if !filter.IsValidDatePartString(datePart) || strings.TrimSpace(field) == "" {
 		return ""
 	}
 	part := strings.ToUpper(datePart)

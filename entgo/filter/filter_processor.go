@@ -6,7 +6,6 @@ import (
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
-	"github.com/tx7do/go-crud/pagination"
 
 	"github.com/go-kratos/kratos/v2/encoding"
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
@@ -14,6 +13,7 @@ import (
 	"github.com/tx7do/go-utils/stringcase"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-crud/pagination/filter"
 )
 
 // escapeSQLString 对 SQL 字面量做最小转义，双写单引号并转义反斜杠，降低注入风险。
@@ -359,7 +359,7 @@ func (poc Processor) Search(s *sql.Selector, p *sql.Predicate, field, value stri
 // DatePart 时间戳提取日期
 // SQL: select extract(quarter from timestamp '2018-08-15 12:10:10');
 func (poc Processor) DatePart(s *sql.Selector, p *sql.Predicate, datePart, field string) *sql.Predicate {
-	if !pagination.IsValidDatePartString(datePart) {
+	if !filter.IsValidDatePartString(datePart) {
 		// 非法的 datePart，不生成表达式以避免注入
 		return p
 	}
@@ -398,7 +398,7 @@ func (poc Processor) DatePart(s *sql.Selector, p *sql.Predicate, datePart, field
 
 // DatePartField 日期
 func (poc Processor) DatePartField(s *sql.Selector, datePart, field string) string {
-	if !pagination.IsValidDatePartString(datePart) {
+	if !filter.IsValidDatePartString(datePart) {
 		// 非法的 datePart，不生成表达式以避免注入
 		return ""
 	}
