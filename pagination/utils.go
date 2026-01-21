@@ -103,3 +103,21 @@ func RemoveExcludedConditions(filterExpr *paginationV1.FilterExpr, excludeFields
 
 	return excludeConditions
 }
+
+// ClearFilterExprByFieldNames 从 FilterExpr 中移除指定字段名的所有条件（就地修改）
+func ClearFilterExprByFieldNames(expr *paginationV1.FilterExpr, fieldName string) {
+	if expr == nil {
+		return
+	}
+
+	for i := len(expr.GetConditions()) - 1; i >= 0; i-- {
+		cond := expr.GetConditions()[i]
+		if cond.GetField() == fieldName {
+			expr.Conditions = append(expr.Conditions[:i], expr.Conditions[i+1:]...)
+		}
+	}
+
+	for _, subExpr := range expr.GetGroups() {
+		ClearFilterExprByFieldNames(subExpr, fieldName)
+	}
+}

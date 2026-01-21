@@ -267,7 +267,7 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 			return nil
 		}
 
-		operator := pagination.ConverterStringToOperator(op)
+		operator := ConverterStringToOperator(op)
 
 		filterCondition := &paginationV1.FilterCondition{}
 
@@ -329,10 +329,10 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
 			}
 
-			filterCondition.DatePart = pagination.ConverterStringToDatePart(op1)
+			filterCondition.DatePart = ConverterStringToDatePart(op1)
 
 			if qsc.hasOperations(op2) {
-				operator := pagination.ConverterStringToOperator(op2)
+				operator := ConverterStringToOperator(op2)
 				filterCondition.Op = operator
 				filterExpr.Conditions = append(filterExpr.Conditions, filterCondition)
 				return nil
@@ -357,7 +357,7 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 			}
 
 			if qsc.hasOperations(op2) {
-				operator := pagination.ConverterStringToOperator(op2)
+				operator := ConverterStringToOperator(op2)
 				filterCondition.Op = operator
 				filterExpr.Conditions = append(filterExpr.Conditions, filterCondition)
 				return nil
@@ -389,11 +389,11 @@ func (qsc *QueryStringConverter) isJsonFieldKey(key string) bool {
 // hasOperations 是否有操作
 func (qsc *QueryStringConverter) hasOperations(str string) bool {
 	str = strings.ToLower(str)
-	return pagination.IsValidOperatorString(str)
+	return IsValidOperatorString(str)
 }
 
 // hasDatePart 是否有日期部分
 func (qsc *QueryStringConverter) hasDatePart(str string) bool {
 	str = strings.ToLower(str)
-	return pagination.IsValidDatePartString(str)
+	return IsValidDatePartString(str)
 }
