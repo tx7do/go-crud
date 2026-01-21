@@ -3,13 +3,13 @@ git tag pagination/v0.0.10 --force
 git tag viewer/v0.0.5 --force
 git tag audit/v0.0.2 --force
 
-git tag entgo/v0.0.36 --force
-git tag gorm/v0.0.16 --force
+git tag entgo/v0.0.37 --force
+git tag gorm/v0.0.17 --force
 
 git tag cassandra/v0.0.3 --force
 git tag elasticsearch/v0.0.4 --force
-git tag clickhouse/v0.0.8 --force
-git tag influxdb/v0.0.8 --force
-git tag mongodb/v0.0.8 --force
+git tag clickhouse/v0.0.9 --force
+git tag influxdb/v0.0.9 --force
+git tag mongodb/v0.0.9 --force
 
 git push origin --tags
