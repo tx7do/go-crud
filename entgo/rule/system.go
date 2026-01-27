@@ -137,7 +137,7 @@ func SoftDeleteRule(ctx context.Context, f Filter) error {
 	return nil
 }
 
-// DenyFieldsMutationRule 彻底解耦版：不依赖任何 ent 相关包
+// DenyFieldsMutationRule 禁止修改特定字段的 Mutation 规则
 // 参数说明:
 // ctx: 上下文
 // m: 传入的对象，在 Mutation 阶段它是具体的 Mutation 实例

@@ -26,7 +26,7 @@ func (TreePath) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("path").
 			Comment(`树路径，规范： 根节点: /，非根节点: /1/2/3/（以 / 开头且以 / 结尾）。禁止空字符串（NULL 表示未设置）。`).
-			MaxLen(1024).
+			MaxLen(512).
 			Optional().
 			Nillable(),
 		//Validate(func(s string) error {
