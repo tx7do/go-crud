@@ -121,3 +121,35 @@ func ClearFilterExprByFieldNames(expr *paginationV1.FilterExpr, fieldName string
 		ClearFilterExprByFieldNames(subExpr, fieldName)
 	}
 }
+
+// FilterFields 过滤掉不需要的字段条件
+func FilterFields(filterExpr *paginationV1.FilterExpr, excludeFields []string) []*paginationV1.FilterCondition {
+	if filterExpr == nil || len(filterExpr.Conditions) == 0 {
+		return []*paginationV1.FilterCondition{}
+	}
+
+	exclude := make(map[string]struct{}, len(excludeFields))
+	for _, f := range excludeFields {
+		if f == "" {
+			continue
+		}
+		exclude[f] = struct{}{}
+	}
+
+	includeConditions := make([]*paginationV1.FilterCondition, 0, len(filterExpr.Conditions))
+	excludeConditions := make([]*paginationV1.FilterCondition, 0, len(filterExpr.Conditions))
+	for _, cond := range filterExpr.Conditions {
+		if cond == nil || cond.Field == "" {
+			continue
+		}
+		if _, skip := exclude[cond.Field]; skip {
+			excludeConditions = append(excludeConditions, cond)
+			continue
+		}
+		includeConditions = append(includeConditions, cond)
+	}
+
+	filterExpr.Conditions = includeConditions
+
+	return excludeConditions
+}
