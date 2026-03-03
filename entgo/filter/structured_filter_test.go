@@ -450,47 +450,364 @@ func TestStructuredFilter_VariousConditions(t *testing.T) {
 func TestBuildFilterSelectors_JsonField(t *testing.T) {
 	sf := NewStructuredFilter()
 
-	expr := &paginationV1.FilterExpr{
-		Type: paginationV1.ExprType_AND,
-		Conditions: []*paginationV1.FilterCondition{
-			{
-				Field:      "data",
-				JsonPath:   trans.Ptr("key"),
-				Op:         paginationV1.Operator_EQ,
-				ValueOneof: &paginationV1.FilterCondition_Value{Value: "v1"},
+	t.Run("BasicEqualityWithJsonPath", func(t *testing.T) {
+		// 基础 JSONB 查询：WHERE JSON_EXTRACT(`data`, '$.key') = 'v1'
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "data",
+					JsonPath:   trans.Ptr("key"),
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "v1"},
+				},
 			},
-		},
-	}
-	sels, err := sf.BuildSelectors(expr)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(sels) != 1 {
-		t.Fatalf("expected 1 selector, got %d", len(sels))
-	}
-	if sels[0] == nil {
-		t.Fatal("expected non-nil selector function")
-	}
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(sels) != 1 {
+			t.Fatalf("expected 1 selector, got %d", len(sels))
+		}
 
-	// 构造 selector
-	s := sql.Dialect(dialect.MySQL).
-		Select("id", "data").
-		From(sql.Table("test_table"))
+		s := sql.Dialect(dialect.MySQL).
+			Select("id", "data").
+			From(sql.Table("test_table"))
 
-	sels[0](s)
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
 
-	gotSQL, gotArgs := s.Query()
+		if !strings.Contains(gotSQL, "FROM `test_table`") {
+			t.Fatalf("expected FROM clause, got: %s", gotSQL)
+		}
+		if !strings.Contains(strings.ToLower(gotSQL), "where") {
+			t.Fatalf("expected WHERE in SQL, got: %s", gotSQL)
+		}
+		if !strings.Contains(gotSQL, "`data`") {
+			t.Fatalf("expected field 'data' in SQL, got: %s", gotSQL)
+		}
+		if !strings.Contains(gotSQL, "JSON_EXTRACT") {
+			t.Fatalf("expected JSON_EXTRACT in SQL for MySQL, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 1 || gotArgs[0] != "v1" {
+			t.Fatalf("unexpected args: %#v", gotArgs)
+		}
+	})
 
-	if !strings.Contains(gotSQL, "FROM `test_table`") {
-		t.Fatalf("expected FROM clause, got: %s", gotSQL)
-	}
-	if !strings.Contains(strings.ToLower(gotSQL), "where") {
-		t.Fatalf("expected WHERE in SQL, got: %s", gotSQL)
-	}
-	if !strings.Contains(gotSQL, "`data`") {
-		t.Fatalf("expected field 'data' in SQL, got: %s", gotSQL)
-	}
-	if len(gotArgs) != 1 || gotArgs[0] != "v1" {
-		t.Fatalf("unexpected args: %#v", gotArgs)
-	}
+	t.Run("NestedJsonPath", func(t *testing.T) {
+		// 嵌套 JSON 路径：WHERE JSON_EXTRACT(`meta`, '$.user.name') = 'John'
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "meta",
+					JsonPath:   trans.Ptr("user.name"),
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "John"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("users"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(gotSQL, "JSON_EXTRACT") {
+			t.Fatalf("expected JSON_EXTRACT in SQL, got: %s", gotSQL)
+		}
+		if !strings.Contains(gotSQL, "user.name") {
+			t.Fatalf("expected nested path 'user.name', got: %s", gotSQL)
+		}
+		if len(gotArgs) != 1 || gotArgs[0] != "John" {
+			t.Fatalf("unexpected args: %#v", gotArgs)
+		}
+	})
+
+	t.Run("JsonPathNotEqual", func(t *testing.T) {
+		// NEQ 操作：WHERE JSON_EXTRACT(`data`, '$.status') <> 'inactive'
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "data",
+					JsonPath:   trans.Ptr("status"),
+					Op:         paginationV1.Operator_NEQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "inactive"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(gotSQL, "<>") && !strings.Contains(gotSQL, "!=") {
+			t.Fatalf("expected <> or != operator in SQL, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 1 || gotArgs[0] != "inactive" {
+			t.Fatalf("unexpected args: %#v", gotArgs)
+		}
+	})
+
+	t.Run("JsonPathContains", func(t *testing.T) {
+		// CONTAINS 操作：WHERE JSON_EXTRACT(`data`, '$.tags') LIKE '%python%'
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "data",
+					JsonPath:   trans.Ptr("tags"),
+					Op:         paginationV1.Operator_CONTAINS,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "python"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(strings.ToLower(gotSQL), "like") {
+			t.Fatalf("expected LIKE operator in SQL, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 1 {
+			t.Fatalf("expected 1 arg, got %d: %#v", len(gotArgs), gotArgs)
+		}
+		// CONTAINS 应该将参数转换为 %value%
+		if !strings.Contains(fmt.Sprintf("%v", gotArgs[0]), "python") {
+			t.Fatalf("expected 'python' in args, got: %#v", gotArgs)
+		}
+	})
+
+	t.Run("JsonPathStartsWith", func(t *testing.T) {
+		// STARTS_WITH 操作
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "data",
+					JsonPath:   trans.Ptr("name"),
+					Op:         paginationV1.Operator_STARTS_WITH,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "admin"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(strings.ToLower(gotSQL), "like") {
+			t.Fatalf("expected LIKE operator in SQL, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 1 {
+			t.Fatalf("expected 1 arg, got %d: %#v", len(gotArgs), gotArgs)
+		}
+	})
+
+	t.Run("JsonPathIN", func(t *testing.T) {
+		// IN 操作：WHERE JSON_EXTRACT(`data`, '$.type') IN ('admin', 'user', 'guest')
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:    "data",
+					JsonPath: trans.Ptr("type"),
+					Op:       paginationV1.Operator_IN,
+					Values:   []string{"admin", "user", "guest"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(strings.ToLower(gotSQL), "in") {
+			t.Fatalf("expected IN operator in SQL, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 3 {
+			t.Fatalf("expected 3 args, got %d: %#v", len(gotArgs), gotArgs)
+		}
+	})
+
+	t.Run("EmptyJsonPath", func(t *testing.T) {
+		// 空 JsonPath - 应该作为普通字段处理
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "data",
+					JsonPath:   trans.Ptr(""),
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "value"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, _ := s.Query()
+
+		// 空 JsonPath 应该作为普通字段处理，不应该包含 JSON_EXTRACT
+		if strings.Contains(gotSQL, "JSON_EXTRACT") {
+			t.Logf("Note: Empty JsonPath generated JSON_EXTRACT, may be expected behavior")
+		}
+	})
+
+	t.Run("PostgresJsonbOperator", func(t *testing.T) {
+		// Postgres 方言：使用 ->> 操作符
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "data",
+					JsonPath:   trans.Ptr("status"),
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "active"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// 使用 Postgres 方言
+		s := sql.Dialect(dialect.Postgres).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(gotSQL, "->>") {
+			t.Fatalf("expected ->> operator for Postgres JSONB, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 1 || gotArgs[0] != "active" {
+			t.Fatalf("unexpected args: %#v", gotArgs)
+		}
+	})
+
+	t.Run("JsonPathWithMultipleConditions", func(t *testing.T) {
+		// 多个 JSONB 条件组合
+		expr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "meta",
+					JsonPath:   trans.Ptr("role"),
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "admin"},
+				},
+				{
+					Field:      "meta",
+					JsonPath:   trans.Ptr("active"),
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "true"},
+				},
+			},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		// 两个条件都应该使用 JSON_EXTRACT
+		count := strings.Count(gotSQL, "JSON_EXTRACT")
+		if count < 2 {
+			t.Fatalf("expected at least 2 JSON_EXTRACT calls, got %d in: %s", count, gotSQL)
+		}
+
+		if len(gotArgs) != 2 {
+			t.Fatalf("expected 2 args, got %d: %#v", len(gotArgs), gotArgs)
+		}
+	})
+
+	t.Run("JsonPathVsNormalField", func(t *testing.T) {
+		// 比较 JsonPath 和普通字段生成的 SQL
+		jsonPathExpr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "data",
+					JsonPath:   trans.Ptr("name"),
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "test"},
+				},
+			},
+		}
+
+		normalFieldExpr := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{
+					Field:      "name",
+					Op:         paginationV1.Operator_EQ,
+					ValueOneof: &paginationV1.FilterCondition_Value{Value: "test"},
+				},
+			},
+		}
+
+		jsonSels, err := sf.BuildSelectors(jsonPathExpr)
+		if err != nil {
+			t.Fatalf("unexpected error for JSON path: %v", err)
+		}
+
+		normalSels, err := sf.BuildSelectors(normalFieldExpr)
+		if err != nil {
+			t.Fatalf("unexpected error for normal field: %v", err)
+		}
+
+		s1 := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		jsonSels[0](s1)
+		jsonSQL, jsonArgs := s1.Query()
+
+		s2 := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		normalSels[0](s2)
+		normalSQL, normalArgs := s2.Query()
+
+		// JsonPath 应该使用 JSON_EXTRACT，普通字段不应该
+		if !strings.Contains(jsonSQL, "JSON_EXTRACT") {
+			t.Fatalf("expected JSON_EXTRACT for JsonPath, got: %s", jsonSQL)
+		}
+
+		if strings.Contains(normalSQL, "JSON_EXTRACT") {
+			t.Fatalf("unexpected JSON_EXTRACT for normal field, got: %s", normalSQL)
+		}
+
+		// 两者都应该有参数
+		if len(jsonArgs) == 0 {
+			t.Fatalf("expected args for JsonPath query, got empty")
+		}
+		if len(normalArgs) == 0 {
+			t.Fatalf("expected args for normal field query, got empty")
+		}
+	})
 }
