@@ -1,9 +1,15 @@
 package filter
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/tx7do/go-utils/trans"
 	"google.golang.org/protobuf/encoding/protojson"
+
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
@@ -35,6 +41,27 @@ func TestFilterExprExamples(t *testing.T) {
 		if js == "" {
 			t.Fatal("protojson marshal returned empty string")
 		}
+
+		// 验证生成的 SQL
+		sf := NewStructuredFilter()
+		sels, err := sf.BuildSelectors(fe)
+		if err != nil {
+			t.Fatalf("BuildSelectors error: %v", err)
+		}
+		if len(sels) != 1 {
+			t.Fatalf("expected 1 selector, got %d", len(sels))
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(strings.ToLower(gotSQL), "where") {
+			t.Fatalf("expected WHERE clause, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 2 || gotArgs[0] != "1" || gotArgs[1] != "2" {
+			t.Fatalf("expected args ['1', '2'], got %#v", gotArgs)
+		}
 	})
 
 	t.Run("SimpleOR", func(t *testing.T) {
@@ -52,6 +79,27 @@ func TestFilterExprExamples(t *testing.T) {
 		}
 		if len(fe.GetConditions()) != 2 {
 			t.Fatalf("expected 2 conditions, got %d", len(fe.GetConditions()))
+		}
+
+		// 验证生成的 SQL
+		sf := NewStructuredFilter()
+		sels, err := sf.BuildSelectors(fe)
+		if err != nil {
+			t.Fatalf("BuildSelectors error: %v", err)
+		}
+		if len(sels) != 1 {
+			t.Fatalf("expected 1 selector, got %d", len(sels))
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(strings.ToLower(gotSQL), "where") {
+			t.Fatalf("expected WHERE clause, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 2 || gotArgs[0] != "1" || gotArgs[1] != "2" {
+			t.Fatalf("expected args ['1', '2'], got %#v", gotArgs)
 		}
 	})
 
@@ -82,6 +130,46 @@ func TestFilterExprExamples(t *testing.T) {
 		}
 		if fe.GetGroups()[0].GetType() != paginationV1.ExprType_OR {
 			t.Fatalf("expected inner group OR, got %v", fe.GetGroups()[0].GetType())
+		}
+
+		// 验证生成的 SQL
+		sf := NewStructuredFilter()
+		sels, err := sf.BuildSelectors(fe)
+		if err != nil {
+			t.Fatalf("BuildSelectors error: %v", err)
+		}
+		if len(sels) != 1 {
+			t.Fatalf("expected 1 selector, got %d", len(sels))
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		// 验证 SQL 包含 WHERE 子句
+		if !strings.Contains(strings.ToLower(gotSQL), "where") {
+			t.Fatalf("expected WHERE clause, got: %s", gotSQL)
+		}
+
+		// 验证至少包含 3 个参数（A=1, B=2, C=3）
+		if len(gotArgs) < 3 {
+			t.Fatalf("expected at least 3 args, got %d: %#v", len(gotArgs), gotArgs)
+		}
+
+		// 验证包含预期的值
+		values := make(map[string]bool)
+		for _, arg := range gotArgs {
+			values[fmt.Sprintf("%v", arg)] = true
+		}
+
+		if !values["1"] {
+			t.Fatalf("expected arg '1' (for A), got args: %#v", gotArgs)
+		}
+		if !values["2"] {
+			t.Fatalf("expected arg '2' (for B), got args: %#v", gotArgs)
+		}
+		if !values["3"] {
+			t.Fatalf("expected arg '3' (for C), got args: %#v", gotArgs)
 		}
 	})
 
@@ -124,6 +212,82 @@ func TestFilterExprExamples(t *testing.T) {
 		js := mustMarshal(fe)
 		if js == "" {
 			t.Fatal("protojson marshal returned empty string")
+		}
+
+		// 验证生成的 SQL
+		sf := NewStructuredFilter()
+		sels, err := sf.BuildSelectors(fe)
+		if err != nil {
+			t.Fatalf("BuildSelectors error: %v", err)
+		}
+		if len(sels) != 1 {
+			t.Fatalf("expected 1 selector, got %d", len(sels))
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(strings.ToLower(gotSQL), "where") {
+			t.Fatalf("expected WHERE clause, got: %s", gotSQL)
+		}
+		// 验证参数数量（5个值：a, b, c, d, e）
+		if len(gotArgs) != 5 {
+			t.Fatalf("expected 5 args, got %d: %#v", len(gotArgs), gotArgs)
+		}
+	})
+
+	t.Run("SingleCondition", func(t *testing.T) {
+		// 只有一个条件的简单情况
+		fe := &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{
+				{Field: "status", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "active"}},
+			},
+		}
+
+		sf := NewStructuredFilter()
+		sels, err := sf.BuildSelectors(fe)
+		if err != nil {
+			t.Fatalf("BuildSelectors error: %v", err)
+		}
+		if len(sels) != 1 {
+			t.Fatalf("expected 1 selector, got %d", len(sels))
+		}
+
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+		sels[0](s)
+		gotSQL, gotArgs := s.Query()
+
+		if !strings.Contains(strings.ToLower(gotSQL), "where") {
+			t.Fatalf("expected WHERE clause, got: %s", gotSQL)
+		}
+		if len(gotArgs) != 1 || gotArgs[0] != "active" {
+			t.Fatalf("expected args ['active'], got %#v", gotArgs)
+		}
+	})
+
+	t.Run("EmptyConditions", func(t *testing.T) {
+		// 空条件列表
+		fe := &paginationV1.FilterExpr{
+			Type:       paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{},
+		}
+
+		sf := NewStructuredFilter()
+		sels, err := sf.BuildSelectors(fe)
+		if err != nil {
+			t.Fatalf("BuildSelectors error: %v", err)
+		}
+		// 空条件应该返回 nil 或 1 个 selector（取决于实现）
+		if sels != nil && len(sels) > 0 && sels[0] != nil {
+			s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
+			sels[0](s)
+			gotSQL, _ := s.Query()
+			// 空条件不应该生成 WHERE 子句
+			if strings.Contains(strings.ToLower(gotSQL), "where") {
+				t.Fatalf("empty conditions should not generate WHERE clause, got: %s", gotSQL)
+			}
 		}
 	})
 }
@@ -280,5 +444,53 @@ func TestStructuredFilter_VariousConditions(t *testing.T) {
 				t.Fatalf("operator %s: expected non-nil selector function", tc.name)
 			}
 		})
+	}
+}
+
+func TestBuildFilterSelectors_JsonField(t *testing.T) {
+	sf := NewStructuredFilter()
+
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{
+				Field:      "data",
+				JsonPath:   trans.Ptr("key"),
+				Op:         paginationV1.Operator_EQ,
+				ValueOneof: &paginationV1.FilterCondition_Value{Value: "v1"},
+			},
+		},
+	}
+	sels, err := sf.BuildSelectors(expr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sels) != 1 {
+		t.Fatalf("expected 1 selector, got %d", len(sels))
+	}
+	if sels[0] == nil {
+		t.Fatal("expected non-nil selector function")
+	}
+
+	// 构造 selector
+	s := sql.Dialect(dialect.MySQL).
+		Select("id", "data").
+		From(sql.Table("test_table"))
+
+	sels[0](s)
+
+	gotSQL, gotArgs := s.Query()
+
+	if !strings.Contains(gotSQL, "FROM `test_table`") {
+		t.Fatalf("expected FROM clause, got: %s", gotSQL)
+	}
+	if !strings.Contains(strings.ToLower(gotSQL), "where") {
+		t.Fatalf("expected WHERE in SQL, got: %s", gotSQL)
+	}
+	if !strings.Contains(gotSQL, "`data`") {
+		t.Fatalf("expected field 'data' in SQL, got: %s", gotSQL)
+	}
+	if len(gotArgs) != 1 || gotArgs[0] != "v1" {
+		t.Fatalf("unexpected args: %#v", gotArgs)
 	}
 }
