@@ -42,7 +42,7 @@ func (fsc *FilterStringConverter) Convert(filterString string) (*paginationV1.Fi
 // mapOperator 映射 AIP 运算符到 paginationV1.Operator
 func (fsc *FilterStringConverter) mapOperator(op string) paginationV1.Operator {
 	switch op {
-	case "=":
+	case "=", "==":
 		return paginationV1.Operator_EQ
 	case "!=", "not":
 		return paginationV1.Operator_NEQ
@@ -54,19 +54,19 @@ func (fsc *FilterStringConverter) mapOperator(op string) paginationV1.Operator {
 		return paginationV1.Operator_GT
 	case ">=":
 		return paginationV1.Operator_GTE
-	case "isnull":
+	case "isnull", "isNull", "is_null":
 		return paginationV1.Operator_IS_NULL
-	case "isnotnull":
+	case "isnotnull", "isNotNull", "is_not_null":
 		return paginationV1.Operator_IS_NOT_NULL
 	case "contains":
 		return paginationV1.Operator_CONTAINS
-	case "startswith", ":":
+	case "startswith", "startsWith", "starts_with", ":":
 		return paginationV1.Operator_STARTS_WITH
-	case "endswith":
+	case "endswith", "endsWith", "ends_with":
 		return paginationV1.Operator_ENDS_WITH
 	case "in":
 		return paginationV1.Operator_IN
-	case "notin":
+	case "notin", "notIn":
 		return paginationV1.Operator_NIN
 	default:
 		return paginationV1.Operator_OPERATOR_UNSPECIFIED

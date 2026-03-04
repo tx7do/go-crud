@@ -336,3 +336,140 @@ func TestConvertFilterByPagingRequest_QueryObjectFormat(t *testing.T) {
 		t.Fatalf("expected valid ExprType, got UNSPECIFIED")
 	}
 }
+
+func TestConvertFilterByPagingRequest_QueryJSONBField_DefaultEQ(t *testing.T) {
+	query := `{"profile.name":"alice"}`
+	req := &paginationV1.PagingRequest{
+		FilteringType: &paginationV1.PagingRequest_Query{Query: query},
+	}
+
+	result, err := ConvertFilterByPagingRequest(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil FilterExpr")
+	}
+
+	conds := collectAllConditions(result)
+	if len(conds) == 0 {
+		t.Fatal("expected at least one condition")
+	}
+
+	found := false
+	for _, c := range conds {
+		if c.Field == "profile" && c.GetJsonPath() == "name" {
+			if c.Op != paginationV1.Operator_EQ {
+				t.Fatalf("expected EQ operator, got %v", c.Op)
+			}
+			if c.GetJsonValue() == nil {
+				t.Fatal("expected json_value for JSON field condition")
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected JSON condition field=profile json_path=name, got %#v", conds)
+	}
+}
+
+func TestConvertFilterByPagingRequest_QueryJSONBField_WithOperator(t *testing.T) {
+	query := `{"profile.name__contains":"ali"}`
+	req := &paginationV1.PagingRequest{
+		FilteringType: &paginationV1.PagingRequest_Query{Query: query},
+	}
+
+	result, err := ConvertFilterByPagingRequest(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil FilterExpr")
+	}
+
+	conds := collectAllConditions(result)
+	found := false
+	for _, c := range conds {
+		if c.Field == "profile" && c.GetJsonPath() == "name" {
+			if c.Op != paginationV1.Operator_CONTAINS {
+				t.Fatalf("expected CONTAINS operator, got %v", c.Op)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected JSON contains condition, got %#v", conds)
+	}
+}
+
+func TestConvertFilterByPagingRequest_QueryJSONBField_MixedConditions(t *testing.T) {
+	query := `[{"profile.name__contains":"a"},{"status__eq":"active"}]`
+	req := &paginationV1.PagingRequest{
+		FilteringType: &paginationV1.PagingRequest_Query{Query: query},
+	}
+
+	result, err := ConvertFilterByPagingRequest(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil FilterExpr")
+	}
+
+	conds := collectAllConditions(result)
+	if len(conds) < 2 {
+		t.Fatalf("expected at least 2 conditions, got %d", len(conds))
+	}
+
+	hasJSON := false
+	hasNormal := false
+	for _, c := range conds {
+		if c.Field == "profile" && c.GetJsonPath() == "name" {
+			hasJSON = true
+		}
+		if c.Field == "status" && c.GetJsonPath() == "" {
+			hasNormal = true
+		}
+	}
+	if !hasJSON || !hasNormal {
+		t.Fatalf("expected both json and normal conditions, got %#v", conds)
+	}
+}
+
+func TestConvertFilterByPagingRequest_QueryJSONBField_InvalidDeepPathFallback(t *testing.T) {
+	// 目前实现仅支持 "field.path" 两段式 json path，超过两段会回退为普通字段。
+	query := `{"profile.contact.email__eq":"a@b.com"}`
+	req := &paginationV1.PagingRequest{
+		FilteringType: &paginationV1.PagingRequest_Query{Query: query},
+	}
+
+	result, err := ConvertFilterByPagingRequest(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil FilterExpr")
+	}
+
+	conds := collectAllConditions(result)
+	if len(conds) == 0 {
+		t.Fatal("expected at least one condition")
+	}
+	for _, c := range conds {
+		if c.GetJsonPath() != "" {
+			t.Fatalf("expected fallback to non-json condition for deep path, got json_path=%q", c.GetJsonPath())
+		}
+	}
+}
+
+func collectAllConditions(expr *paginationV1.FilterExpr) []*paginationV1.FilterCondition {
+	if expr == nil {
+		return nil
+	}
+	out := make([]*paginationV1.FilterCondition, 0, len(expr.GetConditions()))
+	out = append(out, expr.GetConditions()...)
+	for _, g := range expr.GetGroups() {
+		out = append(out, collectAllConditions(g)...)
+	}
+	return out
+}

@@ -176,12 +176,12 @@ func TestFilterStringConverter_mapOperator(t *testing.T) {
 		{"<", paginationV1.Operator_LT},
 		{"<=", paginationV1.Operator_LTE},
 		{"in", paginationV1.Operator_IN},
-		{"not in", paginationV1.Operator_NIN},
+		{"notin", paginationV1.Operator_NIN},
 		{"contains", paginationV1.Operator_CONTAINS},
 		{"startsWith", paginationV1.Operator_STARTS_WITH},
 		{"endsWith", paginationV1.Operator_ENDS_WITH},
-		{"is null", paginationV1.Operator_IS_NULL},
-		{"is not null", paginationV1.Operator_IS_NOT_NULL},
+		{"isnull", paginationV1.Operator_IS_NULL},
+		{"isnotnull", paginationV1.Operator_IS_NOT_NULL},
 		{"unknown", paginationV1.Operator_OPERATOR_UNSPECIFIED},
 	}
 

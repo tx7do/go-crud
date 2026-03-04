@@ -104,8 +104,8 @@ func (qsc *QueryStringConverter) parseRawQuery(node *paginationV1.FilterExpr, ra
 				}
 				continue
 			}
-			// 兼容 []interface{}
-			if s, ok := item.([]interface{}); ok {
+			// 兼容 []any
+			if s, ok := item.([]any); ok {
 				for _, sub := range s {
 					if err := qsc.parseRawQuery(andFilterExpr, sub); err != nil {
 						return err
@@ -136,8 +136,8 @@ func (qsc *QueryStringConverter) parseRawQuery(node *paginationV1.FilterExpr, ra
 		if hasAnd {
 			andList, ok := andNodes.([]any)
 			if !ok {
-				// 兼容 []interface{}
-				if s, ok2 := andNodes.([]interface{}); ok2 {
+				// 兼容 []any
+				if s, ok2 := andNodes.([]any); ok2 {
 					andList = make([]any, len(s))
 					for i := range s {
 						andList[i] = s[i]
@@ -165,8 +165,8 @@ func (qsc *QueryStringConverter) parseRawQuery(node *paginationV1.FilterExpr, ra
 		if hasOr {
 			orList, ok := orNodes.([]any)
 			if !ok {
-				// 兼容 []interface{}
-				if s, ok2 := orNodes.([]interface{}); ok2 {
+				// 兼容 []any
+				if s, ok2 := orNodes.([]any); ok2 {
 					orList = make([]any, len(s))
 					for i := range s {
 						orList[i] = s[i]
@@ -255,6 +255,16 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 	switch len(keys) {
 	case 1:
 		// "amount": "500"
+
+		if qsc.isJsonFieldKey(field) {
+			jsonFields := qsc.splitJsonFieldKey(field)
+			if len(jsonFields) == 2 {
+				qsc.addJsonCondition(filterExpr, paginationV1.Operator_EQ, jsonFields[0], jsonFields[1], value)
+				return nil
+			}
+			// 如果json字段格式不正确，继续当作普通字段处理
+		}
+
 		field = stringcase.ToSnakeCase(field)
 		qsc.Equal(filterExpr, field, value)
 		return nil
