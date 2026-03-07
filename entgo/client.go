@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect"
+	entSql "entgo.io/ent/dialect/sql"
+
 	"github.com/go-kratos/kratos/v2/log"
+
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 
 	"github.com/XSAM/otelsql"
-
-	entSql "entgo.io/ent/dialect/sql"
 )
 
 type EntTx interface {
@@ -239,12 +240,12 @@ func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *E
     `, tableName, tableName)
 	}
 
-	rows := &sql.Rows{}
+	rows := &entSql.Rows{}
 	if err := entClient.Query(ctx, query, []any{parentID}, rows); err != nil {
 		log.Errorf("query child nodes failed: %s", err.Error())
 		return nil, errors.New("query child nodes failed: " + err.Error())
 	}
-	defer func(rows *sql.Rows) {
+	defer func(rows *entSql.Rows) {
 		err := rows.Close()
 		if err != nil {
 			log.Errorf("close rows failed: %s", err.Error())
