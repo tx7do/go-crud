@@ -1033,3 +1033,15 @@ func (r *Repository[
 ) (*paginationV1.FilterExpr, error) {
 	return paginationFilter.ConvertFilterByPaginationRequest(req)
 }
+
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) BuildSelector(
+	fields []string,
+) (func(s *sql.Selector), error) {
+	return r.fieldSelector.BuildSelector(fields)
+}
