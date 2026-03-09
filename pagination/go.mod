@@ -1,6 +1,6 @@
 module github.com/tx7do/go-crud/pagination
 
-go 1.24.11
+go 1.25.0
 
 replace github.com/tx7do/go-crud/api => ../api
 
@@ -9,8 +9,8 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-utils v1.1.34
-	go.einride.tech/aip v0.79.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20260114163908-3f89685c29c3
+	go.einride.tech/aip v0.81.0
+	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -20,5 +20,5 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260114163908-3f89685c29c3 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 )

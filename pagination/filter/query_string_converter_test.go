@@ -439,3 +439,45 @@ func TestConvert_TopLevelNumberInvalid(t *testing.T) {
 		t.Fatalf("ParseQuery(top-level number) expected error, got nil")
 	}
 }
+
+func TestParseQuery_In(t *testing.T) {
+	qsc := NewQueryStringConverter()
+
+	js := `{"user_id__in":[1,2,3]}`
+	got, err := qsc.Convert(js)
+	if err != nil {
+		t.Fatalf("Convert error: %v", err)
+	}
+
+	want := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{
+				Field:  "user_id",
+				Op:     paginationV1.Operator_IN,
+				Values: []string{"1", "2", "3"},
+			},
+		},
+	}
+
+	if !proto.Equal(want, got) {
+		t.Fatalf("Convert IN operator -> mismatch:\n%s", cmp.Diff(want, got))
+	}
+
+	js = `{"user_id__not_in":[1,2,3]}`
+	got, err = qsc.Convert(js)
+	if err != nil {
+		t.Fatalf("Convert error: %v", err)
+	}
+
+	want = &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{
+				Field:  "user_id",
+				Op:     paginationV1.Operator_NIN,
+				Values: []string{"1", "2", "3"},
+			},
+		},
+	}
+}

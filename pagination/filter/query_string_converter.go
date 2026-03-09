@@ -295,7 +295,16 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 		} else {
 			field = stringcase.ToSnakeCase(field)
 			filterCondition.Field = field
-			filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
+			switch v := value.(type) {
+			case []any:
+				for i := range v {
+					filterCondition.Values = append(filterCondition.Values, pagination.AnyToString(v[i]))
+				}
+
+			default:
+				filterCondition.ValueOneof = &paginationV1.FilterCondition_Value{Value: pagination.AnyToString(value)}
+			}
+
 		}
 
 		filterCondition.Op = operator
