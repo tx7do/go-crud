@@ -1,7 +1,6 @@
 package query
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -147,7 +146,7 @@ func (qb *Builder) SetMod(field string, divisor, remainder int) *Builder {
 
 // SetRegex 设置正则表达式查询条件
 func (qb *Builder) SetRegex(field string, pattern string, options string) *Builder {
-	qb.filter[field] = bsonV2.M{OperatorRegex: primitive.Regex{Pattern: pattern, Options: options}}
+	qb.filter[field] = bsonV2.M{OperatorRegex: bsonV2.Regex{Pattern: pattern, Options: options}}
 	return qb
 }
 

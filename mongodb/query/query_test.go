@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 )
 
@@ -121,7 +121,7 @@ func TestQueryBuilderMethods(t *testing.T) {
 
 	// SetRegex
 	qb.SetRegex("name", "^test", "")
-	expectedRegexDoc := bsonV2.M{OperatorRegex: primitive.Regex{Pattern: "^test", Options: ""}}
+	expectedRegexDoc := bsonV2.M{OperatorRegex: bsonV2.Regex{Pattern: "^test", Options: ""}}
 	assert.Equal(t, expectedRegexDoc, qb.filter["name"])
 
 	// SetIn

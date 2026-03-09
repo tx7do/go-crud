@@ -11,7 +11,7 @@ require (
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/pagination v0.0.12
+	github.com/tx7do/go-crud/pagination v0.0.13
 	github.com/tx7do/go-utils v1.1.34
 	github.com/tx7do/go-utils/mapper v0.0.3
 	google.golang.org/protobuf v1.36.11
@@ -30,17 +30,17 @@ require (
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/paulmach/orb v0.12.0 // indirect
-	github.com/pierrec/lz4/v4 v4.1.25 // indirect
+	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	go.einride.tech/aip v0.81.0 // indirect
-	go.opentelemetry.io/otel v1.41.0 // indirect
-	go.opentelemetry.io/otel/trace v1.41.0 // indirect
+	go.opentelemetry.io/otel v1.42.0 // indirect
+	go.opentelemetry.io/otel/trace v1.42.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
-	google.golang.org/grpc v1.79.1 // indirect
+	google.golang.org/grpc v1.79.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
