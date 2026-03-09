@@ -1,29 +1,10 @@
 package field
 
 import (
-	"regexp"
 	"strings"
 
 	"entgo.io/ent/dialect/sql"
 )
-
-var identPartRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
-// isSafeIdentPart 校验单个标识符片段（不含点）
-func isSafeIdentPart(s string) bool {
-	return identPartRe.MatchString(s)
-}
-
-// isSafePath 校验路径，如 "a", "a.b", "a.b.c" 等，每一段都必须安全
-func isSafePath(p string) bool {
-	parts := strings.Split(p, ".")
-	for _, part := range parts {
-		if !isSafeIdentPart(part) {
-			return false
-		}
-	}
-	return true
-}
 
 // Selector 字段选择器，用于构建SELECT语句中的字段列表。
 type Selector struct{}
@@ -57,7 +38,7 @@ func (fs Selector) BuildSelectWithTable(s *sql.Selector, table string, fields []
 	if table != "" {
 		for i, f := range fields {
 			if !strings.Contains(f, ".") {
-				fields[i] = table + "." + f
+				fields[i] = quoteIdentPart(table) + "." + f
 			}
 		}
 	}

@@ -1,9 +1,14 @@
 package field
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/tx7do/go-utils/stringcase"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
+
+var identPartRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // NormalizeFieldMaskPaths normalizes the paths in the given FieldMask to snake_case
 func NormalizeFieldMaskPaths(fm *fieldmaskpb.FieldMask) {
@@ -65,4 +70,25 @@ func ApplyFieldMaskToBuilder[R any, B interface{ Select(fields ...string) R }](b
 	}
 
 	return builder.Select(mask.GetPaths()...), true
+}
+
+// isSafeIdentPart 校验单个标识符片段（不含点）
+func isSafeIdentPart(s string) bool {
+	return identPartRe.MatchString(s)
+}
+
+// isSafePath 校验路径，如 "a", "a.b", "a.b.c" 等，每一段都必须安全
+func isSafePath(p string) bool {
+	parts := strings.Split(p, ".")
+	for _, part := range parts {
+		if !isSafeIdentPart(part) {
+			return false
+		}
+	}
+	return true
+}
+
+// quoteIdentPart 用双引号引用单个标识符片段
+func quoteIdentPart(p string) string {
+	return `"` + p + `"`
 }
