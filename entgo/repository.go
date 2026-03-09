@@ -17,7 +17,7 @@ import (
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/entgo/field"
 	"github.com/tx7do/go-crud/entgo/filter"
-	paging "github.com/tx7do/go-crud/entgo/pagination"
+	pagination "github.com/tx7do/go-crud/entgo/pagination"
 	"github.com/tx7do/go-crud/entgo/sorting"
 	"github.com/tx7do/go-crud/entgo/update"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
@@ -34,9 +34,9 @@ type Repository[
 ] struct {
 	mapper *mapper.CopierMapper[DTO, ENTITY]
 
-	offsetPaginator *paging.OffsetPaginator
-	pagePaginator   *paging.PagePaginator
-	tokenPaginator  *paging.TokenPaginator
+	offsetPaginator *pagination.OffsetPaginator
+	pagePaginator   *pagination.PagePaginator
+	tokenPaginator  *pagination.TokenPaginator
 
 	structuredFilter *filter.StructuredFilter
 
@@ -68,9 +68,9 @@ func NewRepository[
 	]{
 		mapper: mapper,
 
-		offsetPaginator: paging.NewOffsetPaginator(),
-		pagePaginator:   paging.NewPagePaginator(),
-		tokenPaginator:  paging.NewTokenPaginator(),
+		offsetPaginator: pagination.NewOffsetPaginator(),
+		pagePaginator:   pagination.NewPagePaginator(),
+		tokenPaginator:  pagination.NewTokenPaginator(),
 
 		fieldSelector: field.NewFieldSelector(),
 
@@ -159,7 +159,7 @@ func (r *Repository[
 	req *paginationV1.PagingRequest,
 ) (*PagingResult[DTO], error) {
 	if req == nil {
-		return nil, errors.New("paging request is nil")
+		return nil, errors.New("pagination request is nil")
 	}
 
 	if builder == nil {
@@ -217,7 +217,7 @@ func (r *Repository[
 	req *paginationV1.PagingRequest,
 ) (*PagingResult[DTO], error) {
 	if req == nil {
-		return nil, errors.New("paging request is nil")
+		return nil, errors.New("pagination request is nil")
 	}
 
 	if builder == nil {
@@ -302,7 +302,7 @@ func (r *Repository[
 	req *paginationV1.PagingRequest,
 ) (whereSelectors []func(s *sql.Selector), querySelectors []func(s *sql.Selector), err error) {
 	if req == nil {
-		return nil, nil, errors.New("paging request is nil")
+		return nil, nil, errors.New("pagination request is nil")
 	}
 
 	if builder == nil {
@@ -454,7 +454,7 @@ func (r *Repository[
 	req *paginationV1.PaginationRequest,
 ) (*PagingResult[DTO], error) {
 	if req == nil {
-		return nil, errors.New("paging request is nil")
+		return nil, errors.New("pagination request is nil")
 	}
 
 	if builder == nil {
@@ -1034,6 +1034,7 @@ func (r *Repository[
 	return paginationFilter.ConvertFilterByPaginationRequest(req)
 }
 
+// BuildSelector 根据字段列表构建选择器
 func (r *Repository[
 	ENT_QUERY, ENT_SELECT,
 	ENT_CREATE, ENT_CREATE_BULK,
@@ -1044,4 +1045,18 @@ func (r *Repository[
 	fields []string,
 ) (func(s *sql.Selector), error) {
 	return r.fieldSelector.BuildSelector(fields)
+}
+
+// BuildSelectorWithTable 构建带表名前缀的字段选择器，适用于多表查询场景
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) BuildSelectorWithTable(
+	table string,
+	fields []string,
+) (func(s *sql.Selector), error) {
+	return r.fieldSelector.BuildSelectorWithTable(table, fields)
 }
