@@ -11,5 +11,6 @@ git tag elasticsearch/v0.0.6 --force
 git tag clickhouse/v0.0.12 --force
 git tag influxdb/v0.0.12 --force
 git tag mongodb/v0.0.12 --force
+git tag doris/v0.0.1 --force
 
 git push origin --tags
