@@ -205,6 +205,14 @@ func structToValueArray(input any) []any {
 			} else {
 				values = append(values, string(b))
 			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			// Handle named integer types (e.g., protobuf enums which are named int32 types)
+			// Only convert named types (Type().Name() != "") to numeric int64 to avoid changing
+			// behavior for built-in unnamed integer types.
+			if rv.Type().Name() != "" && rv.Type().PkgPath() != "" {
+				values = append(values, rv.Int())
+				continue
+			}
 		case reflect.Slice, reflect.Array, reflect.Map:
 			// treat []byte as raw bytes
 			if rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {

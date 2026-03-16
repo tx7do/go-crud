@@ -214,31 +214,81 @@ func (c *Client) prepareInsertData(data any) (string, string, []any, error) {
 
 	columns := make([]string, 0, typ.NumField())
 	placeholders := make([]string, 0, typ.NumField())
-	values := make([]any, 0, typ.NumField())
 
-	values = structToValueArray(data)
+	// Obtain all field values in struct field order, then pick only tagged ones
+	allValues := structToValueArray(data)
+	values := make([]any, 0, typ.NumField())
 
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 
-		// 优先获取 `ch` 标签，其次获取 `json` 标签，最后使用字段名
-		columnName := field.Tag.Get("ch")
-		if columnName == "" {
-			jsonTag := field.Tag.Get("json")
-			if jsonTag != "" {
-				tags := strings.Split(jsonTag, ",") // 只取逗号前的部分
-				if len(tags) > 0 {
-					columnName = tags[0]
-				}
+		// skip unexported fields
+		if field.PkgPath != "" {
+			continue
+		}
+
+		chTag := field.Tag.Get("ch")
+		jsonTag := field.Tag.Get("json")
+
+		// Only include fields that have either ch or json tag (and not "-")
+		if chTag == "" && jsonTag == "" {
+			continue
+		}
+		if chTag == "-" || jsonTag == "-" {
+			continue
+		}
+
+		// determine column name: prefer ch tag, then json tag's name part (fallback to field name)
+		columnName := ""
+		if chTag != "" {
+			columnName = chTag
+		} else {
+			// json tag may include options like ",omitempty"
+			parts := strings.Split(jsonTag, ",")
+			if len(parts) > 0 && parts[0] != "" {
+				columnName = parts[0]
+			} else {
+				columnName = field.Name
 			}
 		}
-		if columnName == "" {
-			columnName = field.Name
-		}
-		//columnName = strings.TrimSpace(columnName)
 
 		columns = append(columns, columnName)
 		placeholders = append(placeholders, "?")
+
+		// pick corresponding value from allValues (same field order)
+		var v any
+		if i < len(allValues) {
+			v = allValues[i]
+		} else {
+			v = nil
+		}
+
+		// If the value is a pointer to a basic type, unwrap it for DB insertion
+		if v != nil {
+			rv := reflect.ValueOf(v)
+			if rv.Kind() == reflect.Ptr {
+				if rv.IsNil() {
+					v = nil
+				} else {
+					// If it's pointer to a basic kind, extract the element
+					ek := rv.Elem().Kind()
+					switch ek {
+					case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+						reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+						reflect.Float32, reflect.Float64, reflect.Bool:
+						v = rv.Elem().Interface()
+					default:
+						// leave pointer as-is for complex types
+					}
+				}
+			}
+		}
+
+		values = append(values, v)
+	}
+
+	if len(columns) == 0 {
+		return "", "", nil, fmt.Errorf("no tagged fields found")
 	}
 
 	return strings.Join(columns, ", "), strings.Join(placeholders, ", "), values, nil

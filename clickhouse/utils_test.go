@@ -242,17 +242,29 @@ func TestStructToValueArrayVarious(t *testing.T) {
 				t.Errorf("index %d bytes mismatch: want %v got %v", c.idx, want, gotBytes)
 			}
 		case int:
-			// numeric types might come back as int64 (from reflect); coerce
+			// numeric types might come back as int64 or pointer to int; coerce and compare
 			if reflect.DeepEqual(out[c.idx], want) {
 				continue
 			}
-			if iv, ok := out[c.idx].(int64); ok {
-				if int(iv) != want {
+			switch v := out[c.idx].(type) {
+			case int64:
+				if int(v) != want {
 					t.Errorf("index %d mismatch: want %v got %v", c.idx, want, out[c.idx])
 				}
 				continue
+			case *int:
+				if v == nil || *v != want {
+					t.Errorf("index %d mismatch: want %v got %v", c.idx, want, out[c.idx])
+				}
+				continue
+			case *int64:
+				if v == nil || int(*v) != want {
+					t.Errorf("index %d mismatch: want %v got %v", c.idx, want, out[c.idx])
+				}
+				continue
+			default:
+				t.Errorf("index %d mismatch: want %v got %v", c.idx, want, out[c.idx])
 			}
-			t.Errorf("index %d mismatch: want %v got %v", c.idx, want, out[c.idx])
 		case int64, float64, bool:
 			if !reflect.DeepEqual(out[c.idx], want) {
 				t.Errorf("index %d mismatch: want %v got %v", c.idx, want, out[c.idx])
