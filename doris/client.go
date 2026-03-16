@@ -3,6 +3,7 @@ package doris
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -339,46 +340,8 @@ func (c *Client) WithTxWithSession(ctx context.Context, vars map[string]string, 
 	return txwc.Commit()
 }
 
-// Insert inserts a single struct entity into the specified table.
-// It extracts exported fields with ch/json tag, builds columns/placeholders, and executes insert.
-func (c *Client) Insert(ctx context.Context, table string, entity any) error {
-	val := reflect.ValueOf(entity)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return fmt.Errorf("entity must be a struct or pointer to struct")
-	}
-	var columns []string
-	var placeholders []string
-	var values []any
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Type().Field(i)
-		if field.PkgPath != "" {
-			continue // skip unexported
-		}
-		jsonTag := field.Tag.Get("json")
-		if jsonTag == "-" {
-			continue
-		}
-		col := field.Name
-		if jsonTag != "" {
-			col = strings.Split(jsonTag, ",")[0]
-		}
-		columns = append(columns, col)
-		placeholders = append(placeholders, "?")
-		values = append(values, val.Field(i).Interface())
-	}
-	if len(columns) == 0 {
-		return fmt.Errorf("no exported fields with tags found")
-	}
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
-	_, err := c.db.ExecContext(ctx, query, values...)
-	return err
-}
-
 // ExtractColumnsAndRows extracts columns and rows from a slice of struct/proto.
-// 只解析 json tag（如无则用字段名），不再处理 ch tag。
+// 只解析 json tag（如无则用字段名），并对 map 类型字段序列化为 json 字符串。
 func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 	if len(slice) == 0 {
 		return nil, nil, fmt.Errorf("no data to extract")
@@ -393,6 +356,7 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 	}
 	var columns []string
 	var fieldIndexes []int
+	var fieldTypes []reflect.Type
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Type().Field(i)
 		if field.PkgPath != "" {
@@ -408,6 +372,7 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 		}
 		columns = append(columns, col)
 		fieldIndexes = append(fieldIndexes, i)
+		fieldTypes = append(fieldTypes, field.Type)
 	}
 	if len(columns) == 0 {
 		return nil, nil, fmt.Errorf("no exported fields with tags found")
@@ -423,7 +388,22 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 		}
 		row := make([]any, len(fieldIndexes))
 		for idx, fi := range fieldIndexes {
-			row[idx] = v.Field(fi).Interface()
+			f := v.Field(fi)
+			ft := fieldTypes[idx]
+			if ft.Kind() == reflect.Map {
+				if f.IsNil() {
+					row[idx] = nil
+				} else {
+					b, err := json.Marshal(f.Interface())
+					if err != nil {
+						row[idx] = nil
+					} else {
+						row[idx] = string(b)
+					}
+				}
+			} else {
+				row[idx] = f.Interface()
+			}
 		}
 		rows = append(rows, row)
 	}
@@ -448,4 +428,69 @@ func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []
 		return nil, err
 	}
 	return c.BatchInsert(ctx, table, columns, rows)
+}
+
+// ExtractColumnsAndValues extracts columns and values from a struct entity.
+// 支持 map 类型字段序列化为 json 字符串。
+func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
+	val := reflect.ValueOf(entity)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return nil, nil, fmt.Errorf("entity must be a struct or pointer to struct")
+	}
+	var columns []string
+	var values []any
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i)
+		if field.PkgPath != "" {
+			continue // skip unexported
+		}
+		jsonTag := field.Tag.Get("json")
+		if jsonTag == "-" {
+			continue
+		}
+		col := field.Name
+		if jsonTag != "" {
+			col = strings.Split(jsonTag, ",")[0]
+		}
+		columns = append(columns, col)
+		f := val.Field(i)
+		ft := field.Type
+		if ft.Kind() == reflect.Map {
+			if f.IsNil() {
+				values = append(values, nil)
+			} else {
+				b, err := json.Marshal(f.Interface())
+				if err != nil {
+					values = append(values, nil)
+				} else {
+					values = append(values, string(b))
+				}
+			}
+		} else {
+			values = append(values, f.Interface())
+		}
+	}
+	if len(columns) == 0 {
+		return nil, nil, fmt.Errorf("no exported fields with tags found")
+	}
+	return columns, values, nil
+}
+
+// Insert inserts a single struct entity into the specified table.
+// 支持 map 类型字段序列化为 json 字符串。
+func (c *Client) Insert(ctx context.Context, table string, entity any) error {
+	columns, values, err := ExtractColumnsAndValues(entity)
+	if err != nil {
+		return err
+	}
+	placeholders := make([]string, len(columns))
+	for i := range columns {
+		placeholders[i] = "?"
+	}
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+	_, err = c.db.ExecContext(ctx, query, values...)
+	return err
 }
