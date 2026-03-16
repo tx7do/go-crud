@@ -219,6 +219,15 @@ func structToValueArray(input any) []any {
 				values = append(values, rv.Bytes())
 				continue
 			}
+
+			// If it's a map[string]string, return the native map so the driver
+			// can serialize it as ClickHouse Map(String, String) and handle
+			// quoting/escaping correctly.
+			if rv.Kind() == reflect.Map && rv.Type().Key().Kind() == reflect.String && rv.Type().Elem().Kind() == reflect.String {
+				values = append(values, rv.Interface())
+				continue
+			}
+
 			// Marshal other slices/maps/arrays to JSON string
 			if rv.Len() == 0 || (rv.Kind() == reflect.Slice && rv.IsNil()) {
 				values = append(values, nil)
