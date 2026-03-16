@@ -439,3 +439,62 @@ func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []
 	}
 	return c.BatchInsert(ctx, table, columns, rows)
 }
+
+// BatchInsertStruct inserts a slice of struct into the specified table.
+// It extracts fields with ch/json tag, handles special types, and executes batch insert.
+func (c *Client) BatchInsertStruct(ctx context.Context, table string, structArr []any) (sql.Result, error) {
+	if len(structArr) == 0 {
+		return nil, fmt.Errorf("no structs to insert")
+	}
+	// Use first element to determine columns
+	first := structArr[0]
+	val := reflect.ValueOf(first)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("structArr element must be struct or pointer to struct")
+	}
+	var columns []string
+	var fieldIndexes []int
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i)
+		if field.PkgPath != "" {
+			continue // skip unexported
+		}
+		chTag := field.Tag.Get("ch")
+		jsonTag := field.Tag.Get("json")
+		if chTag == "-" || jsonTag == "-" {
+			continue
+		}
+		col := chTag
+		if col == "" && jsonTag != "" {
+			col = strings.Split(jsonTag, ",")[0]
+		}
+		if col == "" {
+			col = field.Name
+		}
+		columns = append(columns, col)
+		fieldIndexes = append(fieldIndexes, i)
+	}
+	if len(columns) == 0 {
+		return nil, fmt.Errorf("no exported fields with tags found")
+	}
+	// Build rows
+	var rows [][]any
+	for _, item := range structArr {
+		v := reflect.ValueOf(item)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.Kind() != reflect.Struct {
+			return nil, fmt.Errorf("structArr element must be struct or pointer to struct")
+		}
+		row := make([]any, len(fieldIndexes))
+		for idx, fi := range fieldIndexes {
+			row[idx] = v.Field(fi).Interface()
+		}
+		rows = append(rows, row)
+	}
+	return c.BatchInsert(ctx, table, columns, rows)
+}
