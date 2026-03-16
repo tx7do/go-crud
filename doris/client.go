@@ -357,17 +357,13 @@ func (c *Client) Insert(ctx context.Context, table string, entity any) error {
 		if field.PkgPath != "" {
 			continue // skip unexported
 		}
-		chTag := field.Tag.Get("ch")
 		jsonTag := field.Tag.Get("json")
-		if chTag == "-" || jsonTag == "-" {
+		if jsonTag == "-" {
 			continue
 		}
-		col := chTag
-		if col == "" && jsonTag != "" {
+		col := field.Name
+		if jsonTag != "" {
 			col = strings.Split(jsonTag, ",")[0]
-		}
-		if col == "" {
-			col = field.Name
 		}
 		columns = append(columns, col)
 		placeholders = append(placeholders, "?")
@@ -381,20 +377,19 @@ func (c *Client) Insert(ctx context.Context, table string, entity any) error {
 	return err
 }
 
-// BatchInsertProto inserts a slice of proto.Message into the specified table.
-// It extracts fields with ch/json tag, handles proto enums/timestamps/maps, and executes batch insert.
-func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []any) (sql.Result, error) {
-	if len(protoArr) == 0 {
-		return nil, fmt.Errorf("no proto messages to insert")
+// ExtractColumnsAndRows extracts columns and rows from a slice of struct/proto.
+// 只解析 json tag（如无则用字段名），不再处理 ch tag。
+func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
+	if len(slice) == 0 {
+		return nil, nil, fmt.Errorf("no data to extract")
 	}
-	// Use first element to determine columns
-	first := protoArr[0]
+	first := slice[0]
 	val := reflect.ValueOf(first)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
 	if val.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("protoArr element must be struct or pointer to struct")
+		return nil, nil, fmt.Errorf("element must be struct or pointer to struct")
 	}
 	var columns []string
 	var fieldIndexes []int
@@ -403,98 +398,54 @@ func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []
 		if field.PkgPath != "" {
 			continue // skip unexported
 		}
-		chTag := field.Tag.Get("ch")
 		jsonTag := field.Tag.Get("json")
-		if chTag == "-" || jsonTag == "-" {
+		if jsonTag == "-" {
 			continue
 		}
-		col := chTag
-		if col == "" && jsonTag != "" {
+		col := field.Name
+		if jsonTag != "" {
 			col = strings.Split(jsonTag, ",")[0]
-		}
-		if col == "" {
-			col = field.Name
 		}
 		columns = append(columns, col)
 		fieldIndexes = append(fieldIndexes, i)
 	}
 	if len(columns) == 0 {
-		return nil, fmt.Errorf("no exported fields with tags found")
+		return nil, nil, fmt.Errorf("no exported fields with tags found")
 	}
-	// Build rows
 	var rows [][]any
-	for _, msg := range protoArr {
-		v := reflect.ValueOf(msg)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-		if v.Kind() != reflect.Struct {
-			return nil, fmt.Errorf("protoArr element must be struct or pointer to struct")
-		}
-		row := make([]any, len(fieldIndexes))
-		for idx, fi := range fieldIndexes {
-			row[idx] = v.Field(fi).Interface()
-		}
-		rows = append(rows, row)
-	}
-	return c.BatchInsert(ctx, table, columns, rows)
-}
-
-// BatchInsertStruct inserts a slice of struct into the specified table.
-// It extracts fields with ch/json tag, handles special types, and executes batch insert.
-func (c *Client) BatchInsertStruct(ctx context.Context, table string, structArr []any) (sql.Result, error) {
-	if len(structArr) == 0 {
-		return nil, fmt.Errorf("no structs to insert")
-	}
-	// Use first element to determine columns
-	first := structArr[0]
-	val := reflect.ValueOf(first)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("structArr element must be struct or pointer to struct")
-	}
-	var columns []string
-	var fieldIndexes []int
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Type().Field(i)
-		if field.PkgPath != "" {
-			continue // skip unexported
-		}
-		chTag := field.Tag.Get("ch")
-		jsonTag := field.Tag.Get("json")
-		if chTag == "-" || jsonTag == "-" {
-			continue
-		}
-		col := chTag
-		if col == "" && jsonTag != "" {
-			col = strings.Split(jsonTag, ",")[0]
-		}
-		if col == "" {
-			col = field.Name
-		}
-		columns = append(columns, col)
-		fieldIndexes = append(fieldIndexes, i)
-	}
-	if len(columns) == 0 {
-		return nil, fmt.Errorf("no exported fields with tags found")
-	}
-	// Build rows
-	var rows [][]any
-	for _, item := range structArr {
+	for _, item := range slice {
 		v := reflect.ValueOf(item)
 		if v.Kind() == reflect.Ptr {
 			v = v.Elem()
 		}
 		if v.Kind() != reflect.Struct {
-			return nil, fmt.Errorf("structArr element must be struct or pointer to struct")
+			return nil, nil, fmt.Errorf("element must be struct or pointer to struct")
 		}
 		row := make([]any, len(fieldIndexes))
 		for idx, fi := range fieldIndexes {
 			row[idx] = v.Field(fi).Interface()
 		}
 		rows = append(rows, row)
+	}
+	return columns, rows, nil
+}
+
+// BatchInsertStruct inserts a slice of struct into the specified table.
+// 只解析 json tag（或字段名），不再处理 ch tag。
+func (c *Client) BatchInsertStruct(ctx context.Context, table string, structArr []any) (sql.Result, error) {
+	columns, rows, err := ExtractColumnsAndRows(structArr)
+	if err != nil {
+		return nil, err
+	}
+	return c.BatchInsert(ctx, table, columns, rows)
+}
+
+// BatchInsertProto inserts a slice of proto.Message into the specified table.
+// 只解析 json tag（或字段名），不再处理 ch tag。
+func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []any) (sql.Result, error) {
+	columns, rows, err := ExtractColumnsAndRows(protoArr)
+	if err != nil {
+		return nil, err
 	}
 	return c.BatchInsert(ctx, table, columns, rows)
 }
