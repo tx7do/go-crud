@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -336,4 +337,105 @@ func (c *Client) WithTxWithSession(ctx context.Context, vars map[string]string, 
 	}
 
 	return txwc.Commit()
+}
+
+// Insert inserts a single struct entity into the specified table.
+// It extracts exported fields with ch/json tag, builds columns/placeholders, and executes insert.
+func (c *Client) Insert(ctx context.Context, table string, entity any) error {
+	val := reflect.ValueOf(entity)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return fmt.Errorf("entity must be a struct or pointer to struct")
+	}
+	var columns []string
+	var placeholders []string
+	var values []any
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i)
+		if field.PkgPath != "" {
+			continue // skip unexported
+		}
+		chTag := field.Tag.Get("ch")
+		jsonTag := field.Tag.Get("json")
+		if chTag == "-" || jsonTag == "-" {
+			continue
+		}
+		col := chTag
+		if col == "" && jsonTag != "" {
+			col = strings.Split(jsonTag, ",")[0]
+		}
+		if col == "" {
+			col = field.Name
+		}
+		columns = append(columns, col)
+		placeholders = append(placeholders, "?")
+		values = append(values, val.Field(i).Interface())
+	}
+	if len(columns) == 0 {
+		return fmt.Errorf("no exported fields with tags found")
+	}
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+	_, err := c.db.ExecContext(ctx, query, values...)
+	return err
+}
+
+// BatchInsertProto inserts a slice of proto.Message into the specified table.
+// It extracts fields with ch/json tag, handles proto enums/timestamps/maps, and executes batch insert.
+func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []any) (sql.Result, error) {
+	if len(protoArr) == 0 {
+		return nil, fmt.Errorf("no proto messages to insert")
+	}
+	// Use first element to determine columns
+	first := protoArr[0]
+	val := reflect.ValueOf(first)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("protoArr element must be struct or pointer to struct")
+	}
+	var columns []string
+	var fieldIndexes []int
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i)
+		if field.PkgPath != "" {
+			continue // skip unexported
+		}
+		chTag := field.Tag.Get("ch")
+		jsonTag := field.Tag.Get("json")
+		if chTag == "-" || jsonTag == "-" {
+			continue
+		}
+		col := chTag
+		if col == "" && jsonTag != "" {
+			col = strings.Split(jsonTag, ",")[0]
+		}
+		if col == "" {
+			col = field.Name
+		}
+		columns = append(columns, col)
+		fieldIndexes = append(fieldIndexes, i)
+	}
+	if len(columns) == 0 {
+		return nil, fmt.Errorf("no exported fields with tags found")
+	}
+	// Build rows
+	var rows [][]any
+	for _, msg := range protoArr {
+		v := reflect.ValueOf(msg)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.Kind() != reflect.Struct {
+			return nil, fmt.Errorf("protoArr element must be struct or pointer to struct")
+		}
+		row := make([]any, len(fieldIndexes))
+		for idx, fi := range fieldIndexes {
+			row[idx] = v.Field(fi).Interface()
+		}
+		rows = append(rows, row)
+	}
+	return c.BatchInsert(ctx, table, columns, rows)
 }
