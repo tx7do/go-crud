@@ -3,7 +3,7 @@ git tag pagination/v0.0.13 --force
 git tag viewer/v0.0.6 --force
 git tag audit/v0.0.2 --force
 
-git tag entgo/v0.0.49 --force
+git tag entgo/v0.0.50 --force
 git tag gorm/v0.0.20 --force
 
 git tag cassandra/v0.0.3 --force
