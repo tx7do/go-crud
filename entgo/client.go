@@ -28,6 +28,7 @@ type EntTx interface {
 
 type EntClientInterface interface {
 	Close() error
+	Tx(ctx context.Context) (EntTx, error)
 }
 
 type EntClient[T EntClientInterface] struct {

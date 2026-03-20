@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/tx7do/go-crud/entgo/ent"
 )
 
-type TxFunc func(ctx context.Context, tx *ent.Tx) error
+type TxFunc func(ctx context.Context, tx EntTx) error
 
 // RunInTx 在 data 层统一管理 ent 事务。
 // entClient/log 必须由调用方传入以便复用该 helper。
@@ -18,8 +17,8 @@ type TxFunc func(ctx context.Context, tx *ent.Tx) error
 // - 如果 fn 返回 error，则回滚并返回该 error（Preserve business error）
 // - 如果 fn panic，则回滚并 panic 上抛（保持原行为）
 // - 如果 fn 返回 nil，则提交 tx；如果 commit 失败，记录日志并返回内部错误
-func RunInTx(ctx context.Context, entClient *EntClient[*ent.Client], logger *log.Helper, fn TxFunc) (err error) {
-	var tx *ent.Tx
+func RunInTx[T EntClientInterface](ctx context.Context, entClient *EntClient[T], logger *log.Helper, fn TxFunc) (err error) {
+	var tx EntTx
 	tx, err = entClient.Client().Tx(ctx)
 	if err != nil {
 		logger.Errorf("start transaction failed: %s", err.Error())
