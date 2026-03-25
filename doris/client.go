@@ -494,3 +494,28 @@ func (c *Client) Insert(ctx context.Context, table string, entity any) error {
 	_, err = c.db.ExecContext(ctx, query, values...)
 	return err
 }
+
+// Query 执行查询并返回结果
+func (c *Client) Query(ctx context.Context, creator func() any, results *[]any, query string, args ...any) error {
+	if c.db == nil {
+		return fmt.Errorf("db not initialized")
+	}
+	rows, err := c.db.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		obj := creator()
+		if err := rows.StructScan(obj); err != nil {
+			return err
+		}
+		*results = append(*results, obj)
+	}
+	return rows.Err()
+}
+
+// DB returns the underlying *sqlx.DB
+func (c *Client) DB() *sqlx.DB {
+	return c.db
+}

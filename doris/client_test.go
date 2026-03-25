@@ -5,10 +5,21 @@ import (
 	"database/sql"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
 )
+
+type Candle struct {
+	Timestamp *time.Time `json:"timestamp" ch:"timestamp"`
+	Symbol    *string    `json:"symbol" ch:"symbol"`
+	Open      *float64   `json:"open" ch:"open"`
+	High      *float64   `json:"high" ch:"high"`
+	Low       *float64   `json:"low" ch:"low"`
+	Close     *float64   `json:"close" ch:"close"`
+	Volume    *float64   `json:"volume" ch:"volume"`
+}
 
 func newMockClient(t *testing.T) (*Client, sqlmock.Sqlmock, func()) {
 	db, mock, err := sqlmock.New()
@@ -22,6 +33,32 @@ func newMockClient(t *testing.T) (*Client, sqlmock.Sqlmock, func()) {
 		t.Fatalf("NewClient failed: %v", err)
 	}
 	return c, mock, func() { _ = db.Close() }
+}
+
+func createTestClient() *Client {
+	c, err := NewClient()
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func createCandlesTable(client *Client) {
+	ctx := context.Background()
+	_, err := client.DB().ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS candles (
+			timestamp DATETIME,
+			symbol VARCHAR(20),
+			open DOUBLE,
+			high DOUBLE,
+			low DOUBLE,
+			close DOUBLE,
+			volume DOUBLE
+		)
+	`)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func TestSetSessionVars(t *testing.T) {
