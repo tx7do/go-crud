@@ -132,6 +132,55 @@ func TestExtractColumnsAndValues(t *testing.T) {
 	}
 }
 
+func TestExtractColumnsAndRows_Readonly(t *testing.T) {
+	type Demo struct {
+		ID      int    `db:"id"`
+		Name    string `db:"name"`
+		EventTS int64  `db:"event_ts,readonly"`
+	}
+	input := []any{
+		Demo{ID: 1, Name: "foo", EventTS: 123456},
+		&Demo{ID: 2, Name: "bar", EventTS: 654321},
+	}
+	cols, rows, err := ExtractColumnsAndRows(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantCols := []string{"id", "name", "event_ts"}
+	if !reflect.DeepEqual(cols, wantCols) {
+		t.Errorf("columns mismatch: got %v, want %v", cols, wantCols)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+	if rows[0][2] != int64(123456) || rows[1][2] != int64(654321) {
+		t.Errorf("readonly field mismatch: %v %v", rows[0][2], rows[1][2])
+	}
+}
+
+func TestExtractColumnsAndValues_Readonly(t *testing.T) {
+	type Demo struct {
+		ID      int    `db:"id"`
+		Name    string `db:"name"`
+		EventTS int64  `db:"event_ts,readonly"`
+	}
+	entity := Demo{ID: 3, Name: "baz", EventTS: 999}
+	cols, vals, err := ExtractColumnsAndValues(entity)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantCols := []string{"id", "name"}
+	if !reflect.DeepEqual(cols, wantCols) {
+		t.Errorf("columns mismatch: got %v, want %v", cols, wantCols)
+	}
+	if len(vals) != 2 {
+		t.Fatalf("expected 2 values, got %d", len(vals))
+	}
+	if vals[0] != 3 || vals[1] != "baz" {
+		t.Errorf("basic fields mismatch: %v", vals)
+	}
+}
+
 func TestFormatSessionValue(t *testing.T) {
 	tests := []struct {
 		in   string

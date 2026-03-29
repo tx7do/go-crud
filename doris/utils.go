@@ -95,6 +95,7 @@ func formatSessionValue(v string) string {
 
 // ExtractColumnsAndRows extracts columns and rows from a slice of struct/proto.
 // 只解析 db tag（如无则用字段名），并对 map 类型字段序列化为 json 字符串。
+// 支持 db:"col,readonly"，readonly 字段只读（可 select，不可 insert/update）。
 func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 	if len(slice) == 0 {
 		return nil, nil, fmt.Errorf("no data to extract")
@@ -119,7 +120,9 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 		if dbTag == "-" || dbTag == "" {
 			continue // only export fields with db tag and not ignored
 		}
-		col := strings.Split(dbTag, ",")[0]
+		parts := strings.Split(dbTag, ",")
+		col := parts[0]
+		// readonly is only used in ExtractColumnsAndValues, not needed here
 		columns = append(columns, col)
 		fieldIndexes = append(fieldIndexes, i)
 		fieldTypes = append(fieldTypes, field.Type)
@@ -161,6 +164,8 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 }
 
 // ExtractColumnsAndValues extracts columns and values from a struct entity.
+// 支持 db:"col,readonly"，readonly 字段只读（可 select，不可 insert/update）。
+// 只返回非 readonly 字段。
 func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
 	val := reflect.ValueOf(entity)
 	if val.Kind() == reflect.Ptr {
@@ -182,7 +187,18 @@ func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
 		if dbTag == "-" || dbTag == "" {
 			continue // only export fields with db tag and not ignored
 		}
-		col := strings.Split(dbTag, ",")[0]
+		parts := strings.Split(dbTag, ",")
+		col := parts[0]
+		readonly := false
+		for _, p := range parts[1:] {
+			if strings.TrimSpace(p) == "readonly" {
+				readonly = true
+				break
+			}
+		}
+		if readonly {
+			continue // skip readonly fields for insert/update
+		}
 
 		columns = append(columns, col)
 		f := val.Field(i)
