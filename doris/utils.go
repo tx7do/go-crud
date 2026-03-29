@@ -1,7 +1,9 @@
 package doris
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 )
@@ -91,4 +93,127 @@ func formatSessionValue(v string) string {
 	}
 	escaped := strings.ReplaceAll(v, "'", "''")
 	return "'" + escaped + "'"
+}
+
+// ExtractColumnsAndRows extracts columns and rows from a slice of struct/proto.
+// 只解析 db tag（如无则用字段名），并对 map 类型字段序列化为 json 字符串。
+func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
+	if len(slice) == 0 {
+		return nil, nil, fmt.Errorf("no data to extract")
+	}
+	first := slice[0]
+	val := reflect.ValueOf(first)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return nil, nil, fmt.Errorf("element must be struct or pointer to struct")
+	}
+	var columns []string
+	var fieldIndexes []int
+	var fieldTypes []reflect.Type
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i)
+		if field.PkgPath != "" {
+			continue // skip unexported
+		}
+		dbTag := field.Tag.Get("db")
+		if dbTag == "-" {
+			continue
+		}
+		col := field.Name
+		if dbTag != "" {
+			col = strings.Split(dbTag, ",")[0]
+		}
+		columns = append(columns, col)
+		fieldIndexes = append(fieldIndexes, i)
+		fieldTypes = append(fieldTypes, field.Type)
+	}
+	if len(columns) == 0 {
+		return nil, nil, fmt.Errorf("no exported fields with tags found")
+	}
+	var rows [][]any
+	for _, item := range slice {
+		v := reflect.ValueOf(item)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.Kind() != reflect.Struct {
+			return nil, nil, fmt.Errorf("element must be struct or pointer to struct")
+		}
+		row := make([]any, len(fieldIndexes))
+		for idx, fi := range fieldIndexes {
+			f := v.Field(fi)
+			ft := fieldTypes[idx]
+			if ft.Kind() == reflect.Map {
+				if f.IsNil() {
+					row[idx] = nil
+				} else {
+					b, err := json.Marshal(f.Interface())
+					if err != nil {
+						row[idx] = nil
+					} else {
+						row[idx] = string(b)
+					}
+				}
+			} else {
+				row[idx] = f.Interface()
+			}
+		}
+		rows = append(rows, row)
+	}
+	return columns, rows, nil
+}
+
+// ExtractColumnsAndValues extracts columns and values from a struct entity.
+func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
+	val := reflect.ValueOf(entity)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return nil, nil, fmt.Errorf("entity must be a struct or pointer to struct")
+	}
+
+	var columns []string
+	var values []any
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i)
+		if field.PkgPath != "" {
+			continue // skip unexported
+		}
+
+		dbTag := field.Tag.Get("db")
+		if dbTag == "-" {
+			continue
+		}
+		col := field.Name
+		if dbTag != "" {
+			col = strings.Split(dbTag, ",")[0]
+		}
+
+		columns = append(columns, col)
+		f := val.Field(i)
+		ft := field.Type
+		if ft.Kind() == reflect.Map {
+			if f.IsNil() {
+				values = append(values, nil)
+			} else {
+				b, err := json.Marshal(f.Interface())
+				if err != nil {
+					values = append(values, nil)
+				} else {
+					values = append(values, string(b))
+				}
+			}
+		} else {
+			values = append(values, f.Interface())
+		}
+	}
+
+	if len(columns) == 0 {
+		return nil, nil, fmt.Errorf("no exported fields with tags found")
+	}
+
+	return columns, values, nil
 }

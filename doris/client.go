@@ -3,10 +3,8 @@ package doris
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -97,9 +95,19 @@ func (c *Client) Close() error {
 	return c.db.Close()
 }
 
+// DB returns the underlying *sqlx.DB
+func (c *Client) DB() *sqlx.DB {
+	return c.db
+}
+
 // Exec executes a query
 func (c *Client) Exec(query string, args ...any) (sql.Result, error) {
 	return c.db.Exec(query, args...)
+}
+
+// ExecContext executes a query with context
+func (c *Client) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return c.db.ExecContext(ctx, query, args...)
 }
 
 // Get fetches one row into dest
@@ -122,9 +130,24 @@ func (c *Client) SelectContext(ctx context.Context, dest any, query string, args
 	return c.db.SelectContext(ctx, dest, query, args...)
 }
 
-// ExecContext executes a query with context
-func (c *Client) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	return c.db.ExecContext(ctx, query, args...)
+// Query 执行查询并返回结果
+func (c *Client) Query(ctx context.Context, creator func() any, results *[]any, query string, args ...any) error {
+	if c.db == nil {
+		return fmt.Errorf("db not initialized")
+	}
+	rows, err := c.db.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		obj := creator()
+		if err = rows.StructScan(obj); err != nil {
+			return err
+		}
+		*results = append(*results, obj)
+	}
+	return rows.Err()
 }
 
 // BatchInsert inserts multiple rows into table. Each row must match columns length.
@@ -132,6 +155,7 @@ func (c *Client) BatchInsert(ctx context.Context, table string, columns []string
 	if len(rows) == 0 {
 		return nil, fmt.Errorf("no rows to insert")
 	}
+
 	rowsCount := len(rows)
 	sqlStr, err := BuildInsertSQL(table, columns, rowsCount)
 	if err != nil {
@@ -147,6 +171,39 @@ func (c *Client) BatchInsert(ctx context.Context, table string, columns []string
 	}
 
 	return c.db.ExecContext(ctx, sqlStr, args...)
+}
+
+// BatchInsertStruct inserts a slice of struct into the specified table.
+func (c *Client) BatchInsertStruct(ctx context.Context, table string, structArr []any) (sql.Result, error) {
+	columns, rows, err := ExtractColumnsAndRows(structArr)
+	if err != nil {
+		return nil, err
+	}
+	return c.BatchInsert(ctx, table, columns, rows)
+}
+
+// BatchInsertProto inserts a slice of proto.Message into the specified table.
+func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []any) (sql.Result, error) {
+	columns, rows, err := ExtractColumnsAndRows(protoArr)
+	if err != nil {
+		return nil, err
+	}
+	return c.BatchInsert(ctx, table, columns, rows)
+}
+
+// Insert inserts a single struct entity into the specified table.
+func (c *Client) Insert(ctx context.Context, table string, entity any) error {
+	columns, values, err := ExtractColumnsAndValues(entity)
+	if err != nil {
+		return err
+	}
+	placeholders := make([]string, len(columns))
+	for i := range columns {
+		placeholders[i] = "?"
+	}
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+	_, err = c.db.ExecContext(ctx, query, values...)
+	return err
 }
 
 // SetSession executes a session-level SET statement. Note: when executed on the DB pool,
@@ -338,180 +395,4 @@ func (c *Client) WithTxWithSession(ctx context.Context, vars map[string]string, 
 	}
 
 	return txwc.Commit()
-}
-
-// ExtractColumnsAndRows extracts columns and rows from a slice of struct/proto.
-// 只解析 db tag（如无则用字段名），并对 map 类型字段序列化为 json 字符串。
-func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
-	if len(slice) == 0 {
-		return nil, nil, fmt.Errorf("no data to extract")
-	}
-	first := slice[0]
-	val := reflect.ValueOf(first)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return nil, nil, fmt.Errorf("element must be struct or pointer to struct")
-	}
-	var columns []string
-	var fieldIndexes []int
-	var fieldTypes []reflect.Type
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Type().Field(i)
-		if field.PkgPath != "" {
-			continue // skip unexported
-		}
-		dbTag := field.Tag.Get("db")
-		if dbTag == "-" {
-			continue
-		}
-		col := field.Name
-		if dbTag != "" {
-			col = strings.Split(dbTag, ",")[0]
-		}
-		columns = append(columns, col)
-		fieldIndexes = append(fieldIndexes, i)
-		fieldTypes = append(fieldTypes, field.Type)
-	}
-	if len(columns) == 0 {
-		return nil, nil, fmt.Errorf("no exported fields with tags found")
-	}
-	var rows [][]any
-	for _, item := range slice {
-		v := reflect.ValueOf(item)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-		if v.Kind() != reflect.Struct {
-			return nil, nil, fmt.Errorf("element must be struct or pointer to struct")
-		}
-		row := make([]any, len(fieldIndexes))
-		for idx, fi := range fieldIndexes {
-			f := v.Field(fi)
-			ft := fieldTypes[idx]
-			if ft.Kind() == reflect.Map {
-				if f.IsNil() {
-					row[idx] = nil
-				} else {
-					b, err := json.Marshal(f.Interface())
-					if err != nil {
-						row[idx] = nil
-					} else {
-						row[idx] = string(b)
-					}
-				}
-			} else {
-				row[idx] = f.Interface()
-			}
-		}
-		rows = append(rows, row)
-	}
-	return columns, rows, nil
-}
-
-// BatchInsertStruct inserts a slice of struct into the specified table.
-func (c *Client) BatchInsertStruct(ctx context.Context, table string, structArr []any) (sql.Result, error) {
-	columns, rows, err := ExtractColumnsAndRows(structArr)
-	if err != nil {
-		return nil, err
-	}
-	return c.BatchInsert(ctx, table, columns, rows)
-}
-
-// BatchInsertProto inserts a slice of proto.Message into the specified table.
-func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []any) (sql.Result, error) {
-	columns, rows, err := ExtractColumnsAndRows(protoArr)
-	if err != nil {
-		return nil, err
-	}
-	return c.BatchInsert(ctx, table, columns, rows)
-}
-
-// ExtractColumnsAndValues extracts columns and values from a struct entity.
-func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
-	val := reflect.ValueOf(entity)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return nil, nil, fmt.Errorf("entity must be a struct or pointer to struct")
-	}
-	var columns []string
-	var values []any
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Type().Field(i)
-		if field.PkgPath != "" {
-			continue // skip unexported
-		}
-		dbTag := field.Tag.Get("db")
-		if dbTag == "-" {
-			continue
-		}
-		col := field.Name
-		if dbTag != "" {
-			col = strings.Split(dbTag, ",")[0]
-		}
-		columns = append(columns, col)
-		f := val.Field(i)
-		ft := field.Type
-		if ft.Kind() == reflect.Map {
-			if f.IsNil() {
-				values = append(values, nil)
-			} else {
-				b, err := json.Marshal(f.Interface())
-				if err != nil {
-					values = append(values, nil)
-				} else {
-					values = append(values, string(b))
-				}
-			}
-		} else {
-			values = append(values, f.Interface())
-		}
-	}
-	if len(columns) == 0 {
-		return nil, nil, fmt.Errorf("no exported fields with tags found")
-	}
-	return columns, values, nil
-}
-
-// Insert inserts a single struct entity into the specified table.
-func (c *Client) Insert(ctx context.Context, table string, entity any) error {
-	columns, values, err := ExtractColumnsAndValues(entity)
-	if err != nil {
-		return err
-	}
-	placeholders := make([]string, len(columns))
-	for i := range columns {
-		placeholders[i] = "?"
-	}
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
-	_, err = c.db.ExecContext(ctx, query, values...)
-	return err
-}
-
-// Query 执行查询并返回结果
-func (c *Client) Query(ctx context.Context, creator func() any, results *[]any, query string, args ...any) error {
-	if c.db == nil {
-		return fmt.Errorf("db not initialized")
-	}
-	rows, err := c.db.QueryxContext(ctx, query, args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		obj := creator()
-		if err = rows.StructScan(obj); err != nil {
-			return err
-		}
-		*results = append(*results, obj)
-	}
-	return rows.Err()
-}
-
-// DB returns the underlying *sqlx.DB
-func (c *Client) DB() *sqlx.DB {
-	return c.db
 }
