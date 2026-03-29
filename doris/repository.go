@@ -50,7 +50,12 @@ type Repository[DTO any, ENTITY any] struct {
 	table string
 }
 
-func NewRepository[DTO any, ENTITY any](client *Client, mapper *mapper.CopierMapper[DTO, ENTITY], table string, log *log.Helper) *Repository[DTO, ENTITY] {
+func NewRepository[DTO any, ENTITY any](
+	client *Client,
+	mapper *mapper.CopierMapper[DTO, ENTITY],
+	table string,
+	log *log.Helper,
+) *Repository[DTO, ENTITY] {
 	return &Repository[DTO, ENTITY]{
 		client: client,
 		mapper: mapper,
@@ -165,13 +170,13 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	if len(req.GetSorting()) > 0 {
 		_ = r.structuredSorting.BuildOrderClause(queryBuilder, req.GetSorting())
 	} else if len(req.GetOrderBy()) > 0 {
-		var sortings []*paginationV1.Sorting
-		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
+		var orderBy []*paginationV1.Sorting
+		orderBy, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
 			log.Errorf("convert order by string to sorting failed: %s", err.Error())
 			return nil, err
 		}
-		_ = r.structuredSorting.BuildOrderClause(queryBuilder, sortings)
+		_ = r.structuredSorting.BuildOrderClause(queryBuilder, orderBy)
 	}
 
 	// pagination
@@ -259,13 +264,13 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	if len(req.GetSorting()) > 0 {
 		_ = r.structuredSorting.BuildOrderClause(queryBuilder, req.GetSorting())
 	} else if len(req.GetOrderBy()) > 0 {
-		var sortings []*paginationV1.Sorting
-		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
+		var orderBy []*paginationV1.Sorting
+		orderBy, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
 			log.Errorf("convert order by string to sorting failed: %s", err.Error())
 			return nil, err
 		}
-		_ = r.structuredSorting.BuildOrderClause(queryBuilder, sortings)
+		_ = r.structuredSorting.BuildOrderClause(queryBuilder, orderBy)
 	}
 
 	// pagination
@@ -546,22 +551,22 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 	field.NormalizeFieldMaskPaths(viewMask)
 
 	// 将 DTO 映射为实体切片（保留具体类型 ENTITY）
-	ents := make([]*ENTITY, 0, len(dtos))
+	entities := make([]*ENTITY, 0, len(dtos))
 	for _, dto := range dtos {
 		if dto == nil {
 			continue
 		}
 		ent := r.mapper.ToEntity(dto)
-		ents = append(ents, ent)
+		entities = append(entities, ent)
 	}
-	if len(ents) == 0 {
+	if len(entities) == 0 {
 		return nil, nil
 	}
 
 	// 使用第一个实体的类型和字段信息构建列列表（与单条 Create 保持一致的规则）
 	var cols []string
-	var fieldIdxs []int
-	firstVal := reflect.ValueOf(ents[0])
+	var fieldIndexes []int
+	firstVal := reflect.ValueOf(entities[0])
 	if firstVal.Kind() == reflect.Ptr {
 		firstVal = firstVal.Elem()
 	}
@@ -603,7 +608,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 		}
 
 		cols = append(cols, col)
-		fieldIdxs = append(fieldIdxs, i)
+		fieldIndexes = append(fieldIndexes, i)
 	}
 
 	if len(cols) == 0 {
@@ -611,21 +616,21 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 	}
 
 	// 为每条实体收集值，保证顺序与 cols 对应
-	vals := make([]any, 0, len(ents)*len(cols))
-	for _, ent := range ents {
+	vals := make([]any, 0, len(entities)*len(cols))
+	for _, ent := range entities {
 		v := reflect.ValueOf(ent)
 		if v.Kind() == reflect.Ptr {
 			v = v.Elem()
 		}
-		for _, idx := range fieldIdxs {
+		for _, idx := range fieldIndexes {
 			vals = append(vals, v.Field(idx).Interface())
 		}
 	}
 
 	// 构造批量 INSERT 占位符
 	rowPlaceholders := "(" + strings.TrimRight(strings.Repeat("?,", len(cols)), ",") + ")"
-	rows := make([]string, 0, len(ents))
-	for i := 0; i < len(ents); i++ {
+	rows := make([]string, 0, len(entities))
+	for i := 0; i < len(entities); i++ {
 		rows = append(rows, rowPlaceholders)
 	}
 	placeholders := strings.Join(rows, ",")
@@ -638,8 +643,8 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 	}
 
 	// 将实体映射回 DTO 列表并返回
-	res := make([]*DTO, 0, len(ents))
-	for _, ent := range ents {
+	res := make([]*DTO, 0, len(entities))
+	for _, ent := range entities {
 		// 保证传入的是 *ENTITY
 		e := ent
 		res = append(res, r.mapper.ToDTO(e))

@@ -341,7 +341,7 @@ func (c *Client) WithTxWithSession(ctx context.Context, vars map[string]string, 
 }
 
 // ExtractColumnsAndRows extracts columns and rows from a slice of struct/proto.
-// 只解析 json tag（如无则用字段名），并对 map 类型字段序列化为 json 字符串。
+// 只解析 db tag（如无则用字段名），并对 map 类型字段序列化为 json 字符串。
 func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 	if len(slice) == 0 {
 		return nil, nil, fmt.Errorf("no data to extract")
@@ -362,13 +362,13 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 		if field.PkgPath != "" {
 			continue // skip unexported
 		}
-		jsonTag := field.Tag.Get("json")
-		if jsonTag == "-" {
+		dbTag := field.Tag.Get("db")
+		if dbTag == "-" {
 			continue
 		}
 		col := field.Name
-		if jsonTag != "" {
-			col = strings.Split(jsonTag, ",")[0]
+		if dbTag != "" {
+			col = strings.Split(dbTag, ",")[0]
 		}
 		columns = append(columns, col)
 		fieldIndexes = append(fieldIndexes, i)
@@ -411,7 +411,6 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 }
 
 // BatchInsertStruct inserts a slice of struct into the specified table.
-// 只解析 json tag（或字段名），不再处理 ch tag。
 func (c *Client) BatchInsertStruct(ctx context.Context, table string, structArr []any) (sql.Result, error) {
 	columns, rows, err := ExtractColumnsAndRows(structArr)
 	if err != nil {
@@ -421,7 +420,6 @@ func (c *Client) BatchInsertStruct(ctx context.Context, table string, structArr 
 }
 
 // BatchInsertProto inserts a slice of proto.Message into the specified table.
-// 只解析 json tag（或字段名），不再处理 ch tag。
 func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []any) (sql.Result, error) {
 	columns, rows, err := ExtractColumnsAndRows(protoArr)
 	if err != nil {
@@ -431,7 +429,6 @@ func (c *Client) BatchInsertProto(ctx context.Context, table string, protoArr []
 }
 
 // ExtractColumnsAndValues extracts columns and values from a struct entity.
-// 支持 map 类型字段序列化为 json 字符串。
 func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
 	val := reflect.ValueOf(entity)
 	if val.Kind() == reflect.Ptr {
@@ -447,13 +444,13 @@ func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
 		if field.PkgPath != "" {
 			continue // skip unexported
 		}
-		jsonTag := field.Tag.Get("json")
-		if jsonTag == "-" {
+		dbTag := field.Tag.Get("db")
+		if dbTag == "-" {
 			continue
 		}
 		col := field.Name
-		if jsonTag != "" {
-			col = strings.Split(jsonTag, ",")[0]
+		if dbTag != "" {
+			col = strings.Split(dbTag, ",")[0]
 		}
 		columns = append(columns, col)
 		f := val.Field(i)
@@ -480,7 +477,6 @@ func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
 }
 
 // Insert inserts a single struct entity into the specified table.
-// 支持 map 类型字段序列化为 json 字符串。
 func (c *Client) Insert(ctx context.Context, table string, entity any) error {
 	columns, values, err := ExtractColumnsAndValues(entity)
 	if err != nil {
@@ -507,7 +503,7 @@ func (c *Client) Query(ctx context.Context, creator func() any, results *[]any, 
 	defer rows.Close()
 	for rows.Next() {
 		obj := creator()
-		if err := rows.StructScan(obj); err != nil {
+		if err = rows.StructScan(obj); err != nil {
 			return err
 		}
 		*results = append(*results, obj)
