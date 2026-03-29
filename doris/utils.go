@@ -85,11 +85,9 @@ func formatSessionValue(v string) string {
 	if numUnitRe.MatchString(v) {
 		return v
 	}
-	// already quoted? if starts and ends with single quote, keep but escape inner ones
+	// already quoted? if starts and ends with single quote, return as is (assume user input is valid SQL string literal)
 	if len(v) >= 2 && v[0] == '\'' && v[len(v)-1] == '\'' {
-		inner := v[1 : len(v)-1]
-		inner = strings.ReplaceAll(inner, "'", "''")
-		return "'" + inner + "'"
+		return v
 	}
 	escaped := strings.ReplaceAll(v, "'", "''")
 	return "'" + escaped + "'"
@@ -118,13 +116,10 @@ func ExtractColumnsAndRows(slice []any) ([]string, [][]any, error) {
 			continue // skip unexported
 		}
 		dbTag := field.Tag.Get("db")
-		if dbTag == "-" {
-			continue
+		if dbTag == "-" || dbTag == "" {
+			continue // only export fields with db tag and not ignored
 		}
-		col := field.Name
-		if dbTag != "" {
-			col = strings.Split(dbTag, ",")[0]
-		}
+		col := strings.Split(dbTag, ",")[0]
 		columns = append(columns, col)
 		fieldIndexes = append(fieldIndexes, i)
 		fieldTypes = append(fieldTypes, field.Type)
@@ -184,13 +179,10 @@ func ExtractColumnsAndValues(entity any) ([]string, []any, error) {
 		}
 
 		dbTag := field.Tag.Get("db")
-		if dbTag == "-" {
-			continue
+		if dbTag == "-" || dbTag == "" {
+			continue // only export fields with db tag and not ignored
 		}
-		col := field.Name
-		if dbTag != "" {
-			col = strings.Split(dbTag, ",")[0]
-		}
+		col := strings.Split(dbTag, ",")[0]
 
 		columns = append(columns, col)
 		f := val.Field(i)
