@@ -311,7 +311,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 }
 
 // Get 根据查询条件获取单条记录
-func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, viewMask *fieldmaskpb.FieldMask) (*DTO, error) {
+func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, viewMask *fieldmaskpb.FieldMask) (*DTO, error) {
 	if r.client == nil {
 		return nil, errors.New("doris client is nil")
 	}
@@ -323,7 +323,11 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, viewMask *fieldmaskpb
 	field.NormalizeFieldMaskPaths(viewMask)
 
 	// 构建查询
-	qb := query.NewQueryBuilder(r.table, r.log)
+	if qb == nil {
+		qb = query.NewQueryBuilder(r.table, r.log)
+	} else {
+		qb.WithTableName(r.table).WithLogger(r.log)
+	}
 
 	// 如果提供了 viewMask，则构建 select 子句（日志记录错误但继续）
 	if viewMask != nil && len(viewMask.Paths) > 0 {
@@ -364,8 +368,8 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, viewMask *fieldmaskpb
 }
 
 // Only alias
-func (r *Repository[DTO, ENTITY]) Only(ctx context.Context, viewMask *fieldmaskpb.FieldMask) (*DTO, error) {
-	return r.Get(ctx, viewMask)
+func (r *Repository[DTO, ENTITY]) Only(ctx context.Context, qb *query.Builder, viewMask *fieldmaskpb.FieldMask) (*DTO, error) {
+	return r.Get(ctx, qb, viewMask)
 }
 
 // Create 在数据库中创建一条记录，返回创建后的 DTO

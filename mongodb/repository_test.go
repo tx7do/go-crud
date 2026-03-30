@@ -123,7 +123,7 @@ func TestRepository_CRUDAndList(t *testing.T) {
 	// Get one
 	qb := query.NewQueryBuilder()
 	qb.Where(bsonV2.M{"id": 2})
-	got, err := repo.Get(ctx, qb)
+	got, err := repo.Get(ctx, qb, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, got.ID)
 

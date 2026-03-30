@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/go-utils/mapper"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/mongodb/field"
@@ -234,15 +235,23 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 }
 
 // Get 根据过滤条件返回单条记录（使用 FilterExpr 或 Query/OrQuery 前置构建 qb）
-func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder) (*DTO, error) {
+func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, viewMask *fieldmaskpb.FieldMask) (*DTO, error) {
 	if r.client == nil {
 		return nil, errors.New("mongodb database is nil")
 	}
 	if r.collection == "" {
 		return nil, errors.New("collection is empty")
 	}
+
 	if qb == nil {
 		qb = query.NewQueryBuilder()
+	}
+
+	// 如果提供了 viewMask，则构建 select 子句（日志记录错误但继续）
+	if viewMask != nil && len(viewMask.Paths) > 0 {
+		if _, err := r.fieldSelector.BuildSelector(qb, viewMask.GetPaths()); err != nil {
+			r.log.Errorf("build field select selector failed: %s", err.Error())
+		}
 	}
 
 	filterDoc, _, err := qb.BuildFindOne()

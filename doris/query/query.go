@@ -61,6 +61,18 @@ func (qb *Builder) Logger() *log.Helper {
 	return qb.log
 }
 
+func (qb *Builder) WithTableName(tableName string) *Builder {
+	qb.table = tableName
+	return qb
+}
+
+func (qb *Builder) WithLogger(l *log.Helper) *Builder {
+	if l != nil {
+		qb.log = l
+	}
+	return qb
+}
+
 // Select 设置查询的列
 func (qb *Builder) Select(columns ...string) *Builder {
 	if qb.columns == nil {
