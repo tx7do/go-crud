@@ -1120,8 +1120,8 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, dto *DTO, updateMa
 	return nil, errors.New("unexpected result type after upsert")
 }
 
-// Delete 使用传入的 db（可包含 Where）删除记录
-func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool) (int64, error) {
+// Delete 使用传入的 query.Builder（可包含 Where）删除记录，支持软/硬删除
+func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, qb *query.Builder, notSoftDelete bool) (int64, error) {
 	if r.client == nil {
 		return 0, errors.New("doris client is nil")
 	}
@@ -1129,18 +1129,32 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool
 		return 0, errors.New("table is empty")
 	}
 
-	// 硬删除：清空表
-	if notSoftDelete {
-		aSql := fmt.Sprintf("TRUNCATE TABLE %s", r.table)
-		if _, err := r.client.Exec(aSql); err != nil {
-			r.log.Errorf("TRUNCATE TABLE failed: %v", err)
-			return 0, errors.New("delete failed")
-		}
-		// Doris Exec 通常不提供 RowsAffected，成功则返回 1
-		return 1, nil
+	var args []any
+	whereSQL := ""
+	if qb != nil {
+		whereSQL, args = qb.BuildWhereParam()
 	}
 
-	// 软删除：通过反射获取 ENTITY 类型（避免 var e ENTITY 导致的 nil Type 问题）
+	if notSoftDelete {
+		// 硬删除，按条件删除
+		sqlStr := fmt.Sprintf("DELETE FROM %s", r.table)
+		if whereSQL != "" {
+			if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(whereSQL)), "WHERE") {
+				sqlStr += " WHERE " + whereSQL
+			} else {
+				sqlStr += " " + whereSQL
+			}
+		}
+		res, err := r.client.ExecContext(ctx, sqlStr, args...)
+		if err != nil {
+			r.log.Errorf("DELETE failed: %v, sql: %s, args: %v", err, sqlStr, args)
+			return 0, errors.New("delete failed")
+		}
+		rows, _ := res.RowsAffected()
+		return rows, nil
+	}
+
+	// 软删除：查找 deleted_at 字段
 	t := reflect.TypeOf((*ENTITY)(nil)).Elem()
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -1148,12 +1162,9 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool
 	if t == nil || t.Kind() != reflect.Struct {
 		return 0, errors.New("entity must be a struct type")
 	}
-
-	// 查找可能的 deleted_at 字段（支持 tag: db/ch/json 或 字段名）
 	deletedCol := ""
 	for i := 0; i < t.NumField(); i++ {
 		sf := t.Field(i)
-		// skip unexported
 		if sf.PkgPath != "" {
 			continue
 		}
@@ -1174,25 +1185,31 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool
 			break
 		}
 	}
-
 	if deletedCol == "" {
 		return 0, errors.New("soft delete not supported: deleted_at field not found on entity")
 	}
 
-	aSql := fmt.Sprintf("ALTER TABLE %s UPDATE %s = now() WHERE 1", r.table, deletedCol)
-	if _, err := r.client.Exec(aSql); err != nil {
-		r.log.Errorf("soft delete (update deleted_at) failed: %v", err)
+	sqlStr := fmt.Sprintf("UPDATE %s SET %s = now()", r.table, deletedCol)
+	if whereSQL != "" {
+		if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(whereSQL)), "WHERE") {
+			sqlStr += " WHERE " + whereSQL
+		} else {
+			sqlStr += " " + whereSQL
+		}
+	}
+	res, err := r.client.ExecContext(ctx, sqlStr, args...)
+	if err != nil {
+		r.log.Errorf("soft delete (update deleted_at) failed: %v, sql: %s, args: %v", err, sqlStr, args)
 		return 0, errors.New("delete failed")
 	}
-
-	// Doris Exec 通常不提供 RowsAffected，成功则返回 1
-	return 1, nil
+	rows, _ := res.RowsAffected()
+	return rows, nil
 }
 
 // SoftDelete 对符合 whereSelectors 的记录执行软删除
 // whereSelectors: 应用到查询的 where scopes（按顺序）
-func (r *Repository[DTO, ENTITY]) SoftDelete(ctx context.Context) (int64, error) {
-	return r.Delete(ctx, false)
+func (r *Repository[DTO, ENTITY]) SoftDelete(ctx context.Context, qb *query.Builder) (int64, error) {
+	return r.Delete(ctx, qb, false)
 }
 
 // Exists 使用传入的 db（可包含 Where）检查是否存在记录
