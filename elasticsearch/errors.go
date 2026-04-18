@@ -35,4 +35,6 @@ var (
 	ErrGetDocument = errors.InternalServer("GET_DOCUMENT_FAILED", "failed to get document")
 
 	ErrSearchDocument = errors.InternalServer("SEARCH_DOCUMENT_FAILED", "failed to search document")
+
+	ErrCreateILMPolicy = errors.InternalServer("CREATE_ILM_POLICY_FAILED", "create ILM policy failed")
 )

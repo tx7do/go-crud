@@ -146,6 +146,33 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 	return nil
 }
 
+// CreateIndexTemplate 创建或更新索引模板（适用于Elasticsearch 7.x及以上）
+func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, templateBody string) error {
+	resp, err := c.Client.Indices.PutIndexTemplate(
+		templateName,
+		bytes.NewReader([]byte(templateBody)),
+		c.Client.Indices.PutIndexTemplate.WithContext(ctx),
+	)
+	if err != nil {
+		c.log.Errorf("failed to create index template: %v", err)
+		return err
+	}
+	defer func(Body io.ReadCloser) {
+		if err = Body.Close(); err != nil {
+			c.log.Errorf("failed to close response body: %v", err)
+		}
+	}(resp.Body)
+
+	if resp.IsError() {
+		var errResp map[string]interface{}
+		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			c.log.Errorf("create index template failed: %v", errResp)
+		}
+		return ErrCreateIndex
+	}
+	return nil
+}
+
 // DeleteIndex 删除一条索引
 func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 	exist, err := c.IndexExists(ctx, indexName)
@@ -425,6 +452,132 @@ func (c *Client) search(
 
 		c.log.Errorf("search document failed: %s", errResp.Error.Reason)
 
+		return nil, ErrSearchDocument
+	}
+
+	var searchResult SearchResult
+	if err = json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+		c.log.Errorf("failed to decode search result: %v", err)
+		return nil, err
+	}
+
+	return &searchResult, nil
+}
+
+// CreateILMPolicy 创建或更新ILM策略
+func (c *Client) CreateILMPolicy(ctx context.Context, policyName string, policyBody string) error {
+	resp, err := c.Client.ILM.PutLifecycle(
+		bytes.NewReader([]byte(policyBody)),
+		policyName,
+		c.Client.ILM.PutLifecycle.WithContext(ctx),
+	)
+	if err != nil {
+		c.log.Errorf("failed to create ILM policy: %v", err)
+		return err
+	}
+	defer func(Body io.ReadCloser) {
+		closeErr := Body.Close()
+		if closeErr != nil {
+			c.log.Errorf("failed to close response body: %v", closeErr)
+		}
+	}(resp.Body)
+
+	if resp.IsError() {
+		var errResp map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		c.log.Errorf("create ILM policy failed: status=%d, resp=%v", resp.StatusCode, errResp)
+		return ErrCreateILMPolicy
+	}
+	return nil
+}
+
+// DeleteILMPolicy 删除ILM策略
+func (c *Client) DeleteILMPolicy(ctx context.Context, policyName string) error {
+	resp, err := c.Client.ILM.DeleteLifecycle(
+		policyName,
+		c.Client.ILM.DeleteLifecycle.WithContext(ctx),
+	)
+	if err != nil {
+		c.log.Errorf("failed to delete ILM policy: %v", err)
+		return err
+	}
+	defer func(Body io.ReadCloser) {
+		if err = Body.Close(); err != nil {
+			c.log.Errorf("failed to close response body: %v", err)
+		}
+	}(resp.Body)
+
+	if resp.IsError() {
+		var errResp map[string]interface{}
+		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			c.log.Errorf("delete ILM policy failed: %v", errResp)
+		}
+		return ErrDeleteIndex
+	}
+	return nil
+}
+
+// SearchWithHighlight 支持高亮参数的搜索
+func (c *Client) SearchWithHighlight(
+	ctx context.Context,
+	indexName string,
+	query map[string]interface{},
+	highlight map[string]interface{},
+	sourceFields []string,
+	sortBy map[string]bool,
+	from, pageSize int,
+) (*SearchResult, error) {
+	body := make(map[string]interface{})
+	if query != nil {
+		body["query"] = query
+	}
+	if highlight != nil {
+		body["highlight"] = highlight
+	}
+	if len(sourceFields) > 0 {
+		body["_source"] = sourceFields
+	}
+	if sortBy != nil && len(sortBy) > 0 {
+		sorts := make([]map[string]interface{}, 0, len(sortBy))
+		for k, v := range sortBy {
+			order := "desc"
+			if v {
+				order = "asc"
+			}
+			sorts = append(sorts, map[string]interface{}{k: map[string]interface{}{"order": order}})
+		}
+		body["sort"] = sorts
+	}
+	body["from"] = from
+	body["size"] = pageSize
+
+	buf := &bytes.Buffer{}
+	if err := json.NewEncoder(buf).Encode(body); err != nil {
+		c.log.Errorf("failed to encode search body: %v", err)
+		return nil, err
+	}
+
+	resp, err := c.Client.Search(
+		c.Client.Search.WithContext(ctx),
+		c.Client.Search.WithIndex(indexName),
+		c.Client.Search.WithBody(buf),
+	)
+	if err != nil {
+		c.log.Errorf("failed to search documents: %v", err)
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			c.log.Errorf("failed to close response body: %v", err)
+		}
+	}(resp.Body)
+
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			return nil, err
+		}
+		c.log.Errorf("search document failed: %s", errResp.Error.Reason)
 		return nil, ErrSearchDocument
 	}
 

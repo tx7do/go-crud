@@ -1,7 +1,7 @@
 package elasticsearch
 
 import (
-	"crypto/tls"
+	"net/http"
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -24,12 +24,6 @@ func WithUsername(username string) Option {
 func WithPassword(password string) Option {
 	return func(o *Client) {
 		o.options.Password = password
-	}
-}
-
-func WithTLSConfig(tlsConfig *tls.Config) Option {
-	return func(o *Client) {
-		//o.options.TLS = tlsConfig
 	}
 }
 
@@ -116,5 +110,23 @@ func WithCertificateFingerprint(fingerprint string) Option {
 func WithLogger(logger log.Logger) Option {
 	return func(o *Client) {
 		o.log = log.NewHelper(log.With(logger, "module", "elasticsearch-client"))
+	}
+}
+
+func WithTransport(transport http.RoundTripper) Option {
+	return func(o *Client) {
+		o.options.Transport = transport
+	}
+}
+
+func WithRetryOnStatus(statuses ...int) Option {
+	return func(o *Client) {
+		o.options.RetryOnStatus = statuses
+	}
+}
+
+func WithRetryBackoff(backoff func(int) time.Duration) Option {
+	return func(o *Client) {
+		o.options.RetryBackoff = backoff
 	}
 }
