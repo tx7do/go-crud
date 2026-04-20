@@ -1,4 +1,4 @@
-package elasticsearch
+package opensearch
 
 import (
 	"fmt"
@@ -43,6 +43,12 @@ var (
 	ErrCreateILMPolicy = errors.InternalServer("CREATE_ILM_POLICY_FAILED", "create ILM policy failed")
 
 	ErrDocumentConflict = errors.InternalServer("DOCUMENT_CONFLICT", "document conflict occurred")
+
+	ErrDeleteDocument = errors.InternalServer("DELETE_DOCUMENT_FAILED", "failed to delete document")
+
+	ErrUpdateDocument = errors.InternalServer("UPDATE_DOCUMENT_FAILED", "failed to update document")
+
+	ErrDeleteILMPolicy = errors.InternalServer("DELETE_ILM_POLICY_FAILED", "delete ILM policy failed")
 )
 
 // PartialFailureError 表示批量操作部分失败

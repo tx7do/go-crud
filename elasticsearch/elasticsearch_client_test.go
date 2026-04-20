@@ -99,12 +99,13 @@ const SensorMapping = `
 }`
 
 func createTestClient() *Client {
-	cli, _ := NewClient(
+	cli, _ := NewElasticsearchClient(
 		WithAddresses("http://localhost:9200"),
-		WithUsername("elastic"),
-		WithPassword("elastic"),
+		WithUsername("admin"),
+		WithPassword("@Abcd#123456"),
 		WithEnableDebugLogger(true),
 		WithLogger(log.DefaultLogger),
+		WithEnableCompatibilityMode(true),
 	)
 	return cli
 }
@@ -201,7 +202,7 @@ func TestBatchInsertDocument(t *testing.T) {
 		// 姓名
 		nameSlice := []string{"李四", "张飞", "赵云", "关羽", "刘备"}
 
-		var users []interface{}
+		var users []any
 		for i := 1; i < 20; i++ {
 			birth, _ := time.ParseInLocation("2006-01-02", birthSlice[rand.Intn(len(birthSlice))], loc)
 			height, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", rand.Float32()+175.0), 32)
@@ -216,8 +217,19 @@ func TestBatchInsertDocument(t *testing.T) {
 			users = append(users, user)
 		}
 
-		err := client.BatchInsertDocument(esCtx, userIndex, users)
+		// 新增：先删除索引再创建，保证批量插入前索引存在且为空
+		_ = client.DeleteIndex(esCtx, userIndex)
+		err := client.CreateIndex(esCtx, userIndex, UserMapping, "")
 		assert.Nil(t, err)
+
+		err = client.BatchInsertDocument(esCtx, userIndex, users, nil)
+		assert.Nil(t, err)
+
+		// 新增：校验插入数量
+		searchResult, err := client.search(esCtx, userIndex, "*", nil, nil, 0, 100)
+		assert.Nil(t, err)
+		assert.NotNil(t, searchResult)
+		assert.GreaterOrEqual(t, len(searchResult.Hits.Hits), len(users))
 	}
 }
 

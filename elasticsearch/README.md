@@ -18,15 +18,17 @@
 ## Docker部署
 
 ```bash
-docker pull bitnami/elasticsearch:latest
+# LTS
+docker pull elasticsearch:8.19.14
+docker pull elasticsearch:9.3.3
 
 docker run -itd \
-    --name elasticsearch \
+    --name elasticsearch-node \
+    --network=app-tier \
     -p 9200:9200 \
     -p 9300:9300 \
-    -e ELASTICSEARCH_USERNAME=elastic \
-    -e ELASTICSEARCH_PASSWORD=elastic \
-    -e ELASTICSEARCH_NODE_NAME=elasticsearch-node-1 \
-    -e ELASTICSEARCH_CLUSTER_NAME=elasticsearch-cluster \
-    bitnami/elasticsearch:latest
+    -e "discovery.type=single-node" \
+    -e "DISABLE_SECURITY_PLUGIN=true" \
+    -e OPENSEARCH_INITIAL_ADMIN_PASSWORD=@Abcd#123456 \
+    elasticsearch:8.19.14
 ```
