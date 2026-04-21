@@ -253,9 +253,11 @@ func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
 		if col == "" {
 			col = strings.ToLower(sf.Name)
 		}
-		val := v.Field(i).Interface()
-		// map、slice、array、struct 类型序列化为 JSON
-		switch sf.Type.Kind() {
+		fv := v.Field(i)
+		val := fv.Interface()
+		kind := sf.Type.Kind()
+		// map、slice、array、struct、struct指针 类型序列化为 JSON
+		switch kind {
 		case reflect.Map:
 			b, err := json.Marshal(val)
 			if err != nil {
@@ -263,7 +265,6 @@ func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
 			}
 			val = string(b)
 		case reflect.Slice, reflect.Array:
-			fv := v.Field(i)
 			if fv.Kind() == reflect.Slice && fv.IsNil() {
 				val = "[]"
 			} else if fv.Len() == 0 {
@@ -281,7 +282,6 @@ func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
 			if typ.PkgPath() == "time" && typ.Name() == "Time" {
 				break
 			}
-			// 基础类型（int/float/bool/complex/byte/rune等）不序列化
 			switch typ.Kind() {
 			case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
@@ -294,6 +294,27 @@ func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
 					return nil, nil, err
 				}
 				val = string(b)
+			}
+		case reflect.Ptr:
+			// 只处理 struct 指针，基础类型指针直接取值
+			if fv.IsNil() {
+				val = nil
+			} else {
+				elem := fv.Elem()
+				if elem.Kind() == reflect.Struct {
+					typ := elem.Type()
+					if typ.PkgPath() == "time" && typ.Name() == "Time" {
+						val = fv.Interface()
+					} else {
+						b, err := json.Marshal(fv.Interface())
+						if err != nil {
+							return nil, nil, err
+						}
+						val = string(b)
+					}
+				} else {
+					val = fv.Interface()
+				}
 			}
 		}
 		cols = append(cols, col)
