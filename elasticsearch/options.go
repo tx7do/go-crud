@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/elastic/elastic-transport-go/v8/elastictransport"
 	"github.com/go-kratos/kratos/v2/log"
 )
 
@@ -125,8 +126,56 @@ func WithRetryOnStatus(statuses ...int) Option {
 	}
 }
 
-func WithRetryBackoff(backoff func(int) time.Duration) Option {
+func WithRetryBackoff(backoff func(attempt int) time.Duration) Option {
 	return func(o *Client) {
 		o.options.RetryBackoff = backoff
+	}
+}
+
+func WithCACert(cert []byte) Option {
+	return func(o *Client) {
+		o.options.CACert = cert
+	}
+}
+
+func WithHeader(header http.Header) Option {
+	return func(o *Client) {
+		o.options.Header = header
+	}
+}
+
+func WithConnectionPoolFunc(fnc func([]*elastictransport.Connection, elastictransport.Selector) elastictransport.ConnectionPool) Option {
+	return func(o *Client) {
+		o.options.ConnectionPoolFunc = fnc
+	}
+}
+
+func WithInterceptors(interceptors ...elastictransport.InterceptorFunc) Option {
+	return func(o *Client) {
+		o.options.Interceptors = append(o.options.Interceptors, interceptors...)
+	}
+}
+
+func WithInstrumentation(instrumentation elastictransport.Instrumentation) Option {
+	return func(o *Client) {
+		o.options.Instrumentation = instrumentation
+	}
+}
+
+func WithSelector(selector elastictransport.Selector) Option {
+	return func(o *Client) {
+		o.options.Selector = selector
+	}
+}
+
+func WithAutoDrainBody(autoDrainBody bool) Option {
+	return func(o *Client) {
+		o.options.AutoDrainBody = autoDrainBody
+	}
+}
+
+func WithRetryOnError(retryOnError func(*http.Request, error) bool) Option {
+	return func(o *Client) {
+		o.options.RetryOnError = retryOnError
 	}
 }
