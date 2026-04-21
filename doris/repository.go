@@ -397,7 +397,7 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO, viewMask
 	if !v.IsValid() || v.Kind() != reflect.Struct {
 		return nil, errors.New("entity must be a struct or pointer to struct")
 	}
-	t := v.Type()
+	//t := v.Type()
 
 	mask := map[string]bool{}
 	if viewMask != nil {
@@ -439,7 +439,7 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO, viewMask
 
 	var err error
 
-	cols, vals, err = structToColumnsAndValues(reflect.ValueOf(t))
+	cols, vals, err = structToColumnsAndValues(v)
 	if err != nil {
 		r.log.Errorf("extract columns and values failed: %v", err)
 		return nil, errors.New("extract columns and values failed")
