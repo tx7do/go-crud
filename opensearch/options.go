@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/opensearch-project/opensearch-go/v4/opensearchtransport"
 	"github.com/opensearch-project/opensearch-go/v4/signer"
 )
 
@@ -45,6 +46,7 @@ func WithDiscoverNodesOnStart(enable bool) Option {
 		o.options.DiscoverNodesOnStart = enable
 	}
 }
+
 func WithDiscoverNodesInterval(interval time.Duration) Option {
 	return func(o *Client) {
 		o.options.DiscoverNodesInterval = interval
@@ -56,11 +58,19 @@ func WithDisableRetry(disable bool) Option {
 		o.options.DisableRetry = disable
 	}
 }
+
+func WithEnableRetryOnTimeout(enable bool) Option {
+	return func(o *Client) {
+		o.options.EnableRetryOnTimeout = enable
+	}
+}
+
 func WithMaxRetries(maxRetries int) Option {
 	return func(o *Client) {
 		o.options.MaxRetries = maxRetries
 	}
 }
+
 func WithCompressRequestBody(enable bool) Option {
 	return func(o *Client) {
 		o.options.CompressRequestBody = enable
@@ -79,13 +89,25 @@ func WithTransport(transport http.RoundTripper) Option {
 	}
 }
 
+func WithSelector(selector opensearchtransport.Selector) Option {
+	return func(o *Client) {
+		o.options.Selector = selector
+	}
+}
+
+func WithConnectionPoolFunc(fnc func([]*opensearchtransport.Connection, opensearchtransport.Selector) opensearchtransport.ConnectionPool) Option {
+	return func(o *Client) {
+		o.options.ConnectionPoolFunc = fnc
+	}
+}
+
 func WithRetryOnStatus(statuses ...int) Option {
 	return func(o *Client) {
 		o.options.RetryOnStatus = statuses
 	}
 }
 
-func WithRetryBackoff(backoff func(int) time.Duration) Option {
+func WithRetryBackoff(backoff func(attempt int) time.Duration) Option {
 	return func(o *Client) {
 		o.options.RetryBackoff = backoff
 	}
@@ -94,5 +116,17 @@ func WithRetryBackoff(backoff func(int) time.Duration) Option {
 func WithSigner(signer signer.Signer) Option {
 	return func(o *Client) {
 		o.options.Signer = signer
+	}
+}
+
+func WithCACert(cert []byte) Option {
+	return func(o *Client) {
+		o.options.CACert = cert
+	}
+}
+
+func WithHeader(header http.Header) Option {
+	return func(o *Client) {
+		o.options.Header = header
 	}
 }
