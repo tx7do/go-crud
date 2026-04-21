@@ -254,7 +254,7 @@ func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
 			col = strings.ToLower(sf.Name)
 		}
 		val := v.Field(i).Interface()
-		// map、slice、array 类型序列化为 JSON
+		// map、slice、array、struct 类型序列化为 JSON
 		switch sf.Type.Kind() {
 		case reflect.Map:
 			b, err := json.Marshal(val)
@@ -269,6 +269,26 @@ func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
 			} else if fv.Len() == 0 {
 				val = "[]"
 			} else {
+				b, err := json.Marshal(val)
+				if err != nil {
+					return nil, nil, err
+				}
+				val = string(b)
+			}
+		case reflect.Struct:
+			// 排除 time.Time 和基础类型
+			typ := sf.Type
+			if typ.PkgPath() == "time" && typ.Name() == "Time" {
+				break
+			}
+			// 基础类型（int/float/bool/complex/byte/rune等）不序列化
+			switch typ.Kind() {
+			case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+				reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+				reflect.String:
+				break
+			default:
 				b, err := json.Marshal(val)
 				if err != nil {
 					return nil, nil, err
