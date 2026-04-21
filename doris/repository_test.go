@@ -1,7 +1,6 @@
 package doris
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -22,8 +21,6 @@ type NoDeleted struct {
 
 // 保留已有针对 ListWithPaging 的错误分支测试，并添加更多用例
 func TestRepository_ErrorBranches(t *testing.T) {
-	ctx := context.Background()
-
 	// 原始请求类型（用于 ListWithPaging）
 	req := &paginationV1.PagingRequest{}
 
@@ -36,7 +33,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	t.Run("ListWithPaging_client is nil", func(t *testing.T) {
 		repo := NewRepository[NoDeleted, NoDeleted](nil, noDelMapper, "tmp", logger)
 
-		_, err := repo.ListWithPaging(ctx, req)
+		_, err := repo.ListWithPaging(t.Context(), req)
 		if err == nil {
 			t.Fatalf("expected error when client is nil, got nil")
 		}
@@ -48,7 +45,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	t.Run("ListWithPaging_table is empty", func(t *testing.T) {
 		repo := NewRepository[NoDeleted, NoDeleted](client, noDelMapper, "", logger)
 
-		_, err := repo.ListWithPaging(ctx, req)
+		_, err := repo.ListWithPaging(t.Context(), req)
 		if err == nil {
 			t.Fatalf("expected error when table is empty, got nil")
 		}
@@ -60,7 +57,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	t.Run("Create dto is nil", func(t *testing.T) {
 		repo := NewRepository[NoDeleted, NoDeleted](client, noDelMapper, "tmp", logger)
 
-		_, err := repo.Create(ctx, nil, nil)
+		_, err := repo.Create(t.Context(), nil, nil)
 		if err == nil {
 			t.Fatalf("expected error when dto is nil, got nil")
 		}
@@ -72,7 +69,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	t.Run("CreateX dto is nil", func(t *testing.T) {
 		repo := NewRepository[NoDeleted, NoDeleted](client, noDelMapper, "tmp", logger)
 
-		_, err := repo.CreateX(ctx, nil, nil)
+		_, err := repo.CreateX(t.Context(), nil, nil)
 		if err == nil {
 			t.Fatalf("expected error when dto is nil for CreateX, got nil")
 		}
@@ -84,7 +81,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	t.Run("BatchCreate empty dtos returns nil", func(t *testing.T) {
 		repo := NewRepository[NoDeleted, NoDeleted](client, noDelMapper, "tmp", logger)
 
-		res, err := repo.BatchCreate(ctx, []*NoDeleted{}, nil)
+		res, err := repo.BatchCreate(t.Context(), []*NoDeleted{}, nil)
 		if err != nil {
 			t.Fatalf("expected no error for empty dtos, got: %v", err)
 		}
@@ -96,7 +93,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	t.Run("SoftDelete unsupported when no deleted_at field", func(t *testing.T) {
 		repo := NewRepository[NoDeleted, NoDeleted](client, noDelMapper, "tmp", logger)
 
-		_, err := repo.SoftDelete(ctx)
+		_, err := repo.SoftDelete(t.Context(), nil)
 		if err == nil {
 			t.Fatalf("expected error for soft delete unsupported, got nil")
 		}
@@ -108,8 +105,6 @@ func TestRepository_ErrorBranches(t *testing.T) {
 }
 
 func TestRepository_Candle_CRUD(t *testing.T) {
-	ctx := context.Background()
-
 	client := newDorisTestClient()
 	assert.NotNil(t, client)
 
@@ -133,12 +128,12 @@ func TestRepository_Candle_CRUD(t *testing.T) {
 		Close:     trans.Ptr(1.5),
 		Volume:    trans.Ptr(100.0),
 	}
-	created, err := repo.Create(ctx, dto, nil)
+	created, err := repo.Create(t.Context(), dto, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, created)
 
 	// Exists 应为 true
-	exists, err := repo.Exists(ctx, "symbol = ?", "TEST")
+	exists, err := repo.Exists(t.Context(), "symbol = ?", "TEST")
 	assert.NoError(t, err)
 	assert.True(t, exists)
 
@@ -163,37 +158,35 @@ func TestRepository_Candle_CRUD(t *testing.T) {
 			Volume:    trans.Ptr(600.0),
 		},
 	}
-	createdBatch, err := repo.BatchCreate(ctx, batch, nil)
+	createdBatch, err := repo.BatchCreate(t.Context(), batch, nil)
 	assert.NoError(t, err)
 	assert.Len(t, createdBatch, 2)
 
 	// 列表查询（使用 PagingRequest 的简单空请求）
 	pagingReq := &paginationV1.PagingRequest{}
-	res, err := repo.ListWithPaging(ctx, pagingReq)
+	res, err := repo.ListWithPaging(t.Context(), pagingReq)
 	assert.NoError(t, err)
 	// 至少包含我们插入的 3 条记录
 	assert.GreaterOrEqual(t, int(res.Total), 3)
 	assert.GreaterOrEqual(t, len(res.Items), 1)
 
 	// 软删除（依赖 deleted_at 字段存在）
-	//softRes, err := repo.SoftDelete(ctx)
+	//softRes, err := repo.SoftDelete(t.Context(), nil)
 	//assert.NoError(t, err)
 	//assert.Equal(t, int64(1), softRes)
 
 	// 硬删除（truncate）
-	delRes, err := repo.Delete(ctx, true)
+	delRes, err := repo.Delete(t.Context(), nil, true)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), delRes)
 
 	// 删除后 Exists 应为 false
-	existsAfter, err := repo.Exists(ctx, "symbol = ?", "TEST")
+	existsAfter, err := repo.Exists(t.Context(), "symbol = ?", "TEST")
 	assert.NoError(t, err)
 	assert.False(t, existsAfter)
 }
 
 func TestRepository_Candle_ListWithPaging(t *testing.T) {
-	ctx := context.Background()
-
 	client := newDorisTestClient()
 	assert.NotNil(t, client)
 
@@ -206,7 +199,7 @@ func TestRepository_Candle_ListWithPaging(t *testing.T) {
 	assert.NotNil(t, repo)
 
 	// 硬删除（truncate）
-	delRes, err := repo.Delete(ctx, true)
+	delRes, err := repo.Delete(t.Context(), nil, true)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), delRes)
 
@@ -231,7 +224,7 @@ func TestRepository_Candle_ListWithPaging(t *testing.T) {
 			Volume:    trans.Ptr(600.0),
 		},
 	}
-	createdBatch, err := repo.BatchCreate(ctx, batch, nil)
+	createdBatch, err := repo.BatchCreate(t.Context(), batch, nil)
 	assert.NoError(t, err)
 	assert.Len(t, createdBatch, 2)
 
@@ -242,7 +235,7 @@ func TestRepository_Candle_ListWithPaging(t *testing.T) {
 		// 不显式分页参数 -> 不会强制限制（ListWithPaging 的实现在无分页参数时返回全部）
 	}
 
-	res, err := repo.ListWithPaging(ctx, req)
+	res, err := repo.ListWithPaging(t.Context(), req)
 	assert.NoError(t, err)
 	// 至少包含我们插入的 2 条
 	assert.GreaterOrEqual(t, int(res.Total), 2)

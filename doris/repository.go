@@ -3,7 +3,6 @@ package doris
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -1261,105 +1260,9 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, 
 	return true, nil
 }
 
-// structToColumnsAndValues 提取 struct 的列名和值，map 字段序列化为 JSON 字符串
-func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if !v.IsValid() || v.Kind() != reflect.Struct {
-		return nil, nil, errors.New("input must be a struct or pointer to struct")
-	}
-	t := v.Type()
-	cols := make([]string, 0, t.NumField())
-	vals := make([]any, 0, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		sf := t.Field(i)
-		if sf.PkgPath != "" {
-			continue
-		}
-		col := sf.Tag.Get("db")
-		if col == "" {
-			col = sf.Tag.Get("json")
-			if idx := strings.Index(col, ","); idx != -1 {
-				col = col[:idx]
-			}
-		}
-		if col == "" {
-			col = strings.ToLower(sf.Name)
-		}
-		val := v.Field(i).Interface()
-		// map 类型序列化为 JSON
-		if sf.Type.Kind() == reflect.Map {
-			b, err := json.Marshal(val)
-			if err != nil {
-				return nil, nil, err
-			}
-			val = string(b)
-		}
-		cols = append(cols, col)
-		vals = append(vals, val)
-	}
-	return cols, vals, nil
-}
-
-// mapToColumnsAndValues 提取 map 的列名和值，map value 也支持嵌套 map 序列化
-func mapToColumnsAndValues(m map[string]any) ([]string, []any, error) {
-	cols := make([]string, 0, len(m))
-	vals := make([]any, 0, len(m))
-	for k, v := range m {
-		// 嵌套 map 序列化
-		rv := reflect.ValueOf(v)
-		if rv.Kind() == reflect.Map {
-			b, err := json.Marshal(v)
-			if err != nil {
-				return nil, nil, err
-			}
-			v = string(b)
-		}
-		cols = append(cols, k)
-		vals = append(vals, v)
-	}
-	return cols, vals, nil
-}
-
 // Insert 支持 map[string]any 或 struct 入参，插入单条数据
-func (r *Repository[DTO, ENTITY]) Insert(ctx context.Context, data any) error {
-	if r.client == nil {
-		return errors.New("doris client is nil")
-	}
-	if r.table == "" {
-		return errors.New("table is empty")
-	}
-	var cols []string
-	var vals []any
-	var err error
-	if m, ok := data.(map[string]any); ok {
-		cols, vals, err = mapToColumnsAndValues(m)
-		if err != nil {
-			return err
-		}
-	} else if m, ok := data.(map[string]interface{}); ok {
-		cols, vals, err = mapToColumnsAndValues(m)
-		if err != nil {
-			return err
-		}
-	} else {
-		rv := reflect.ValueOf(data)
-		cols, vals, err = structToColumnsAndValues(rv)
-		if err != nil {
-			return err
-		}
-	}
-	if len(cols) == 0 {
-		return errors.New("no columns to insert")
-	}
-	placeholders := strings.Repeat("?,", len(cols))
-	placeholders = strings.TrimRight(placeholders, ",")
-	sqlStr := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", r.table, strings.Join(cols, ","), placeholders)
-	if _, err = r.client.Exec(sqlStr, vals...); err != nil {
-		return err
-	}
-	return nil
+func (r *Repository[DTO, ENTITY]) Insert(ctx context.Context, dto *DTO, viewMask *fieldmaskpb.FieldMask) (*DTO, error) {
+	return r.Create(ctx, dto, viewMask)
 }
 
 // BatchInsert 支持 map[string]any 数组或 struct 数组，批量插入
