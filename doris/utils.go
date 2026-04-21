@@ -256,12 +256,25 @@ func structToColumnsAndValues(v reflect.Value) ([]string, []any, error) {
 		val := v.Field(i).Interface()
 		// map、slice、array 类型序列化为 JSON
 		switch sf.Type.Kind() {
-		case reflect.Map, reflect.Slice, reflect.Array:
+		case reflect.Map:
 			b, err := json.Marshal(val)
 			if err != nil {
 				return nil, nil, err
 			}
 			val = string(b)
+		case reflect.Slice, reflect.Array:
+			fv := v.Field(i)
+			if fv.Kind() == reflect.Slice && fv.IsNil() {
+				val = "[]"
+			} else if fv.Len() == 0 {
+				val = "[]"
+			} else {
+				b, err := json.Marshal(val)
+				if err != nil {
+					return nil, nil, err
+				}
+				val = string(b)
+			}
 		}
 		cols = append(cols, col)
 		vals = append(vals, val)
