@@ -408,33 +408,41 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO, viewMask
 
 	cols := make([]string, 0)
 	vals := make([]any, 0)
-	for i := 0; i < t.NumField(); i++ {
-		sf := t.Field(i)
-		// skip unexported
-		if sf.PkgPath != "" {
-			continue
-		}
-		// determine column name
-		col := sf.Tag.Get("db")
-		if col == "" {
-			col = sf.Tag.Get("json")
-			if idx := strings.Index(col, ","); idx != -1 {
-				col = col[:idx]
-			}
-		}
-		if col == "" {
-			col = strings.ToLower(sf.Name)
-		}
+	//for i := 0; i < t.NumField(); i++ {
+	//	sf := t.Field(i)
+	//	// skip unexported
+	//	if sf.PkgPath != "" {
+	//		continue
+	//	}
+	//	// determine column name
+	//	col := sf.Tag.Get("db")
+	//	if col == "" {
+	//		col = sf.Tag.Get("json")
+	//		if idx := strings.Index(col, ","); idx != -1 {
+	//			col = col[:idx]
+	//		}
+	//	}
+	//	if col == "" {
+	//		col = strings.ToLower(sf.Name)
+	//	}
+	//
+	//	// apply viewMask if present (支持按字段名或列名匹配)
+	//	if viewMask != nil && len(mask) > 0 {
+	//		if !mask[sf.Name] && !mask[col] {
+	//			continue
+	//		}
+	//	}
+	//
+	//	cols = append(cols, col)
+	//	vals = append(vals, v.Field(i).Interface())
+	//}
 
-		// apply viewMask if present (支持按字段名或列名匹配)
-		if viewMask != nil && len(mask) > 0 {
-			if !mask[sf.Name] && !mask[col] {
-				continue
-			}
-		}
+	var err error
 
-		cols = append(cols, col)
-		vals = append(vals, v.Field(i).Interface())
+	cols, vals, err = structToColumnsAndValues(reflect.ValueOf(t))
+	if err != nil {
+		r.log.Errorf("extract columns and values failed: %v", err)
+		return nil, errors.New("extract columns and values failed")
 	}
 
 	if len(cols) == 0 {
