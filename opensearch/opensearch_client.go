@@ -330,6 +330,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 	return nil
 }
 
+// UpdateDocument 更新一条数据
 func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string, doc any) error {
 	if pk == "" {
 		return ErrDocumentNotFound
@@ -364,13 +365,13 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 func (c *Client) GetDocument(
 	ctx context.Context,
 	indexName string,
-	id string,
+	documentId string,
 	sourceFields []string,
 	out any,
 ) error {
 	req := opensearchapiV4.DocumentGetReq{
 		Index:      indexName,
-		DocumentID: id,
+		DocumentID: documentId,
 		Params: opensearchapiV4.DocumentGetParams{
 			SourceIncludes: sourceFields,
 		},
@@ -409,7 +410,7 @@ func (c *Client) GetDocument(
 	return nil
 }
 
-// CreateIndexTemplate 创建或更新索引模板（适用于Elasticsearch 7.x及以上）
+// CreateIndexTemplate 创建或更新索引模板
 func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, templateBody string) error {
 	req := opensearchapiV4.IndexTemplateCreateReq{
 		IndexTemplate: templateName,
@@ -427,7 +428,7 @@ func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, t
 		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
 			c.log.Errorf("create index template failed: %v", errResp)
 		}
-		return ErrCreateIndex
+		return ErrCreateTemplate
 	}
 
 	return nil
@@ -442,6 +443,91 @@ func (c *Client) ExistsIndexTemplate(ctx context.Context, templateName string) (
 	resp, err := c.Client.Do(ctx, req, nil)
 	if err != nil {
 		c.log.Errorf("failed to check if index template exists: %v", err)
+		return false, err
+	}
+
+	return !resp.IsError(), nil
+}
+
+// DeleteIndexTemplate 删除索引模板
+func (c *Client) DeleteIndexTemplate(ctx context.Context, templateName string) error {
+	req := opensearchapiV4.IndexTemplateDeleteReq{
+		IndexTemplate: templateName,
+	}
+
+	resp, err := c.Client.Do(ctx, req, nil)
+	if err != nil {
+		c.log.Errorf("failed to delete index template: %v", err)
+		return err
+	}
+
+	if resp.IsError() {
+		var errResp map[string]any
+		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			c.log.Errorf("delete index template failed: %v", errResp)
+		}
+		return ErrDeleteTemplate
+	}
+
+	return nil
+}
+
+// CreateComponentTemplate 创建或更新组件模板
+func (c *Client) CreateComponentTemplate(ctx context.Context, templateName string, templateBody string) error {
+	req := opensearchapiV4.ComponentTemplateCreateReq{
+		ComponentTemplate: templateName,
+		Body:              bytes.NewReader([]byte(templateBody)),
+	}
+
+	resp, err := c.Client.Do(ctx, req, nil)
+	if err != nil {
+		c.log.Errorf("failed to create component template: %v", err)
+		return err
+	}
+
+	if resp.IsError() {
+		var errResp map[string]any
+		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			c.log.Errorf("create component template failed: %v", errResp)
+		}
+		return ErrCreateTemplate
+	}
+
+	return nil
+}
+
+// DeleteComponentTemplate 删除组件模板
+func (c *Client) DeleteComponentTemplate(ctx context.Context, templateName string) error {
+	req := opensearchapiV4.ComponentTemplateDeleteReq{
+		ComponentTemplate: templateName,
+	}
+
+	resp, err := c.Client.Do(ctx, req, nil)
+	if err != nil {
+		c.log.Errorf("failed to delete component template: %v", err)
+		return err
+	}
+
+	if resp.IsError() {
+		var errResp map[string]any
+		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			c.log.Errorf("delete component template failed: %v", errResp)
+		}
+		return ErrDeleteTemplate
+	}
+
+	return nil
+}
+
+// ExistsComponentTemplate 判断组件模板是否存在
+func (c *Client) ExistsComponentTemplate(ctx context.Context, templateName string) (bool, error) {
+	req := opensearchapiV4.ComponentTemplateExistsReq{
+		ComponentTemplate: templateName,
+	}
+
+	resp, err := c.Client.Do(ctx, req, nil)
+	if err != nil {
+		c.log.Errorf("failed to check if component template exists: %v", err)
 		return false, err
 	}
 
@@ -519,70 +605,72 @@ func (c *Client) Search(
 	ctx context.Context,
 	indexName string,
 	req *paginationV1.PagingRequest,
-) (*SearchResult, error) {
-	var query string
-	ParseQueryString(req.GetQuery())
-
-	sortBy := make(map[string]bool)
-
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20 // Default page size
+) (*opensearchapiV4.SearchResp, error) {
+	if req == nil {
+		return nil, ErrInvalidRequest
 	}
 
-	return c.search(ctx, indexName, query, nil, sortBy, int(req.GetPage()), int(pageSize))
-}
+	qb := query.NewQueryBuilder()
 
-// search 查询数据
-//
-// @param ctx 上下文
-// @param indexName 索引名
-// @param query 查询条件，例如：field1:value1 AND field2:value2
-// @param sourceFields 指定返回的字段，传入nil表示返回所有字段
-// @param sortBy 排序
-// @param from 分页的页码
-// @param pageSize 分页每页的行数
-func (c *Client) search(
-	ctx context.Context,
-	indexName string,
-	query string,
-	sourceFields []string,
-	sortBy map[string]bool,
-	from, pageSize int,
-) (*SearchResult, error) {
-	body := make(map[string]any)
-	if query != "" {
-		body["query"] = map[string]any{"query_string": map[string]any{"query": query}}
+	var err error
+
+	// apply filters
+	var filterExpr *paginationV1.FilterExpr
+	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
+	if err != nil {
+		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		return nil, ErrInvalidFilter
 	}
-	if len(sourceFields) > 0 {
-		body["_source"] = sourceFields
+	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
+
+	if _, err = c.structuredFilter.BuildSelectors(qb, req.GetFilterExpr()); err != nil {
+		return nil, err
 	}
-	if sortBy != nil && len(sortBy) > 0 {
-		sorts := make([]map[string]any, 0, len(sortBy))
-		for k, v := range sortBy {
-			order := "desc"
-			if v {
-				order = "asc"
-			}
-			sorts = append(sorts, map[string]any{k: map[string]any{"order": order}})
+
+	// select fields
+	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
+		if _, err = c.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
+			c.log.Errorf("field selector build error: %v", err)
 		}
-		body["sort"] = sorts
 	}
-	body["from"] = from
-	body["size"] = pageSize
 
+	// sorting
+	if len(req.GetOrderBy()) > 0 {
+		var sortings []*paginationV1.Sorting
+		sortings, err = c.orderByStringConverter.Convert(req.GetOrderBy())
+		if err != nil {
+			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			return nil, err
+		}
+		_ = c.structuredSorting.BuildOrderClause(qb, sortings)
+	} else if len(req.GetSorting()) > 0 {
+		_ = c.structuredSorting.BuildOrderClause(qb, req.GetSorting())
+	}
+
+	// pagination
+	if !req.GetNoPaging() {
+		if req.Page != nil && req.PageSize != nil {
+			_ = c.pagePaginator.BuildClause(qb, int(req.GetPage()), int(req.GetPageSize()))
+		} else if req.Offset != nil && req.Limit != nil {
+			_ = c.offsetPaginator.BuildClause(qb, int(req.GetOffset()), int(req.GetLimit()))
+		} else if req.Token != nil && req.Offset != nil {
+			_ = c.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
+		}
+	}
+
+	body := qb.Build()
 	buf := &bytes.Buffer{}
-	if err := json.NewEncoder(buf).Encode(body); err != nil {
+	if err = json.NewEncoder(buf).Encode(body); err != nil {
 		c.log.Errorf("failed to encode search body: %v", err)
 		return nil, err
 	}
 
-	req := &opensearchapiV4.SearchReq{
+	searchReq := &opensearchapiV4.SearchReq{
 		Indices: []string{indexName},
 		Body:    buf,
 	}
-	var searchResult SearchResult
-	resp, err := c.Client.Do(ctx, req, &searchResult)
+	var searchResult opensearchapiV4.SearchResp
+	resp, err := c.Client.Do(ctx, searchReq, &searchResult)
 	if err != nil {
 		c.log.Errorf("failed to search documents: %v", err)
 		return nil, err
@@ -592,6 +680,7 @@ func (c *Client) search(
 		c.log.Errorf("search document failed [%d]: %s", resp.StatusCode, string(bodyBytes))
 		return nil, ErrSearchDocument
 	}
+
 	return &searchResult, nil
 }
 
@@ -604,7 +693,7 @@ func (c *Client) SearchWithHighlight(
 	sourceFields []string,
 	sortBy map[string]bool,
 	from, pageSize int,
-) (*SearchResult, error) {
+) (*opensearchapiV4.SearchResp, error) {
 	body := make(map[string]any)
 	if query != nil {
 		body["query"] = query
@@ -639,7 +728,7 @@ func (c *Client) SearchWithHighlight(
 		Indices: []string{indexName},
 		Body:    buf,
 	}
-	var searchResult SearchResult
+	var searchResult opensearchapiV4.SearchResp
 	resp, err := c.Client.Do(ctx, req, &searchResult)
 	if err != nil {
 		c.log.Errorf("failed to search documents: %v", err)
@@ -708,8 +797,8 @@ func (c *Client) SearchBySQLTo(ctx context.Context, sql string, out any) error {
 	var rows []map[string]any
 	for _, row := range result.Datarows {
 		item := make(map[string]any)
-		for i, field := range result.Schema {
-			item[field.Name] = row[i]
+		for i, f := range result.Schema {
+			item[f.Name] = row[i]
 		}
 		rows = append(rows, item)
 	}
@@ -756,7 +845,7 @@ func (c *Client) SearchBySQLWithHighlight(
 	indexName string,
 	sql string,
 	highlightFields []string,
-) (*SearchResult, error) {
+) (*opensearchapiV4.SearchResp, error) {
 	// 1. SQL 转 DSL
 	dsl, err := c.SQLToDSL(ctx, sql)
 	if err != nil {
@@ -766,8 +855,8 @@ func (c *Client) SearchBySQLWithHighlight(
 	// 2. 加入高亮配置
 	if len(highlightFields) > 0 {
 		fields := make(map[string]any)
-		for _, field := range highlightFields {
-			fields[field] = map[string]any{
+		for _, f := range highlightFields {
+			fields[f] = map[string]any{
 				"pre_tags":  []string{"<em>"},
 				"post_tags": []string{"</em>"},
 			}
@@ -796,7 +885,7 @@ func (c *Client) SearchBySQLWithHighlight(
 	defer resp.Body.Close()
 
 	// 6. 解析成你现有的 SearchResult
-	var result SearchResult
+	var result opensearchapiV4.SearchResp
 	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
@@ -829,7 +918,6 @@ func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, r
 		return nil, ErrInvalidRequest
 	}
 
-	var sql string
 	qb := query.NewQueryBuilder()
 
 	var err error
@@ -878,7 +966,7 @@ func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, r
 		}
 	}
 
-	sql = qb.BuildSQL(indexName)
+	sql := qb.BuildSQL(indexName)
 
 	return c.SearchBySQL(ctx, sql)
 }

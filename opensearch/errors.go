@@ -23,12 +23,6 @@ var (
 	// ErrDocumentNotFound is returned when a document is not found in the index.
 	ErrDocumentNotFound = errors.InternalServer("DOCUMENT_NOT_FOUND", "document not found")
 
-	// ErrDocumentAlreadyExists is returned when trying to create a document that already exists.
-	ErrDocumentAlreadyExists = errors.InternalServer("DOCUMENT_ALREADY_EXISTS", "document already exists")
-
-	// ErrInvalidQuery is returned when the query provided to Elasticsearch is invalid.
-	ErrInvalidQuery = errors.InternalServer("INVALID_QUERY", "invalid query")
-
 	// ErrUnmarshalResponse is returned when the response from Elasticsearch cannot be unmarshalled.
 	ErrUnmarshalResponse = errors.InternalServer("UNMARSHAL_RESPONSE_FAILED", "failed to unmarshal response")
 
@@ -53,6 +47,10 @@ var (
 	ErrInvalidRequest = errors.BadRequest("INVALID_REQUEST", "invalid request")
 
 	ErrInvalidFilter = errors.BadRequest("INVALID_FILTER", "invalid filter")
+
+	ErrCreateTemplate = errors.InternalServer("CREATE_TEMPLATE_FAILED", "failed to create index template")
+
+	ErrDeleteTemplate = errors.InternalServer("DELETE_TEMPLATE_FAILED", "failed to delete index template")
 )
 
 // PartialFailureError 表示批量操作部分失败
