@@ -49,6 +49,10 @@ var (
 	ErrUpdateDocument = errors.InternalServer("UPDATE_DOCUMENT_FAILED", "failed to update document")
 
 	ErrDeleteILMPolicy = errors.InternalServer("DELETE_ILM_POLICY_FAILED", "delete ILM policy failed")
+
+	ErrInvalidRequest = errors.BadRequest("INVALID_REQUEST", "invalid request")
+
+	ErrInvalidFilter = errors.BadRequest("INVALID_FILTER", "invalid filter")
 )
 
 // PartialFailureError 表示批量操作部分失败

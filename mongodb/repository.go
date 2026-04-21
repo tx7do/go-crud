@@ -91,7 +91,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
-		if _, err := r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
+		if _, err = r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
 			r.log.Errorf("field selector build error: %v", err)
 		}
 	}
@@ -177,7 +177,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
-		if _, err := r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
+		if _, err = r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
 			r.log.Errorf("field selector build error: %v", err)
 		}
 	}

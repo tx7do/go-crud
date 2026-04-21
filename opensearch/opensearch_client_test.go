@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/stretchr/testify/assert"
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-utils/trans"
 )
 
 const (
@@ -338,4 +340,101 @@ func TestSearchBySQLTo(t *testing.T) {
 	assert.Equal(t, 30, result[0].Age)
 	assert.Equal(t, "Alice", result[1].Name)
 	assert.Equal(t, 25, result[1].Age)
+}
+
+func TestQueryWithSQLPagination(t *testing.T) {
+	client := createTestClient()
+	assert.NotNil(t, client)
+
+	_ = client.DeleteIndex(t.Context(), userIndex)
+	_ = client.CreateIndex(t.Context(), userIndex, UserMapping, "")
+	users := []User{
+		{Name: "Alice", Age: 25, Phone: "123", Birth: time.Now(), Height: 1.65, Smoke: false, Home: "40.7128,-74.0060"},
+		{Name: "Bob", Age: 30, Phone: "456", Birth: time.Now(), Height: 1.80, Smoke: true, Home: "34.0522,-118.2437"},
+		{Name: "Carol", Age: 22, Phone: "789", Birth: time.Now(), Height: 1.70, Smoke: false, Home: "51.5074,-0.1278"},
+	}
+	for i, u := range users {
+		_ = client.InsertDocument(t.Context(), userIndex, strconv.Itoa(i+1), u)
+	}
+	err := client.RefreshIndex(t.Context(), userIndex)
+	assert.Nil(t, err)
+
+	// 构造分页请求
+	req := &paginationV1.PagingRequest{
+		Page:     trans.Ptr(uint32(1)),
+		PageSize: trans.Ptr(uint32(2)),
+		Sorting:  []*paginationV1.Sorting{{Field: "age", Direction: paginationV1.Sorting_DESC}},
+		FilteringType: &paginationV1.PagingRequest_FilterExpr{FilterExpr: &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{{
+				Field:      "age",
+				Op:         paginationV1.Operator_GTE,
+				ValueOneof: &paginationV1.FilterCondition_Value{Value: "22"},
+			}},
+		},
+		},
+	}
+
+	result, err := client.QueryWithSQLPagination(t.Context(), userIndex, req)
+	assert.Nil(t, err)
+	assert.NotNil(t, result)
+	assert.True(t, len(result.Datarows) > 0)
+	// 检查排序和过滤
+	prevAge := 1000
+	for _, row := range result.Datarows {
+		t.Logf("Row: %v", row)
+		age, _ := row[4].(float64)
+		assert.True(t, int(age) <= prevAge)
+		prevAge = int(age)
+		assert.True(t, int(age) >= 22)
+	}
+}
+
+func TestQueryWithSQLPaginationTo(t *testing.T) {
+	client := createTestClient()
+	assert.NotNil(t, client)
+
+	_ = client.DeleteIndex(t.Context(), userIndex)
+	_ = client.CreateIndex(t.Context(), userIndex, UserMapping, "")
+	users := []User{
+		{Name: "Alice", Age: 25, Phone: "123", Birth: time.Now(), Height: 1.65, Smoke: false, Home: "40.7128,-74.0060"},
+		{Name: "Bob", Age: 30, Phone: "456", Birth: time.Now(), Height: 1.80, Smoke: true, Home: "34.0522,-118.2437"},
+		{Name: "Carol", Age: 22, Phone: "789", Birth: time.Now(), Height: 1.70, Smoke: false, Home: "51.5074,-0.1278"},
+	}
+	for i, u := range users {
+		_ = client.InsertDocument(t.Context(), userIndex, strconv.Itoa(i+1), u)
+	}
+	err := client.RefreshIndex(t.Context(), userIndex)
+	assert.Nil(t, err)
+
+	// 构造分页请求
+	req := &paginationV1.PagingRequest{
+		Page:     trans.Ptr(uint32(1)),
+		PageSize: trans.Ptr(uint32(2)),
+		Sorting:  []*paginationV1.Sorting{{Field: "age", Direction: paginationV1.Sorting_DESC}},
+		FilteringType: &paginationV1.PagingRequest_FilterExpr{FilterExpr: &paginationV1.FilterExpr{
+			Type: paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{{
+				Field:      "age",
+				Op:         paginationV1.Operator_GTE,
+				ValueOneof: &paginationV1.FilterCondition_Value{Value: "22"},
+			}},
+		},
+		},
+	}
+
+	var out []*User
+
+	err = client.QueryWithSQLPaginationTo(t.Context(), userIndex, req, &out)
+	assert.Nil(t, err)
+	assert.NotNil(t, out)
+	assert.True(t, len(out) > 0)
+	// 检查排序和过滤
+	prevAge := 1000
+	for _, row := range out {
+		assert.True(t, row.Age <= prevAge)
+		prevAge = row.Age
+		assert.True(t, int(row.Age) >= 22)
+		t.Logf("User: %v", row)
+	}
 }

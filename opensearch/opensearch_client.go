@@ -17,6 +17,14 @@ import (
 	_ "github.com/go-kratos/kratos/v2/encoding/json"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
+	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
+
+	"github.com/tx7do/go-crud/opensearch/field"
+	"github.com/tx7do/go-crud/opensearch/filter"
+	paging "github.com/tx7do/go-crud/opensearch/pagination"
+	"github.com/tx7do/go-crud/opensearch/query"
+	"github.com/tx7do/go-crud/opensearch/sorting"
 )
 
 type Client struct {
@@ -25,6 +33,17 @@ type Client struct {
 
 	log   *log.Helper
 	codec encoding.Codec
+
+	offsetPaginator *paging.OffsetPaginator
+	pagePaginator   *paging.PagePaginator
+	tokenPaginator  *paging.TokenPaginator
+
+	structuredFilter *filter.StructuredFilter
+
+	structuredSorting      *sorting.StructuredSorting
+	orderByStringConverter *paginationSorting.OrderByStringConverter
+
+	fieldSelector *field.Selector
 }
 
 func NewOpenSearchClient(opts ...Option) (*Client, error) {
@@ -32,6 +51,18 @@ func NewOpenSearchClient(opts ...Option) (*Client, error) {
 		options: &opensearchV4.Config{},
 		log:     log.NewHelper(log.DefaultLogger),
 		codec:   encoding.GetCodec("json"),
+
+		structuredSorting: sorting.NewStructuredSorting(),
+
+		offsetPaginator: paging.NewOffsetPaginator(),
+		pagePaginator:   paging.NewPagePaginator(),
+		tokenPaginator:  paging.NewTokenPaginator(),
+
+		structuredFilter: filter.NewStructuredFilter(),
+
+		orderByStringConverter: paginationSorting.NewOrderByStringConverter(),
+
+		fieldSelector: field.NewFieldSelector(),
 	}
 
 	for _, o := range opts {
@@ -264,7 +295,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 		if ids != nil && i < len(ids) && ids[i] != "" {
 			meta["index"].(map[string]any)["_id"] = ids[i]
 		}
-		metaBytes, err := json.Marshal(meta)
+		metaBytes, err := c.codec.Marshal(meta)
 		if err != nil {
 			c.log.Errorf("failed to marshal meta: %v", err)
 			continue
@@ -378,6 +409,114 @@ func (c *Client) GetDocument(
 	return nil
 }
 
+// CreateIndexTemplate 创建或更新索引模板（适用于Elasticsearch 7.x及以上）
+func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, templateBody string) error {
+	req := opensearchapiV4.IndexTemplateCreateReq{
+		IndexTemplate: templateName,
+		Body:          bytes.NewReader([]byte(templateBody)),
+	}
+
+	resp, err := c.Client.Do(ctx, req, nil)
+	if err != nil {
+		c.log.Errorf("failed to create index template: %v", err)
+		return err
+	}
+
+	if resp.IsError() {
+		var errResp map[string]any
+		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			c.log.Errorf("create index template failed: %v", errResp)
+		}
+		return ErrCreateIndex
+	}
+
+	return nil
+}
+
+// ExistsIndexTemplate 判断索引模板是否存在
+func (c *Client) ExistsIndexTemplate(ctx context.Context, templateName string) (bool, error) {
+	req := opensearchapiV4.IndexTemplateExistsReq{
+		IndexTemplate: templateName,
+	}
+
+	resp, err := c.Client.Do(ctx, req, nil)
+	if err != nil {
+		c.log.Errorf("failed to check if index template exists: %v", err)
+		return false, err
+	}
+
+	return !resp.IsError(), nil
+}
+
+// CreateILMPolicy 创建或更新ILM策略
+func (c *Client) CreateILMPolicy(ctx context.Context, policyName string, policyBody string) error {
+	// OpenSearch ILM API: PUT _ilm/policy/{policyName}
+	if c.Client == nil {
+		return ErrRequestFailed
+	}
+	endpoint := "/_ilm/policy/" + policyName
+	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, bytes.NewReader([]byte(policyBody)))
+	if err != nil {
+		c.log.Errorf("failed to create ILM policy request: %v", err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.Client.Perform(req)
+	if err != nil {
+		c.log.Errorf("failed to perform ILM policy request: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			c.log.Errorf("failed to parse error message: %v", err)
+			return err
+		}
+		c.log.Errorf("create ILM policy failed: %s", errResp.Error.Reason)
+		return ErrCreateILMPolicy
+	}
+
+	return nil
+}
+
+// DeleteILMPolicy 删除ILM策略
+func (c *Client) DeleteILMPolicy(ctx context.Context, policyName string) error {
+	// OpenSearch ILM API: DELETE _ilm/policy/{policyName}
+	if c.Client == nil {
+		return ErrRequestFailed
+	}
+	endpoint := "/_ilm/policy/" + policyName
+	req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
+	if err != nil {
+		c.log.Errorf("failed to create ILM policy delete request: %v", err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.Client.Perform(req)
+	if err != nil {
+		c.log.Errorf("failed to perform ILM policy delete request: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			c.log.Errorf("failed to parse error message: %v", err)
+			return err
+		}
+		c.log.Errorf("delete ILM policy failed: %s", errResp.Error.Reason)
+		return ErrDeleteILMPolicy
+	}
+
+	return nil
+}
+
+// Search 查询数据，适用于简单查询场景，复杂查询建议使用 SearchWithHighlight 或 SearchBySQL
 func (c *Client) Search(
 	ctx context.Context,
 	indexName string,
@@ -516,113 +655,7 @@ func (c *Client) SearchWithHighlight(
 	return &searchResult, nil
 }
 
-// CreateIndexTemplate 创建或更新索引模板（适用于Elasticsearch 7.x及以上）
-func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, templateBody string) error {
-	req := opensearchapiV4.IndexTemplateCreateReq{
-		IndexTemplate: templateName,
-		Body:          bytes.NewReader([]byte(templateBody)),
-	}
-
-	resp, err := c.Client.Do(ctx, req, nil)
-	if err != nil {
-		c.log.Errorf("failed to create index template: %v", err)
-		return err
-	}
-
-	if resp.IsError() {
-		var errResp map[string]any
-		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			c.log.Errorf("create index template failed: %v", errResp)
-		}
-		return ErrCreateIndex
-	}
-
-	return nil
-}
-
-// ExistsIndexTemplate 判断索引模板是否存在
-func (c *Client) ExistsIndexTemplate(ctx context.Context, templateName string) (bool, error) {
-	req := opensearchapiV4.IndexTemplateExistsReq{
-		IndexTemplate: templateName,
-	}
-
-	resp, err := c.Client.Do(ctx, req, nil)
-	if err != nil {
-		c.log.Errorf("failed to check if index template exists: %v", err)
-		return false, err
-	}
-
-	return !resp.IsError(), nil
-}
-
-// CreateILMPolicy 创建或更新ILM策略
-func (c *Client) CreateILMPolicy(ctx context.Context, policyName string, policyBody string) error {
-	// OpenSearch ILM API: PUT _ilm/policy/{policyName}
-	if c.Client == nil {
-		return ErrRequestFailed
-	}
-	endpoint := "/_ilm/policy/" + policyName
-	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, bytes.NewReader([]byte(policyBody)))
-	if err != nil {
-		c.log.Errorf("failed to create ILM policy request: %v", err)
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.Client.Perform(req)
-	if err != nil {
-		c.log.Errorf("failed to perform ILM policy request: %v", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		var errResp *ErrorResponse
-		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
-			return err
-		}
-		c.log.Errorf("create ILM policy failed: %s", errResp.Error.Reason)
-		return ErrCreateILMPolicy
-	}
-
-	return nil
-}
-
-// DeleteILMPolicy 删除ILM策略
-func (c *Client) DeleteILMPolicy(ctx context.Context, policyName string) error {
-	// OpenSearch ILM API: DELETE _ilm/policy/{policyName}
-	if c.Client == nil {
-		return ErrRequestFailed
-	}
-	endpoint := "/_ilm/policy/" + policyName
-	req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
-	if err != nil {
-		c.log.Errorf("failed to create ILM policy delete request: %v", err)
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.Client.Perform(req)
-	if err != nil {
-		c.log.Errorf("failed to perform ILM policy delete request: %v", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		var errResp *ErrorResponse
-		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
-			return err
-		}
-		c.log.Errorf("delete ILM policy failed: %s", errResp.Error.Reason)
-		return ErrDeleteILMPolicy
-	}
-
-	return nil
-}
-
+// SearchBySQL 通过 SQL 查询数据，适用于 OpenSearch SQL 插件
 func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error) {
 	// OpenSearch SQL 固定接口：/_plugins/_sql
 	reqBody := map[string]any{
@@ -630,7 +663,7 @@ func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error
 		"format": "json",
 	}
 
-	jsonBody, err := json.Marshal(reqBody)
+	jsonBody, err := c.codec.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -657,7 +690,7 @@ func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error
 	}
 
 	var result SQLResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		c.log.Errorf("decode sql result error: %v", err)
 		return nil, err
 	}
@@ -684,8 +717,8 @@ func (c *Client) SearchBySQLTo(ctx context.Context, sql string, out any) error {
 	}
 
 	// 转成目标结构体
-	data, _ := json.Marshal(rows)
-	return json.Unmarshal(data, out)
+	data, _ := c.codec.Marshal(rows)
+	return c.codec.Unmarshal(data, out)
 }
 
 // SQLToDSL 将 SQL 转换为 OpenSearch DSL 查询体
@@ -693,7 +726,7 @@ func (c *Client) SQLToDSL(ctx context.Context, sql string) (map[string]any, erro
 	reqBody := map[string]any{
 		"query": sql,
 	}
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, _ := c.codec.Marshal(reqBody)
 
 	// OpenSearch SQL 翻译接口
 	url := c.options.Addresses[0] + "/_plugins/_sql/translate"
@@ -748,7 +781,7 @@ func (c *Client) SearchBySQLWithHighlight(
 
 	// 3. 拼接真实搜索 URL
 	url := fmt.Sprintf("%s/%s/_search", c.options.Addresses[0], indexName)
-	dslBody, _ := json.Marshal(dsl)
+	dslBody, _ := c.codec.Marshal(dsl)
 
 	// 4. 构造真实 HTTP 请求
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(dslBody))
@@ -766,7 +799,7 @@ func (c *Client) SearchBySQLWithHighlight(
 
 	// 6. 解析成你现有的 SearchResult
 	var result SearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
 
@@ -789,4 +822,87 @@ func (c *Client) RefreshIndex(ctx context.Context, indexName string) error {
 		return fmt.Errorf("refresh index failed: %s", resp.Status)
 	}
 	return nil
+}
+
+// QueryWithSQLPagination 通过SQL和分页参数查询数据
+// req: 分页请求参数
+func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, req *paginationV1.PagingRequest) (*SQLResult, error) {
+	if req == nil {
+		return nil, ErrInvalidRequest
+	}
+
+	var sql string
+	qb := query.NewQueryBuilder()
+
+	var err error
+
+	// apply filters
+	var filterExpr *paginationV1.FilterExpr
+	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
+	if err != nil {
+		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		return nil, ErrInvalidFilter
+	}
+	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
+
+	if _, err = c.structuredFilter.BuildSelectors(qb, req.GetFilterExpr()); err != nil {
+		return nil, err
+	}
+
+	// select fields
+	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
+		if _, err = c.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
+			c.log.Errorf("field selector build error: %v", err)
+		}
+	}
+
+	// sorting
+	if len(req.GetOrderBy()) > 0 {
+		var sortings []*paginationV1.Sorting
+		sortings, err = c.orderByStringConverter.Convert(req.GetOrderBy())
+		if err != nil {
+			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			return nil, err
+		}
+		_ = c.structuredSorting.BuildOrderClause(qb, sortings)
+	} else if len(req.GetSorting()) > 0 {
+		_ = c.structuredSorting.BuildOrderClause(qb, req.GetSorting())
+	}
+
+	// pagination
+	if !req.GetNoPaging() {
+		if req.Page != nil && req.PageSize != nil {
+			_ = c.pagePaginator.BuildClause(qb, int(req.GetPage()), int(req.GetPageSize()))
+		} else if req.Offset != nil && req.Limit != nil {
+			_ = c.offsetPaginator.BuildClause(qb, int(req.GetOffset()), int(req.GetLimit()))
+		} else if req.Token != nil && req.Offset != nil {
+			_ = c.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
+		}
+	}
+
+	sql = qb.BuildSQL(indexName)
+
+	return c.SearchBySQL(ctx, sql)
+}
+
+// QueryWithSQLPaginationTo 通过SQL和分页参数查询数据，并直接映射到结构体切片
+func (c *Client) QueryWithSQLPaginationTo(ctx context.Context, indexName string, req *paginationV1.PagingRequest, out any) error {
+	result, err := c.QueryWithSQLPagination(ctx, indexName, req)
+	if err != nil {
+		return err
+	}
+
+	// 把 datarows + schema 转成 map 切片
+	var rows []map[string]any
+	for _, row := range result.Datarows {
+		item := make(map[string]any)
+		for i, f := range result.Schema {
+			item[f.Name] = row[i]
+		}
+		rows = append(rows, item)
+	}
+
+	// 转成目标结构体
+	data, _ := c.codec.Marshal(rows)
+	return c.codec.Unmarshal(data, out)
 }
