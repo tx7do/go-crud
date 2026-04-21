@@ -8,7 +8,7 @@ git tag gorm/v0.0.20 --force
 
 git tag cassandra/v0.0.3 --force
 git tag elasticsearch/v0.0.10 --force
-git tag opensearch/v0.0.3 --force
+git tag opensearch/v0.0.4 --force
 git tag clickhouse/v0.0.18 --force
 git tag influxdb/v0.0.12 --force
 git tag mongodb/v0.0.13 --force

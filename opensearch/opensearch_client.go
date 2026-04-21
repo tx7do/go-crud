@@ -448,23 +448,22 @@ func (c *Client) ExistsIndexTemplate(ctx context.Context, templateName string) (
 	return !resp.IsError(), nil
 }
 
-// CreateILMPolicy 创建或更新ILM策略
-func (c *Client) CreateILMPolicy(ctx context.Context, policyName string, policyBody string) error {
-	// OpenSearch ILM API: PUT _ilm/policy/{policyName}
+// CreateISMPolicy 创建或更新ISM策略
+func (c *Client) CreateISMPolicy(ctx context.Context, policyName string, policyBody string) error {
 	if c.Client == nil {
 		return ErrRequestFailed
 	}
-	endpoint := "/_ilm/policy/" + policyName
+	endpoint := "/_plugins/_ism/policies/" + policyName
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, bytes.NewReader([]byte(policyBody)))
 	if err != nil {
-		c.log.Errorf("failed to create ILM policy request: %v", err)
+		c.log.Errorf("failed to create ISM policy request: %v", err)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.Client.Perform(req)
 	if err != nil {
-		c.log.Errorf("failed to perform ILM policy request: %v", err)
+		c.log.Errorf("failed to perform ISM policy request: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -475,30 +474,29 @@ func (c *Client) CreateILMPolicy(ctx context.Context, policyName string, policyB
 			c.log.Errorf("failed to parse error message: %v", err)
 			return err
 		}
-		c.log.Errorf("create ILM policy failed: %s", errResp.Error.Reason)
-		return ErrCreateILMPolicy
+		c.log.Errorf("create ISM policy failed: %s", errResp.Error.Reason)
+		return ErrCreateISMPolicy
 	}
 
 	return nil
 }
 
-// DeleteILMPolicy 删除ILM策略
-func (c *Client) DeleteILMPolicy(ctx context.Context, policyName string) error {
-	// OpenSearch ILM API: DELETE _ilm/policy/{policyName}
+// DeleteISMPolicy 删除ISM策略
+func (c *Client) DeleteISMPolicy(ctx context.Context, policyName string) error {
 	if c.Client == nil {
 		return ErrRequestFailed
 	}
-	endpoint := "/_ilm/policy/" + policyName
+	endpoint := "/_plugins/_ism/policies/" + policyName
 	req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
 	if err != nil {
-		c.log.Errorf("failed to create ILM policy delete request: %v", err)
+		c.log.Errorf("failed to create ISM policy delete request: %v", err)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.Client.Perform(req)
 	if err != nil {
-		c.log.Errorf("failed to perform ILM policy delete request: %v", err)
+		c.log.Errorf("failed to perform ISM policy delete request: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -509,8 +507,8 @@ func (c *Client) DeleteILMPolicy(ctx context.Context, policyName string) error {
 			c.log.Errorf("failed to parse error message: %v", err)
 			return err
 		}
-		c.log.Errorf("delete ILM policy failed: %s", errResp.Error.Reason)
-		return ErrDeleteILMPolicy
+		c.log.Errorf("delete ISM policy failed: %s", errResp.Error.Reason)
+		return ErrDeleteISMPolicy
 	}
 
 	return nil

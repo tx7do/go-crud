@@ -40,7 +40,7 @@ var (
 
 	ErrSearchDocument = errors.InternalServer("SEARCH_DOCUMENT_FAILED", "failed to search document")
 
-	ErrCreateILMPolicy = errors.InternalServer("CREATE_ILM_POLICY_FAILED", "create ILM policy failed")
+	ErrCreateISMPolicy = errors.InternalServer("CREATE_ISM_POLICY_FAILED", "create ISM policy failed")
 
 	ErrDocumentConflict = errors.InternalServer("DOCUMENT_CONFLICT", "document conflict occurred")
 
@@ -48,7 +48,7 @@ var (
 
 	ErrUpdateDocument = errors.InternalServer("UPDATE_DOCUMENT_FAILED", "failed to update document")
 
-	ErrDeleteILMPolicy = errors.InternalServer("DELETE_ILM_POLICY_FAILED", "delete ILM policy failed")
+	ErrDeleteISMPolicy = errors.InternalServer("DELETE_ISM_POLICY_FAILED", "delete ISM policy failed")
 
 	ErrInvalidRequest = errors.BadRequest("INVALID_REQUEST", "invalid request")
 
