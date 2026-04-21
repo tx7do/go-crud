@@ -36,3 +36,14 @@ type SearchResult struct {
 		} `json:"hits"`
 	} `json:"hits"`
 }
+
+type SQLResult struct {
+	Schema []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	} `json:"schema"`
+	Total    int     `json:"total"`
+	Datarows [][]any `json:"datarows"` // 核心数据
+	Size     int     `json:"size"`
+	Status   int     `json:"status"`
+}

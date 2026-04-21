@@ -695,3 +695,66 @@ func (c *Client) SearchWithHighlight(
 
 	return &searchResult, nil
 }
+
+// SearchBySQL 通过 SQL 查询数据（适用于 Elasticsearch 7.14+，需启用 SQL 插件）
+func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error) {
+	// 必须包成 JSON：{"query": "SELECT ..."}
+	reqBody := map[string]string{
+		"query": sql,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	// 执行 SQL API
+	resp, err := c.Client.SQL.Query(
+		bytes.NewReader(jsonBody),
+		c.Client.SQL.Query.WithContext(ctx),
+	)
+	if err != nil {
+		c.log.Errorf("sql query error: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		body, _ := io.ReadAll(resp.Body)
+		c.log.Errorf("sql query failed: %s", string(body))
+		return nil, ErrSearchDocument
+	}
+
+	// 解析 SQL 专用结构
+	var result SQLResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.log.Errorf("decode sql result error: %v", err)
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// SearchBySQLTo 执行SQL查询，直接映射到结构体切片
+// out 必须是切片指针，例如 &[]User{}
+func (c *Client) SearchBySQLTo(ctx context.Context, sql string, out any) error {
+	reqBody := map[string]any{
+		"query":      sql,
+		"format":     "json",
+		"fetch_size": 1000,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	resp, err := c.Client.SQL.Query(
+		bytes.NewReader(jsonBody),
+		c.Client.SQL.Query.WithContext(ctx),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		body, _ := io.ReadAll(resp.Body)
+		c.log.Errorf("sql error: %s", string(body))
+		return ErrSearchDocument
+	}
+
+	return json.NewDecoder(resp.Body).Decode(out)
+}

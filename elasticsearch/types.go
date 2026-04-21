@@ -36,3 +36,8 @@ type SearchResult struct {
 		} `json:"hits"`
 	} `json:"hits"`
 }
+
+type SQLResult struct {
+	Columns []string `json:"columns"`
+	Rows    [][]any  `json:"rows"`
+}

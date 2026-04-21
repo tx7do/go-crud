@@ -306,3 +306,36 @@ func TestMakeQueryString(t *testing.T) {
 	result = MakeQueryString(andQuery, orQuery)
 	assert.Equal(t, "", result)
 }
+
+func TestSearchBySQLTo(t *testing.T) {
+	client := createTestClient()
+	assert.NotNil(t, client)
+
+	// 确保索引存在并插入测试数据
+	_ = client.DeleteIndex(t.Context(), userIndex)
+	_ = client.CreateIndex(t.Context(), userIndex, UserMapping, "")
+	users := []User{
+		{Name: "Alice", Age: 25, Phone: "123", Birth: time.Now(), Height: 1.65, Smoke: false, Home: "40.7128,-74.0060"},
+		{Name: "Bob", Age: 30, Phone: "456", Birth: time.Now(), Height: 1.80, Smoke: true, Home: "34.0522,-118.2437"},
+	}
+	for i, u := range users {
+		_ = client.InsertDocument(t.Context(), userIndex, strconv.Itoa(i+1), u)
+	}
+	// 刷新索引，确保可查
+	err := client.RefreshIndex(t.Context(), userIndex)
+	assert.Nil(t, err)
+
+	// SQL 查询
+	sql := "SELECT name, age FROM user WHERE age > 20 ORDER BY age DESC"
+	var result []struct {
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+	}
+	err = client.SearchBySQLTo(t.Context(), sql, &result)
+	assert.Nil(t, err)
+	assert.True(t, len(result) >= 2)
+	assert.Equal(t, "Bob", result[0].Name)
+	assert.Equal(t, 30, result[0].Age)
+	assert.Equal(t, "Alice", result[1].Name)
+	assert.Equal(t, 25, result[1].Age)
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -457,6 +458,7 @@ func (c *Client) search(
 	return &searchResult, nil
 }
 
+// SearchWithHighlight 查询数据，带高亮
 func (c *Client) SearchWithHighlight(
 	ctx context.Context,
 	indexName string,
@@ -618,5 +620,173 @@ func (c *Client) DeleteILMPolicy(ctx context.Context, policyName string) error {
 		return ErrDeleteILMPolicy
 	}
 
+	return nil
+}
+
+func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error) {
+	// OpenSearch SQL 固定接口：/_plugins/_sql
+	reqBody := map[string]any{
+		"query":  sql,
+		"format": "json",
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	// 兼容 _plugins/_sql 和 _opendistro/_sql
+	endpoint := "/_plugins/_sql"
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.Client.Perform(req)
+	if err != nil {
+		c.log.Errorf("opensearch sql query failed: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		c.log.Errorf("opensearch sql error response: %s", string(body))
+		return nil, ErrSearchDocument
+	}
+
+	var result SQLResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.log.Errorf("decode sql result error: %v", err)
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// SearchBySQLTo 执行SQL查询，直接映射到结构体切片
+// out 必须是切片指针，例如 &[]User{}
+func (c *Client) SearchBySQLTo(ctx context.Context, sql string, out any) error {
+	result, err := c.SearchBySQL(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	// 把 datarows + schema 转成 map 切片
+	var rows []map[string]any
+	for _, row := range result.Datarows {
+		item := make(map[string]any)
+		for i, field := range result.Schema {
+			item[field.Name] = row[i]
+		}
+		rows = append(rows, item)
+	}
+
+	// 转成目标结构体
+	data, _ := json.Marshal(rows)
+	return json.Unmarshal(data, out)
+}
+
+// SQLToDSL 将 SQL 转换为 OpenSearch DSL 查询体
+func (c *Client) SQLToDSL(ctx context.Context, sql string) (map[string]any, error) {
+	reqBody := map[string]any{
+		"query": sql,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	// OpenSearch SQL 翻译接口
+	url := c.options.Addresses[0] + "/_plugins/_sql/translate"
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.Client.Perform(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var dsl map[string]any
+	if err = json.NewDecoder(resp.Body).Decode(&dsl); err != nil {
+		return nil, err
+	}
+
+	return dsl, nil
+}
+
+// SearchBySQLWithHighlight 执行SQL查询 + 高亮字段
+// sql: 查询语句
+// highlightFields: 需要高亮的字段，例如 []string{"title", "content"}
+func (c *Client) SearchBySQLWithHighlight(
+	ctx context.Context,
+	indexName string,
+	sql string,
+	highlightFields []string,
+) (*SearchResult, error) {
+	// 1. SQL 转 DSL
+	dsl, err := c.SQLToDSL(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 加入高亮配置
+	if len(highlightFields) > 0 {
+		fields := make(map[string]any)
+		for _, field := range highlightFields {
+			fields[field] = map[string]any{
+				"pre_tags":  []string{"<em>"},
+				"post_tags": []string{"</em>"},
+			}
+		}
+		dsl["highlight"] = map[string]any{
+			"fields": fields,
+		}
+	}
+
+	// 3. 拼接真实搜索 URL
+	url := fmt.Sprintf("%s/%s/_search", c.options.Addresses[0], indexName)
+	dslBody, _ := json.Marshal(dsl)
+
+	// 4. 构造真实 HTTP 请求
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(dslBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// 5. 执行（唯一真实存在的方法）
+	resp, err := c.Client.Perform(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// 6. 解析成你现有的 SearchResult
+	var result SearchResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// RefreshIndex 刷新索引，确保写入后可立即查询
+func (c *Client) RefreshIndex(ctx context.Context, indexName string) error {
+	endpoint := "/" + indexName + "/_refresh"
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.Client.Perform(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("refresh index failed: %s", resp.Status)
+	}
 	return nil
 }
