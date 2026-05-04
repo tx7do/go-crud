@@ -315,7 +315,10 @@ func (poc Processor) InsensitiveRegex(s *sql.Selector, p *sql.Predicate, field, 
 }
 
 // Search 全文搜索
-// SQL:
+// PostgreSQL: WHERE to_tsvector(name) @@ plainto_tsquery('search term')
+// MySQL: WHERE MATCH(name) AGAINST('search term' IN NATURAL LANGUAGE MODE)
+// SQLite: WHERE name LIKE '%search term%'
+// 其他数据库 fallback 到 LIKE '%search term%'，虽然不是真正的全文搜索，但至少提供了基本的模糊匹配能力。
 func (poc Processor) Search(s *sql.Selector, p *sql.Predicate, field, value string) *sql.Predicate {
 	if strings.TrimSpace(value) == "" {
 		return p
@@ -357,7 +360,7 @@ func (poc Processor) Search(s *sql.Selector, p *sql.Predicate, field, value stri
 }
 
 // DatePart 时间戳提取日期
-// SQL: select extract(quarter from timestamp '2018-08-15 12:10:10');
+// SQL: SELECT extract(quarter FROM timestamp '2018-08-15 12:10:10');
 func (poc Processor) DatePart(s *sql.Selector, p *sql.Predicate, datePart, field string) *sql.Predicate {
 	if !filter.IsValidDatePartString(datePart) {
 		// 非法的 datePart，不生成表达式以避免注入

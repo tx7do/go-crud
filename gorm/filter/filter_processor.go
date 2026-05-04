@@ -89,6 +89,8 @@ func (poc Processor) Process(db *gorm.DB, op paginationV1.Operator, field, value
 }
 
 // --- 基本比较 ---
+
+// Equal 相等比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Equal(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -96,6 +98,7 @@ func (poc Processor) Equal(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s = ?", field), value)
 }
 
+// NotEqual 不相等比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) NotEqual(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -104,6 +107,7 @@ func (poc Processor) NotEqual(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Not(fmt.Sprintf("%s = ?", field), value)
 }
 
+// GTE 大于等于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) GTE(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -111,6 +115,7 @@ func (poc Processor) GTE(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s >= ?", field), value)
 }
 
+// GT 大于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) GT(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -118,6 +123,7 @@ func (poc Processor) GT(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s > ?", field), value)
 }
 
+// LTE 小于等于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) LTE(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -125,6 +131,7 @@ func (poc Processor) LTE(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s <= ?", field), value)
 }
 
+// LT 小于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) LT(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -133,6 +140,8 @@ func (poc Processor) LT(db *gorm.DB, field, value string) *gorm.DB {
 }
 
 // --- IN / NOT IN ---
+
+// In 支持两种输入方式：1) value 作为 JSON 数组字符串；2) values 作为多个单值输入。空值不添加条件。
 func (poc Processor) In(db *gorm.DB, field, value string, values []string) *gorm.DB {
 	if len(value) > 0 {
 		var jsonValues []any
@@ -149,6 +158,7 @@ func (poc Processor) In(db *gorm.DB, field, value string, values []string) *gorm
 	return db
 }
 
+// NotIn 支持两种输入方式：1) value 作为 JSON 数组字符串；2) values 作为多个单值输入。空值不添加条件。
 func (poc Processor) NotIn(db *gorm.DB, field, value string, values []string) *gorm.DB {
 	if len(value) > 0 {
 		var jsonValues []any
@@ -166,6 +176,8 @@ func (poc Processor) NotIn(db *gorm.DB, field, value string, values []string) *g
 }
 
 // --- Range / Between ---
+
+// Range 支持两种输入方式：1) value 作为 JSON 数组字符串，且必须包含两个元素；2) values 作为两个单值输入。空值不添加条件。
 func (poc Processor) Range(db *gorm.DB, field, value string, values []string) *gorm.DB {
 	if len(value) > 0 {
 		var jsonValues []any
@@ -182,15 +194,20 @@ func (poc Processor) Range(db *gorm.DB, field, value string, values []string) *g
 }
 
 // --- NULL ---
+
+// IsNull IS NULL 判断
 func (poc Processor) IsNull(db *gorm.DB, field string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s IS NULL", field))
 }
 
+// IsNotNull IS NOT NULL 判断
 func (poc Processor) IsNotNull(db *gorm.DB, field string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s IS NOT NULL", field))
 }
 
 // --- 字符串 / 模糊匹配 ---
+
+// Contains 使用 LIKE '%value%' 进行包含匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Contains(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -198,6 +215,7 @@ func (poc Processor) Contains(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s LIKE ?", field), "%"+value+"%")
 }
 
+// InsensitiveContains 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的包含匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveContains(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -210,6 +228,7 @@ func (poc Processor) InsensitiveContains(db *gorm.DB, field, value string) *gorm
 	}
 }
 
+// StartsWith 使用 LIKE 'value%' 进行前缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) StartsWith(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -217,6 +236,7 @@ func (poc Processor) StartsWith(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s LIKE ?", field), value+"%")
 }
 
+// InsensitiveStartsWith 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的前缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveStartsWith(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -229,6 +249,7 @@ func (poc Processor) InsensitiveStartsWith(db *gorm.DB, field, value string) *go
 	}
 }
 
+// EndsWith 使用 LIKE '%value' 进行后缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) EndsWith(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -236,6 +257,7 @@ func (poc Processor) EndsWith(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s LIKE ?", field), "%"+value)
 }
 
+// InsensitiveEndsWith 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的后缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveEndsWith(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -248,6 +270,7 @@ func (poc Processor) InsensitiveEndsWith(db *gorm.DB, field, value string) *gorm
 	}
 }
 
+// Exact 使用等于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Exact(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -256,6 +279,7 @@ func (poc Processor) Exact(db *gorm.DB, field, value string) *gorm.DB {
 	return db.Where(fmt.Sprintf("%s = ?", field), value)
 }
 
+// InsensitiveExact 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的精确匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveExact(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -269,6 +293,8 @@ func (poc Processor) InsensitiveExact(db *gorm.DB, field, value string) *gorm.DB
 }
 
 // --- 正则 ---
+
+// Regex 根据不同数据库使用正则表达式进行匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Regex(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -286,6 +312,7 @@ func (poc Processor) Regex(db *gorm.DB, field, value string) *gorm.DB {
 	}
 }
 
+// InsensitiveRegex 根据不同数据库使用正则表达式进行大小写不敏感的匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveRegex(db *gorm.DB, field, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
@@ -397,7 +424,7 @@ func (poc Processor) JsonbField(db *gorm.DB, jsonbField, field string) string {
 	return expr
 }
 
-// --- 辅助：解析 JSON 字符串为 slice(any) ---
+// parseJSONValues 解析 JSON 字符串为 slice(any)
 func (poc Processor) parseJSONValues(raw string) ([]any, error) {
 	var arr []any
 	if err := poc.codec.Unmarshal([]byte(raw), &arr); err != nil {
