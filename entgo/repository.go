@@ -3,6 +3,7 @@ package entgo
 import (
 	"context"
 	"errors"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/go-kratos/kratos/v2/log"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-crud/cache"
 	"github.com/tx7do/go-crud/entgo/field"
 	"github.com/tx7do/go-crud/entgo/filter"
 	pagination "github.com/tx7do/go-crud/entgo/pagination"
@@ -44,6 +46,12 @@ type Repository[
 	orderByStringConverter *paginationSorting.OrderByStringConverter
 
 	fieldSelector *field.Selector
+
+	cacheSupportSingle *cache.CacheSupport[DTO]
+	cacheSupportList   *cache.CacheSupport[PagingResult[DTO]]
+	cacheKeyPrefix     string        // 缓存 key 前缀，如 "user:"
+	cacheTTL           time.Duration // 单条缓存 TTL
+	cacheListTTL       time.Duration // 列表缓存 TTL（通常更短）
 }
 
 func NewRepository[
