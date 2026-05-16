@@ -14,6 +14,7 @@ import (
 	"github.com/tx7do/go-utils/mapper"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-crud/cache"
 	"github.com/tx7do/go-crud/gorm/field"
 	"github.com/tx7do/go-crud/gorm/filter"
 	paging "github.com/tx7do/go-crud/gorm/pagination"
@@ -52,6 +53,12 @@ type Repository[DTO any, ENTITY any] struct {
 	orderByStringConverter *paginationSorting.OrderByStringConverter
 
 	fieldSelector *field.Selector
+
+	cacheSupportSingle *cache.CacheSupport[DTO]
+	cacheSupportList   *cache.CacheSupport[PagingResult[DTO]]
+	cacheKeyPrefix     string        // 缓存 key 前缀，如 "user:"
+	cacheTTL           time.Duration // 单条缓存 TTL
+	cacheListTTL       time.Duration // 列表缓存 TTL（通常更短）
 }
 
 func NewRepository[DTO any, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[DTO, ENTITY] {
