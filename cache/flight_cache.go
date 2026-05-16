@@ -10,14 +10,14 @@ func NewSingleFlight[T any]() *SingleFlight[T] {
 	return &SingleFlight[T]{sf: &singleflight.Group{}}
 }
 
-func (f *SingleFlight[T]) Do(key string, fn func() (T, error)) (T, error) {
+func (f *SingleFlight[T]) Do(key string, fn func() (*T, error)) (*T, error) {
 	v, err, _ := f.sf.Do(key, func() (any, error) {
 		return fn()
 	})
 
 	if err != nil {
-		var zero T
+		var zero *T = nil
 		return zero, err
 	}
-	return v.(T), nil
+	return v.(*T), nil
 }
