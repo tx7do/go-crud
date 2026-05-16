@@ -418,3 +418,425 @@ FROM my_index;
 2. **不支持事务、JOIN、子查询有限支持**
 3. **默认只返回 1000 条数据**，需要用 LIMIT 翻页
 4. **聚合查询性能非常快**，比 MySQL 强很多
+5. **ES SQL 不支持所有 DSL 功能**，复杂查询建议使用原生 DSL
+
+---
+
+## Elasticsearch Package
+
+基于 [Elasticsearch](https://www.elastic.co/elasticsearch/) 的搜索引擎访问层封装，提供完整的数据写入、查询、分页、高亮和 SQL 查询功能。
+
+## 特性
+
+- ✅ **泛型支持** - 完全基于 Go 泛型，类型安全
+- ✅ **全文检索** - 强大的分词和全文搜索能力
+- ✅ **完整 CRUD** - 创建、查询、更新、删除操作
+- ✅ **批量插入** - Bulk API 高效批量写入
+- ✅ **高亮搜索** - SearchWithHighlight 支持关键词高亮
+- ✅ **SQL 查询** - 支持类 MySQL 语法的 ES SQL
+- ✅ **索引管理** - 创建、删除、检查索引存在性
+- ✅ **索引模板** - CreateIndexTemplate 自动应用映射
+- ✅ **ILM 策略** - 生命周期管理（热/温/冷/删除）
+- ✅ **灵活配置** - 20+ 个配置选项（认证、重试、压缩等）
+- ✅ **错误处理** - 详细的错误类型和部分失败处理
+- ✅ **Kratos 日志集成** - 内置日志支持
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+go get github.com/tx7do/go-crud/elasticsearch
+```
+
+### 2. 创建 Client
+
+```go
+import (
+    "github.com/tx7do/go-crud/elasticsearch"
+)
+
+// 方式 1：基本连接
+client, err := elasticsearch.NewElasticsearchClient(
+    elasticsearch.WithAddresses("http://localhost:9200"),
+)
+
+// 方式 2：带认证
+client, err := elasticsearch.NewElasticsearchClient(
+    elasticsearch.WithAddresses("http://localhost:9200"),
+    elasticsearch.WithUsername("elastic"),
+    elasticsearch.WithPassword("password"),
+)
+
+// 方式 3：完整配置
+client, err := elasticsearch.NewElasticsearchClient(
+    elasticsearch.WithAddresses("http://es1:9200", "http://es2:9200"),
+    elasticsearch.WithUsername("elastic"),
+    elasticsearch.WithPassword("password"),
+    elasticsearch.WithMaxRetries(3),
+    elasticsearch.WithCompressRequestBody(true),
+    elasticsearch.WithRetryOnStatus(502, 503, 504),
+)
+
+if err != nil {
+    log.Fatal(err)
+}
+
+// 检查连接
+if !client.CheckConnectStatus() {
+    log.Fatal("Failed to connect to Elasticsearch")
+}
+```
+
+### 3. 索引管理
+
+#### 创建索引
+
+```go
+ctx := context.Background()
+
+// 定义 Mapping
+mapping := `{
+    "mappings": {
+        "properties": {
+            "title": {
+                "type": "text",
+                "analyzer": "ik_max_word"
+            },
+            "content": {
+                "type": "text",
+                "analyzer": "ik_max_word"
+            },
+            "author": {
+                "type": "keyword"
+            },
+            "created_at": {
+                "type": "date"
+            }
+        }
+    }
+}`
+
+// 定义 Settings
+settings := `{
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0
+    }
+}`
+
+err := client.CreateIndex(ctx, "articles", mapping, settings)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### 检查索引是否存在
+
+```go
+exists, err := client.IndexExists(ctx, "articles")
+if err != nil {
+    log.Fatal(err)
+}
+if exists {
+    fmt.Println("Index exists")
+} else {
+    fmt.Println("Index not found")
+}
+```
+
+#### 删除索引
+
+```go
+err := client.DeleteIndex(ctx, "articles")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+---
+
+### 4. 写入数据
+
+#### 插入单个文档
+
+```go
+type Article struct {
+    Title     string    `json:"title"`
+    Content   string    `json:"content"`
+    Author    string    `json:"author"`
+    CreatedAt time.Time `json:"created_at"`
+}
+
+article := &Article{
+    Title:     "Elasticsearch 入门指南",
+    Content:   "Elasticsearch 是一个强大的搜索引擎...",
+    Author:    "张三",
+    CreatedAt: time.Now(),
+}
+
+// 指定 ID
+err := client.InsertDocument(ctx, "articles", "1", article)
+if err != nil {
+    log.Fatal(err)
+}
+
+// 自动生成 ID
+err = client.InsertDocument(ctx, "articles", "", article)
+```
+
+#### 批量插入（推荐）
+
+```go
+articles := []any{
+    &Article{Title: "文章 1", Content: "内容 1", Author: "张三"},
+    &Article{Title: "文章 2", Content: "内容 2", Author: "李四"},
+    &Article{Title: "文章 3", Content: "内容 3", Author: "王五"},
+}
+
+ids := []string{"1", "2", "3"}
+
+err := client.BatchInsertDocument(ctx, "articles", articles, ids)
+if err != nil {
+    // 处理部分失败
+    if partialErr, ok := err.(*elasticsearch.PartialFailureError); ok {
+        log.Printf("%d/%d failed, failed IDs: %v", 
+            partialErr.Failed, partialErr.Total, partialErr.FailedIDs)
+    } else {
+        log.Fatal(err)
+    }
+}
+```
+
+**性能对比：**
+- 单条插入：~1,000 条/秒
+- 批量插入：~10,000 条/秒
+
+---
+
+### 5. 查询数据
+
+#### 根据 ID 查询
+
+```go
+var article Article
+err := client.GetDocument(ctx, "articles", "1", nil, &article)
+if err != nil {
+    if errors.Is(err, elasticsearch.ErrDocumentNotFound) {
+        fmt.Println("Document not found")
+    } else {
+        log.Fatal(err)
+    }
+}
+
+// 只返回指定字段
+err = client.GetDocument(ctx, "articles", "1", []string{"title", "author"}, &article)
+```
+
+#### 简单搜索
+
+```go
+import paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+
+page := uint32(1)
+pageSize := uint32(10)
+req := &paginationV1.PagingRequest{
+    Page:     &page,
+    PageSize: &pageSize,
+    Query:    "Elasticsearch",  // 全文搜索
+}
+
+result, err := client.Search(ctx, "articles", req)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Total: %d, Took: %dms\n", result.Hits.Total.Value, result.Took)
+for _, hit := range result.Hits.Hits {
+    var article Article
+    json.Unmarshal(hit.Source, &article)
+    fmt.Printf("ID: %s, Score: %.2f, Title: %s\n", hit.ID, hit.Score, article.Title)
+}
+```
+
+#### 高亮搜索
+
+```go
+query := map[string]any{
+    "match": map[string]any{
+        "title": "Elasticsearch",
+    },
+}
+
+highlight := map[string]any{
+    "fields": map[string]any{
+        "title": map[string]any{
+            "pre_tags":  []string{"<em>"},
+            "post_tags": []string{"</em>"},
+        },
+    },
+}
+
+sortBy := map[string]bool{
+    "created_at": false, // desc
+}
+
+result, err := client.SearchWithHighlight(
+    ctx,
+    "articles",
+    query,
+    highlight,
+    []string{"title", "content", "author"}, // 返回字段
+    sortBy,
+    0,    // from
+    10,   // size
+)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+---
+
+### 6. SQL 查询
+
+#### 基本 SQL 查询
+
+```go
+sql := "SELECT title, author, created_at FROM articles WHERE author = '张三' ORDER BY created_at DESC LIMIT 10"
+
+result, err := client.SearchBySQL(ctx, sql)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Columns: %v\n", result.Columns)
+for _, row := range result.Rows {
+    fmt.Printf("Row: %v\n", row)
+}
+```
+
+#### SQL 查询映射到结构体
+
+```go
+type ArticleRow struct {
+    Title     string    `json:"title"`
+    Author    string    `json:"author"`
+    CreatedAt time.Time `json:"created_at"`
+}
+
+var articles []ArticleRow
+err := client.SearchBySQLTo(ctx, 
+    "SELECT title, author, created_at FROM articles LIMIT 10",
+    &articles,
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, article := range articles {
+    fmt.Printf("Title: %s, Author: %s\n", article.Title, article.Author)
+}
+```
+
+---
+
+### 7. 更新和删除
+
+#### 更新文档
+
+```go
+update := map[string]any{
+    "doc": map[string]any{
+        "title": "Elasticsearch 高级指南",
+    },
+}
+
+err := client.UpdateDocument(ctx, "articles", "1", update)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### 删除文档
+
+```go
+err := client.DeleteDocument(ctx, "articles", "1")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+---
+
+### 8. 索引模板
+
+```go
+// 创建索引模板
+templateBody := `{
+    "index_patterns": ["logs-*"],
+    "template": {
+        "settings": {
+            "number_of_shards": 1
+        },
+        "mappings": {
+            "properties": {
+                "timestamp": {"type": "date"},
+                "message": {"type": "text"}
+            }
+        }
+    }
+}`
+
+err := client.CreateIndexTemplate(ctx, "logs-template", templateBody)
+if err != nil {
+    log.Fatal(err)
+}
+
+// 检查模板是否存在
+exists, err := client.ExistsIndexTemplate(ctx, "logs-template")
+```
+
+---
+
+### 9. ILM 策略（生命周期管理）
+
+```go
+// 创建 ILM 策略
+policyBody := `{
+    "policy": {
+        "phases": {
+            "hot": {
+                "actions": {
+                    "rollover": {
+                        "max_age": "7d",
+                        "max_size": "50gb"
+                    }
+                }
+            },
+            "warm": {
+                "min_age": "7d",
+                "actions": {
+                    "shrink": {"number_of_shards": 1}
+                }
+            },
+            "delete": {
+                "min_age": "30d",
+                "actions": {
+                    "delete": {}
+                }
+            }
+        }
+    }
+}`
+
+err := client.CreateILMPolicy(ctx, "logs-policy", policyBody)
+if err != nil {
+    log.Fatal(err)
+}
+
+// 删除 ILM 策略
+err = client.DeleteILMPolicy(ctx, "logs-policy")
+```
+
+---
