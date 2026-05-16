@@ -85,7 +85,7 @@ func (r *Repository[DTO, ENTITY]) generateListCacheKey(req *paginationV1.PagingR
 
 	// 3. OrderBy / Sorting
 	for _, ob := range req.GetOrderBy() {
-		sig.WriteString(fmt.Sprintf("ob:%s:", ob))
+		sig.WriteString(fmt.Sprintf("ob:%d:", ob))
 	}
 	for _, sort := range req.GetSorting() {
 		sig.WriteString(fmt.Sprintf("s:%s:%s:", sort.GetField(), sort.GetDirection()))
