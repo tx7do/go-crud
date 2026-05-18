@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
@@ -13,7 +12,6 @@ import (
 
 type Client struct {
 	conn clickhouseV2.Conn
-	db   *sql.DB
 
 	options *clickhouseV2.Options
 
