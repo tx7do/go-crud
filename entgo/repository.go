@@ -19,9 +19,10 @@ import (
 	"github.com/tx7do/go-crud/cache"
 	"github.com/tx7do/go-crud/entgo/field"
 	"github.com/tx7do/go-crud/entgo/filter"
-	pagination "github.com/tx7do/go-crud/entgo/pagination"
+	"github.com/tx7do/go-crud/entgo/pagination"
 	"github.com/tx7do/go-crud/entgo/sorting"
 	"github.com/tx7do/go-crud/entgo/update"
+	paginationCurd "github.com/tx7do/go-crud/pagination"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 )
@@ -253,7 +254,7 @@ func (r *Repository[
 	// 建立 id->dto 映射（基于 DTO 的 ID 字段，支持 ID/Id 字段名且为 string 或 *string）
 	idMap := make(map[string]*DTO, len(allDTOs))
 	for _, dto := range allDTOs {
-		if id, ok := getStringField(dto, []string{"ID", "Id"}); ok {
+		if id, ok := paginationCurd.GetStringField(dto, []string{"ID", "Id"}); ok {
 			idMap[id] = dto
 		}
 	}
@@ -261,13 +262,13 @@ func (r *Repository[
 	roots := make([]*DTO, 0, len(allDTOs))
 	// 遍历 DTO，将子追加到父的 Children 字段（反射追加），找不到父则作为根
 	for _, dto := range allDTOs {
-		parentID, hasParent := getStringField(dto, []string{"ParentID", "ParentId"})
+		parentID, hasParent := paginationCurd.GetStringField(dto, []string{"ParentID", "ParentId"})
 		if !hasParent || parentID == "" {
 			roots = append(roots, dto)
 			continue
 		}
 		if parent, found := idMap[parentID]; found {
-			if ok := appendChild(parent, dto); ok {
+			if ok := paginationCurd.AppendChild(parent, dto); ok {
 				continue
 			}
 			// 如果无法追加到父的 Children 字段，则退回到根列表
@@ -490,7 +491,7 @@ func (r *Repository[
 	// 建立 id->dto 映射（基于 DTO 的 ID 字段，支持 ID/Id 字段名且为 string 或 *string）
 	idMap := make(map[string]*DTO, len(allDTOs))
 	for _, dto := range allDTOs {
-		if id, ok := getStringField(dto, []string{"ID", "Id"}); ok {
+		if id, ok := paginationCurd.GetStringField(dto, []string{"ID", "Id"}); ok {
 			idMap[id] = dto
 		}
 	}
@@ -498,13 +499,13 @@ func (r *Repository[
 	roots := make([]*DTO, 0, len(allDTOs))
 	// 遍历 DTO，将子追加到父的 Children 字段（反射追加），找不到父则作为根
 	for _, dto := range allDTOs {
-		parentID, hasParent := getStringField(dto, []string{"ParentID", "ParentId"})
+		parentID, hasParent := paginationCurd.GetStringField(dto, []string{"ParentID", "ParentId"})
 		if !hasParent || parentID == "" {
 			roots = append(roots, dto)
 			continue
 		}
 		if parent, found := idMap[parentID]; found {
-			if ok := appendChild(parent, dto); ok {
+			if ok := paginationCurd.AppendChild(parent, dto); ok {
 				continue
 			}
 			// 如果无法追加到父的 Children 字段，则退回到根列表
