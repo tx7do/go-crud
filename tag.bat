@@ -4,7 +4,7 @@ git tag viewer/v0.0.6 --force
 git tag audit/v0.0.2 --force
 git tag cache/v0.0.1 --force
 
-git tag entgo/v0.0.50 --force
+git tag entgo/v0.0.51 --force
 git tag gorm/v0.0.20 --force
 
 git tag cassandra/v0.0.3 --force
