@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/go-kratos/kratos/v2/encoding/json"
+	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 	"go.einride.tech/aip/filtering"
 	v1alpha1 "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 

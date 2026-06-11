@@ -1,6 +1,6 @@
 module github.com/tx7do/go-crud/entgo
 
-go 1.25.7
+go 1.26.3
 
 replace github.com/tx7do/go-crud/api => ../api
 
@@ -22,9 +22,11 @@ require (
 	github.com/tx7do/go-crud/cache v0.0.1
 	github.com/tx7do/go-crud/pagination v0.0.14
 	github.com/tx7do/go-crud/viewer v0.0.6
-	github.com/tx7do/go-utils v1.1.39
+	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/id v0.0.6
 	github.com/tx7do/go-utils/mapper v0.0.3
+	github.com/tx7do/go-wind-plugins/encoding v0.0.1
+	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
 	github.com/xiaoqidun/entps v1.50.1
 	go.opentelemetry.io/otel v1.43.0
 	google.golang.org/protobuf v1.36.11

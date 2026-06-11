@@ -8,8 +8,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/go-kratos/kratos/v2/encoding"
-	_ "github.com/go-kratos/kratos/v2/encoding/json"
+	"github.com/tx7do/go-wind-plugins/encoding"
+	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 
 	"github.com/tx7do/go-utils/stringcase"
 

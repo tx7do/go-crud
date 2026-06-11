@@ -3,9 +3,9 @@ package pagination
 import (
 	"encoding/base64"
 
-	"github.com/go-kratos/kratos/v2/encoding"
-	_ "github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-wind-plugins/encoding"
+	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 
 	"github.com/tx7do/go-crud/opensearch/query"
 	"github.com/tx7do/go-crud/pagination/paginator"

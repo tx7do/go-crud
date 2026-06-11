@@ -13,8 +13,8 @@ import (
 	opensearchV4 "github.com/opensearch-project/opensearch-go/v4"
 	opensearchapiV4 "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
-	"github.com/go-kratos/kratos/v2/encoding"
-	_ "github.com/go-kratos/kratos/v2/encoding/json"
+	"github.com/tx7do/go-wind-plugins/encoding"
+	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"

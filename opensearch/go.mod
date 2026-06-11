@@ -1,6 +1,6 @@
 module github.com/tx7do/go-crud/opensearch
 
-go 1.25.7
+go 1.26.3
 
 replace github.com/tx7do/go-crud/api => ../api
 
@@ -12,7 +12,9 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-crud/pagination v0.0.13
-	github.com/tx7do/go-utils v1.1.36
+	github.com/tx7do/go-utils v1.1.40
+	github.com/tx7do/go-wind-plugins/encoding v0.0.1
+	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
 	google.golang.org/protobuf v1.36.11
 )
 

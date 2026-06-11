@@ -3,9 +3,9 @@ package pagination
 import (
 	"encoding/base64"
 
-	"github.com/go-kratos/kratos/v2/encoding"
-	_ "github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-wind-plugins/encoding"
+	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/tx7do/go-crud/mongodb/query"

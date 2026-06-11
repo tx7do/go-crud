@@ -3,7 +3,7 @@ package filter
 import (
 	"strings"
 
-	"github.com/go-kratos/kratos/v2/encoding"
+	"github.com/tx7do/go-wind-plugins/encoding"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"

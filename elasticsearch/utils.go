@@ -5,9 +5,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/go-kratos/kratos/v2/encoding"
-	_ "github.com/go-kratos/kratos/v2/encoding/json"
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-wind-plugins/encoding"
+	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 )
 
 // ParseErrorMessage 解析 Elasticsearch 错误消息

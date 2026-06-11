@@ -3,8 +3,8 @@ package filter
 import (
 	"strings"
 
-	"github.com/go-kratos/kratos/v2/encoding"
 	"github.com/tx7do/go-crud/opensearch/query"
+	"github.com/tx7do/go-wind-plugins/encoding"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
