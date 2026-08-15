@@ -3,46 +3,46 @@ package elasticsearch
 import (
 	"fmt"
 
-	"github.com/go-kratos/kratos/v2/errors"
+	"github.com/tx7do/go-wind/errors"
 )
 
 var (
 	// ErrRequestFailed is returned when a request to Elasticsearch fails.
-	ErrRequestFailed = errors.InternalServer("REQUEST_FAILED", "request failed")
+	ErrRequestFailed = errors.Internal("REQUEST_FAILED")
 
 	// ErrIndexNotFound is returned when the specified index does not exist.
-	ErrIndexNotFound = errors.InternalServer("INDEX_NOT_FOUND", "index not found")
+	ErrIndexNotFound = errors.Internal("INDEX_NOT_FOUND")
 
 	// ErrIndexAlreadyExists is returned when trying to create an index that already exists.
-	ErrIndexAlreadyExists = errors.InternalServer("INDEX_ALREADY_EXISTS", "index already exists")
+	ErrIndexAlreadyExists = errors.Internal("INDEX_ALREADY_EXISTS")
 
-	ErrCreateIndex = errors.InternalServer("CREATE_INDEX_FAILED", "failed to create index")
+	ErrCreateIndex = errors.Internal("CREATE_INDEX_FAILED")
 
-	ErrDeleteIndex = errors.InternalServer("DELETE_INDEX_FAILED", "failed to delete index")
+	ErrDeleteIndex = errors.Internal("DELETE_INDEX_FAILED")
 
 	// ErrDocumentNotFound is returned when a document is not found in the index.
-	ErrDocumentNotFound = errors.InternalServer("DOCUMENT_NOT_FOUND", "document not found")
+	ErrDocumentNotFound = errors.Internal("DOCUMENT_NOT_FOUND")
 
 	// ErrDocumentAlreadyExists is returned when trying to create a document that already exists.
-	ErrDocumentAlreadyExists = errors.InternalServer("DOCUMENT_ALREADY_EXISTS", "document already exists")
+	ErrDocumentAlreadyExists = errors.Internal("DOCUMENT_ALREADY_EXISTS")
 
 	// ErrInvalidQuery is returned when the query provided to Elasticsearch is invalid.
-	ErrInvalidQuery = errors.InternalServer("INVALID_QUERY", "invalid query")
+	ErrInvalidQuery = errors.Internal("INVALID_QUERY")
 
 	// ErrUnmarshalResponse is returned when the response from Elasticsearch cannot be unmarshalled.
-	ErrUnmarshalResponse = errors.InternalServer("UNMARSHAL_RESPONSE_FAILED", "failed to unmarshal response")
+	ErrUnmarshalResponse = errors.Internal("UNMARSHAL_RESPONSE_FAILED")
 
-	ErrInsertDocument = errors.InternalServer("INSERT_DOCUMENT_FAILED", "failed to insert document")
+	ErrInsertDocument = errors.Internal("INSERT_DOCUMENT_FAILED")
 
-	ErrBatchInsertDocument = errors.InternalServer("BATCH_INSERT_DOCUMENT_FAILED", "failed to batch insert documents")
+	ErrBatchInsertDocument = errors.Internal("BATCH_INSERT_DOCUMENT_FAILED")
 
-	ErrGetDocument = errors.InternalServer("GET_DOCUMENT_FAILED", "failed to get document")
+	ErrGetDocument = errors.Internal("GET_DOCUMENT_FAILED")
 
-	ErrSearchDocument = errors.InternalServer("SEARCH_DOCUMENT_FAILED", "failed to search document")
+	ErrSearchDocument = errors.Internal("SEARCH_DOCUMENT_FAILED")
 
-	ErrCreateILMPolicy = errors.InternalServer("CREATE_ILM_POLICY_FAILED", "create ILM policy failed")
+	ErrCreateILMPolicy = errors.Internal("CREATE_ILM_POLICY_FAILED")
 
-	ErrDocumentConflict = errors.InternalServer("DOCUMENT_CONFLICT", "document conflict occurred")
+	ErrDocumentConflict = errors.Internal("DOCUMENT_CONFLICT")
 )
 
 // PartialFailureError 表示批量操作部分失败

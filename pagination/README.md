@@ -13,7 +13,6 @@
 - ✅ **字段掩码支持** - FieldMask 选择返回字段
 - ✅ **工具函数** - 类型转换、过滤条件清理等实用工具
 - ✅ **Protocol Buffers** - 基于 protobuf 的标准化定义
-- ✅ **Kratos 集成** - 与 Kratos 框架无缝集成
 
 ## 快速开始
 

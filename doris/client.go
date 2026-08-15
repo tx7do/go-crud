@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 
 	// register mysql driver for doris (doris uses MySQL protocol)
 	_ "github.com/go-sql-driver/mysql"

@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/tx7do/go-utils/mapper"

@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 )
 
 type options struct {

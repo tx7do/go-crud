@@ -15,7 +15,7 @@
 - ✅ **异步插入** - 支持异步写入模式，提升吞吐量
 - ✅ **连接池管理** - 自动管理连接生命周期
 - ✅ **DTO/Entity 映射** - 自动 DTO 和 Entity 转换
-- ✅ **Kratos 日志集成** - 内置日志支持
+- ✅ **go-wind 日志集成** - 内置日志支持
 
 ## Docker 部署
 
@@ -799,7 +799,7 @@ go test -v ./clickhouse -run TestBatch
 - `github.com/ClickHouse/clickhouse-go/v2` - ClickHouse Go 客户端
 - `github.com/tx7do/go-utils/mapper` - DTO/Entity 映射
 - `github.com/tx7do/go-crud/api` - Protobuf 定义
-- `github.com/go-kratos/kratos/v2` - Kratos 框架（日志）
+- `github.com/tx7do/go-wind` - go-wind 框架（日志）
 
 ---
 

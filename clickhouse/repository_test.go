@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/tx7do/go-utils/mapper"
 	"github.com/tx7do/go-utils/trans"

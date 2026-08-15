@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 

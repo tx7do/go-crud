@@ -17,7 +17,7 @@
 - ✅ **Session 管理** - 会话级变量控制（内存限制、时区等）
 - ✅ **事务支持** - 在同一连接上设置 session 并执行事务
 - ✅ **DTO/Entity 映射** - 自动 DTO 和 Entity 转换
-- ✅ **Kratos 日志集成** - 内置日志支持
+- ✅ **go-wind 日志集成** - 内置日志支持
 
 ## 什么是 Doris
 
@@ -866,7 +866,7 @@ go test -v ./doris -run TestStreamLoad
 - `github.com/jmoiron/sqlx` - SQL 扩展库
 - `github.com/tx7do/go-utils/mapper` - DTO/Entity 映射
 - `github.com/tx7do/go-crud/api` - Protobuf 定义
-- `github.com/go-kratos/kratos/v2` - Kratos 框架（日志）
+- `github.com/tx7do/go-wind` - go-wind 框架（日志）
 
 ---
 

@@ -1,25 +1,25 @@
 package influxdb
 
-import "github.com/go-kratos/kratos/v2/errors"
+import "github.com/tx7do/go-wind/errors"
 
 var (
-	ErrInfluxDBClientNotInitialized = errors.InternalServer("INFLUXDB_CLIENT_NOT_INITIALIZED", "client not initialized")
+	ErrInfluxDBClientNotInitialized = errors.Internal("INFLUXDB_CLIENT_NOT_INITIALIZED")
 
-	ErrInfluxDBConnectFailed = errors.InternalServer("INFLUXDB_CONNECT_FAILED", "connect failed")
+	ErrInfluxDBConnectFailed = errors.Internal("INFLUXDB_CONNECT_FAILED")
 
-	ErrInfluxDBCreateDatabaseFailed = errors.InternalServer("INFLUXDB_CREATE_DATABASE_FAILED", "database create failed")
+	ErrInfluxDBCreateDatabaseFailed = errors.Internal("INFLUXDB_CREATE_DATABASE_FAILED")
 
-	ErrInfluxDBQueryFailed = errors.InternalServer("INFLUXDB_QUERY_FAILED", "query failed")
+	ErrInfluxDBQueryFailed = errors.Internal("INFLUXDB_QUERY_FAILED")
 
-	ErrClientNotConnected = errors.InternalServer("INFLUXDB_CLIENT_NOT_CONNECTED", "client not connected")
+	ErrClientNotConnected = errors.Internal("INFLUXDB_CLIENT_NOT_CONNECTED")
 
-	ErrInvalidPoint = errors.InternalServer("INFLUXDB_INVALID_POINT", "invalid point")
+	ErrInvalidPoint = errors.Internal("INFLUXDB_INVALID_POINT")
 
-	ErrNoPointsToInsert = errors.InternalServer("INFLUXDB_NO_POINTS_TO_INSERT", "no points to insert")
+	ErrNoPointsToInsert = errors.Internal("INFLUXDB_NO_POINTS_TO_INSERT")
 
-	ErrEmptyData = errors.InternalServer("INFLUXDB_EMPTY_DATA", "empty data")
+	ErrEmptyData = errors.Internal("INFLUXDB_EMPTY_DATA")
 
-	ErrBatchInsertFailed = errors.InternalServer("INFLUXDB_BATCH_INSERT_FAILED", "batch insert failed")
+	ErrBatchInsertFailed = errors.Internal("INFLUXDB_BATCH_INSERT_FAILED")
 
-	ErrInsertFailed = errors.InternalServer("INFLUXDB_INSERT_FAILED", "insert failed")
+	ErrInsertFailed = errors.Internal("INFLUXDB_INSERT_FAILED")
 )

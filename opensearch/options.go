@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchtransport"
 	"github.com/opensearch-project/opensearch-go/v4/signer"
 )

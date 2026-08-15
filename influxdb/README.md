@@ -14,7 +14,7 @@
 - ✅ **批量写入** - 高效批量插入数据点
 - ✅ **参数化查询** - 防止注入攻击
 - ✅ **DTO/Point 映射** - 自动 DTO 和 InfluxDB Point 转换
-- ✅ **Kratos 日志集成** - 内置日志支持
+- ✅ **go-wind 日志集成** - 内置日志支持
 
 ## Docker 部署
 
@@ -598,7 +598,7 @@ go test -v ./influxdb -run TestUtils
 - `github.com/InfluxCommunity/influxdb3-go/v2` - InfluxDB 3.x Go 客户端
 - `github.com/tx7do/go-utils/mapper` - DTO 映射
 - `github.com/tx7do/go-crud/api` - Protobuf 定义
-- `github.com/go-kratos/kratos/v2` - Kratos 框架（日志）
+- `github.com/tx7do/go-wind` - go-wind 框架（日志）
 
 ## 与关系数据库的区别
 

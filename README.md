@@ -206,7 +206,7 @@ go-crud/
 | 缓存 | Redis | 内存数据库，防击穿保护 |
 | DTO 映射 | go-utils/mapper | 泛型 CopierMapper，双向自动映射 |
 | API 定义 | Protobuf + buf.build | 接口契约优先，跨语言支持 |
-| 日志 | go-kratos/log | Kratos 框架日志集成 |
+| 日志 | go-wind/log | go-wind 框架日志集成 |
 | 可观测性 | OpenTelemetry | 分布式追踪与指标（GORM / Ent） |
 
 ---

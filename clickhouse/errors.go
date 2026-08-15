@@ -1,91 +1,91 @@
 package clickhouse
 
-import "github.com/go-kratos/kratos/v2/errors"
+import "github.com/tx7do/go-wind/errors"
 
 var (
 	// ErrInvalidColumnName is returned when an invalid column name is used.
-	ErrInvalidColumnName = errors.InternalServer("INVALID_COLUMN_NAME", "invalid column name")
+	ErrInvalidColumnName = errors.Internal("INVALID_COLUMN_NAME")
 
 	// ErrInvalidTableName is returned when an invalid table name is used.
-	ErrInvalidTableName = errors.InternalServer("INVALID_TABLE_NAME", "invalid table name")
+	ErrInvalidTableName = errors.Internal("INVALID_TABLE_NAME")
 
 	// ErrInvalidCondition is returned when an invalid condition is used in a query.
-	ErrInvalidCondition = errors.InternalServer("INVALID_CONDITION", "invalid condition in query")
+	ErrInvalidCondition = errors.Internal("INVALID_CONDITION")
 
 	// ErrQueryExecutionFailed is returned when a query execution fails.
-	ErrQueryExecutionFailed = errors.InternalServer("QUERY_EXECUTION_FAILED", "query execution failed")
+	ErrQueryExecutionFailed = errors.Internal("QUERY_EXECUTION_FAILED")
 
 	// ErrExecutionFailed is returned when a general execution fails.
-	ErrExecutionFailed = errors.InternalServer("EXECUTION_FAILED", "execution failed")
+	ErrExecutionFailed = errors.Internal("EXECUTION_FAILED")
 
 	// ErrAsyncInsertFailed is returned when an asynchronous insert operation fails.
-	ErrAsyncInsertFailed = errors.InternalServer("ASYNC_INSERT_FAILED", "async insert operation failed")
+	ErrAsyncInsertFailed = errors.Internal("ASYNC_INSERT_FAILED")
 
 	// ErrRowScanFailed is returned when scanning rows from a query result fails.
-	ErrRowScanFailed = errors.InternalServer("ROW_SCAN_FAILED", "row scan failed")
+	ErrRowScanFailed = errors.Internal("ROW_SCAN_FAILED")
 
 	// ErrRowsIterationError is returned when there is an error iterating over rows.
-	ErrRowsIterationError = errors.InternalServer("ROWS_ITERATION_ERROR", "rows iteration error")
+	ErrRowsIterationError = errors.Internal("ROWS_ITERATION_ERROR")
 
 	// ErrRowNotFound is returned when a specific row is not found in the result set.
-	ErrRowNotFound = errors.InternalServer("ROW_NOT_FOUND", "row not found")
+	ErrRowNotFound = errors.Internal("ROW_NOT_FOUND")
 
 	// ErrConnectionFailed is returned when the connection to ClickHouse fails.
-	ErrConnectionFailed = errors.InternalServer("CONNECTION_FAILED", "failed to connect to ClickHouse")
+	ErrConnectionFailed = errors.Internal("CONNECTION_FAILED")
 
 	// ErrDatabaseNotFound is returned when the specified database is not found.
-	ErrDatabaseNotFound = errors.InternalServer("DATABASE_NOT_FOUND", "specified database not found")
+	ErrDatabaseNotFound = errors.Internal("DATABASE_NOT_FOUND")
 
 	// ErrTableNotFound is returned when the specified table is not found.
-	ErrTableNotFound = errors.InternalServer("TABLE_NOT_FOUND", "specified table not found")
+	ErrTableNotFound = errors.Internal("TABLE_NOT_FOUND")
 
 	// ErrInsertFailed is returned when an insert operation fails.
-	ErrInsertFailed = errors.InternalServer("INSERT_FAILED", "insert operation failed")
+	ErrInsertFailed = errors.Internal("INSERT_FAILED")
 
 	// ErrUpdateFailed is returned when an update operation fails.
-	ErrUpdateFailed = errors.InternalServer("UPDATE_FAILED", "update operation failed")
+	ErrUpdateFailed = errors.Internal("UPDATE_FAILED")
 
 	// ErrDeleteFailed is returned when a delete operation fails.
-	ErrDeleteFailed = errors.InternalServer("DELETE_FAILED", "delete operation failed")
+	ErrDeleteFailed = errors.Internal("DELETE_FAILED")
 
 	// ErrTransactionFailed is returned when a transaction fails.
-	ErrTransactionFailed = errors.InternalServer("TRANSACTION_FAILED", "transaction failed")
+	ErrTransactionFailed = errors.Internal("TRANSACTION_FAILED")
 
 	// ErrClientNotInitialized is returned when the ClickHouse client is not initialized.
-	ErrClientNotInitialized = errors.InternalServer("CLIENT_NOT_INITIALIZED", "clickhouse client not initialized")
+	ErrClientNotInitialized = errors.Internal("CLIENT_NOT_INITIALIZED")
 
 	// ErrGetServerVersionFailed is returned when getting the server version fails.
-	ErrGetServerVersionFailed = errors.InternalServer("GET_SERVER_VERSION_FAILED", "failed to get server version")
+	ErrGetServerVersionFailed = errors.Internal("GET_SERVER_VERSION_FAILED")
 
 	// ErrPingFailed is returned when a ping to the ClickHouse server fails.
-	ErrPingFailed = errors.InternalServer("PING_FAILED", "ping to ClickHouse server failed")
+	ErrPingFailed = errors.Internal("PING_FAILED")
 
 	// ErrCreatorFunctionNil is returned when the creator function is nil.
-	ErrCreatorFunctionNil = errors.InternalServer("CREATOR_FUNCTION_NIL", "creator function cannot be nil")
+	ErrCreatorFunctionNil = errors.Internal("CREATOR_FUNCTION_NIL")
 
 	// ErrBatchPrepareFailed is returned when a batch prepare operation fails.
-	ErrBatchPrepareFailed = errors.InternalServer("BATCH_PREPARE_FAILED", "batch prepare operation failed")
+	ErrBatchPrepareFailed = errors.Internal("BATCH_PREPARE_FAILED")
 
 	// ErrBatchSendFailed is returned when a batch send operation fails.
-	ErrBatchSendFailed = errors.InternalServer("BATCH_SEND_FAILED", "batch send operation failed")
+	ErrBatchSendFailed = errors.Internal("BATCH_SEND_FAILED")
 
 	// ErrBatchAppendFailed is returned when appending to a batch fails.
-	ErrBatchAppendFailed = errors.InternalServer("BATCH_APPEND_FAILED", "batch append operation failed")
+	ErrBatchAppendFailed = errors.Internal("BATCH_APPEND_FAILED")
 
 	// ErrBatchInsertFailed is returned when a batch insert operation fails.
-	ErrBatchInsertFailed = errors.InternalServer("BATCH_INSERT_FAILED", "batch insert operation failed")
+	ErrBatchInsertFailed = errors.Internal("BATCH_INSERT_FAILED")
 
 	// ErrInvalidDSN is returned when the data source name (DSN) is invalid.
-	ErrInvalidDSN = errors.InternalServer("INVALID_DSN", "invalid data source name")
+	ErrInvalidDSN = errors.Internal("INVALID_DSN")
 
 	// ErrInvalidProxyURL is returned when the proxy URL is invalid.
-	ErrInvalidProxyURL = errors.InternalServer("INVALID_PROXY_URL", "invalid proxy URL")
+	ErrInvalidProxyURL = errors.Internal("INVALID_PROXY_URL")
 
 	// ErrPrepareInsertDataFailed is returned when preparing insert data fails.
-	ErrPrepareInsertDataFailed = errors.InternalServer("PREPARE_INSERT_DATA_FAILED", "failed to prepare insert data")
+	ErrPrepareInsertDataFailed = errors.Internal("PREPARE_INSERT_DATA_FAILED")
 
 	// ErrInvalidColumnData is returned when the column data type is invalid.
-	ErrInvalidColumnData = errors.InternalServer("INVALID_COLUMN_DATA", "invalid column data type")
+	ErrInvalidColumnData = errors.Internal("INVALID_COLUMN_DATA")
 
-	ErrInvalidArgument = errors.BadRequest("INVALID_ARGUMENT", "invalid argument provided")
+	ErrInvalidArgument = errors.BadRequest("INVALID_ARGUMENT")
 )

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 
 	elasticsearchV9 "github.com/elastic/go-elasticsearch/v9"
 	esapiV9 "github.com/elastic/go-elasticsearch/v9/esapi"

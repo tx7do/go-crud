@@ -206,7 +206,7 @@ Protobuf で定義された構造化フィルタエンジン、29+ の演算子�
 | キャッシュ | Redis | スタンピード保護付きインメモリデータストア |
 | DTO マッピング | go-utils/mapper | ジェネリック CopierMapper、双方向自動マッピング |
 | API 定義 | Protobuf + buf.build | コントラクトファースト API 設計、クロス言語サポート |
-| ロギング | go-kratos/log | Kratos フレームワークログ統合 |
+| ロギング | go-wind/log | go-wind フレームワークログ統合 |
 | オブザーバビリティ | OpenTelemetry | 分散トレーシングとメトリクス (GORM / Ent) |
 
 ---

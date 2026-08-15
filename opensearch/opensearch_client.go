@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 
 	opensearchV4 "github.com/opensearch-project/opensearch-go/v4"
 	opensearchapiV4 "github.com/opensearch-project/opensearch-go/v4/opensearchapi"

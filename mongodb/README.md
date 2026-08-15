@@ -14,7 +14,7 @@
 - ✅ **聚合查询** - 支持 MongoDB Aggregation Pipeline
 - ✅ **索引优化** - 自动利用 MongoDB 索引
 - ✅ **DTO/Document 映射** - 自动 DTO 和 Document 转换
-- ✅ **Kratos 日志集成** - 内置日志支持
+- ✅ **go-wind 日志集成** - 内置日志支持
 
 ## 概念对比
 
@@ -710,7 +710,7 @@ go test -v ./mongodb -run TestClient
 - `go.mongodb.org/mongo-driver/v2` - MongoDB Go 驱动（v2）
 - `github.com/tx7do/go-utils/mapper` - DTO/Document 映射
 - `github.com/tx7do/go-crud/api` - Protobuf 定义
-- `github.com/go-kratos/kratos/v2` - Kratos 框架（日志）
+- `github.com/tx7do/go-wind` - go-wind 框架（日志）
 
 ---
 

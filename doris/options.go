@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -20,7 +20,7 @@ func WithDB(db *sqlx.DB) Option {
 	return func(o *Client) { o.db = db }
 }
 
-// WithLogger attaches a kratos log helper to the client.
+// WithLogger attaches a log helper to the client.
 func WithLogger(l *log.Helper) Option {
 	return func(o *Client) { o.log = l }
 }

@@ -1214,7 +1214,6 @@ type Auditor interface {
 
 ## 相关资源
 
-- [Kratos 审计中间件](https://go-kratos.dev/)
 - [OpenTelemetry 追踪](https://opentelemetry.io/)
 - [GDPR 合规指南](https://gdpr.eu/)
 

@@ -8,17 +8,17 @@ replace github.com/tx7do/go-crud/pagination => ../pagination
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/pagination v0.0.13
+	github.com/tx7do/go-crud/log v0.0.0-00010101000000-000000000000
+	github.com/tx7do/go-crud/pagination v0.0.14
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/mapper v0.0.3
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
 	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
@@ -28,11 +28,14 @@ require (
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	go.einride.tech/aip v0.84.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260420184626-e10c466a9529 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529 // indirect
+	github.com/tx7do/go-wind v0.0.1 // indirect
+	go.einride.tech/aip v0.86.3 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260810153831-ec0a7760b754 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260810153831-ec0a7760b754 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/tx7do/go-crud/log => ../log

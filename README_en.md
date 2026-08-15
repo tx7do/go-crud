@@ -206,7 +206,7 @@ Supports `AND` / `OR` multi-level nested combinations via `FilterExpr` for arbit
 | Cache | Redis | In-memory data store with stampede protection |
 | DTO Mapping | go-utils/mapper | Generic CopierMapper with bidirectional auto-mapping |
 | API Definition | Protobuf + buf.build | Contract-first API design, cross-language support |
-| Logging | go-kratos/log | Kratos framework log integration |
+| Logging | go-wind/log | go-wind framework log integration |
 | Observability | OpenTelemetry | Distributed tracing and metrics (GORM / Ent) |
 
 ---

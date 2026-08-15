@@ -6,7 +6,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-wind-plugins/encoding"
 	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 

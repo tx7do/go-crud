@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 
 	mongoV2 "go.mongodb.org/mongo-driver/v2/mongo"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"

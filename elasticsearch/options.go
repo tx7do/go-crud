@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/elastic/elastic-transport-go/v8/elastictransport"
-	"github.com/go-kratos/kratos/v2/log"
+	"github.com/tx7do/go-crud/log"
 )
 
 type Option func(o *Client)
