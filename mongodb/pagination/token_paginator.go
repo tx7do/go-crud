@@ -1,11 +1,7 @@
 package pagination
 
 import (
-	"encoding/base64"
-
 	"github.com/tx7do/go-crud/pagination"
-	"github.com/tx7do/go-wind-plugins/encoding"
-	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/tx7do/go-crud/mongodb/query"
@@ -14,14 +10,12 @@ import (
 
 // TokenPaginator 基于 Token 的分页器（MongoDB 版）
 type TokenPaginator struct {
-	impl  pagination.Paginator
-	codec encoding.Codec
+	impl pagination.Paginator
 }
 
 func NewTokenPaginator() *TokenPaginator {
 	return &TokenPaginator{
-		impl:  paginator.NewTokenPaginatorWithDefault(),
-		codec: encoding.GetCodec("json"),
+		impl: paginator.NewTokenPaginatorWithDefault(),
 	}
 }
 
@@ -43,22 +37,14 @@ func (p *TokenPaginator) BuildClause(builder *query.Builder, token string, pageS
 		return builder
 	}
 
-	b, err := base64.StdEncoding.DecodeString(token)
-	if err != nil {
-		builder.SetLimit(int64(size))
-		return builder
-	}
-
-	var c struct {
-		LastID int64 `json:"last_id"`
-	}
-	if err = p.codec.Unmarshal(b, &c); err != nil {
+	lastID, ok := pagination.VerifyAndDecode(token, nil)
+	if !ok {
 		builder.SetLimit(int64(size))
 		return builder
 	}
 
 	// 为 MongoDB 设置过滤条件 id > last_id，并设置 limit
-	filter := bsonV2.M{"id": bsonV2.M{"$gt": c.LastID}}
+	filter := bsonV2.M{"id": bsonV2.M{"$gt": lastID}}
 	builder.SetFilter(filter)
 	builder.SetLimit(int64(size))
 

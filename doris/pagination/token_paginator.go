@@ -1,13 +1,8 @@
 package pagination
 
 import (
-	"encoding/base64"
-
 	"github.com/tx7do/go-crud/doris/query"
 	"github.com/tx7do/go-crud/pagination"
-	"github.com/tx7do/go-wind-plugins/encoding"
-	_ "github.com/tx7do/go-wind-plugins/encoding/json"
-
 	"github.com/tx7do/go-crud/pagination/paginator"
 )
 
@@ -16,14 +11,12 @@ import (
 // - 当 token 为空或无效时: "LIMIT <n>"
 // - 当 token 有效且包含 last_id 时: "WHERE id > <last_id> LIMIT <n>"
 type TokenPaginator struct {
-	impl  pagination.Paginator
-	codec encoding.Codec
+	impl pagination.Paginator
 }
 
 func NewTokenPaginator() *TokenPaginator {
 	return &TokenPaginator{
-		impl:  paginator.NewTokenPaginatorWithDefault(),
-		codec: encoding.GetCodec("json"),
+		impl: paginator.NewTokenPaginatorWithDefault(),
 	}
 }
 
@@ -44,17 +37,10 @@ func (p *TokenPaginator) BuildClause(builder *query.Builder, token string, pageS
 		return builder.Limit(size)
 	}
 
-	b, err := base64.StdEncoding.DecodeString(token)
-	if err != nil {
+	lastID, ok := pagination.VerifyAndDecode(token, nil)
+	if !ok {
 		return builder.Limit(size)
 	}
 
-	var c struct {
-		LastID int64 `json:"last_id"`
-	}
-	if err = p.codec.Unmarshal(b, &c); err != nil {
-		return builder.Limit(size)
-	}
-
-	return builder.Limit(size).Where("id > ?", c.LastID)
+	return builder.Limit(size).Where("id > ?", lastID)
 }

@@ -1,27 +1,20 @@
 package pagination
 
 import (
-	"encoding/base64"
-
 	"github.com/tx7do/go-crud/pagination"
 	"gorm.io/gorm"
-
-	"github.com/tx7do/go-wind-plugins/encoding"
-	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 
 	"github.com/tx7do/go-crud/pagination/paginator"
 )
 
 // TokenPaginator 基于 Token 的分页器
 type TokenPaginator struct {
-	impl  pagination.Paginator
-	codec encoding.Codec
+	impl pagination.Paginator
 }
 
 func NewTokenPaginator() *TokenPaginator {
 	return &TokenPaginator{
-		impl:  paginator.NewTokenPaginatorWithDefault(),
-		codec: encoding.GetCodec("json"),
+		impl: paginator.NewTokenPaginatorWithDefault(),
 	}
 }
 
@@ -31,10 +24,6 @@ func (p *TokenPaginator) BuildDB(token string, pageSize int) func(*gorm.DB) *gor
 	p.impl.
 		WithToken(token).
 		WithPage(pageSize)
-
-	type cursor struct {
-		LastID int64 `json:"last_id"`
-	}
 
 	return func(db *gorm.DB) *gorm.DB {
 		if db == nil {
@@ -46,17 +35,11 @@ func (p *TokenPaginator) BuildDB(token string, pageSize int) func(*gorm.DB) *gor
 			return db.Limit(p.impl.Size())
 		}
 
-		b, err := base64.StdEncoding.DecodeString(token)
-		if err != nil {
+		lastID, ok := pagination.VerifyAndDecode(token, nil)
+		if !ok {
 			return db.Limit(p.impl.Size())
 		}
 
-		var c cursor
-		if err = p.codec.Unmarshal(b, &c); err != nil {
-			return db.Limit(p.impl.Size())
-		}
-
-		lastID := c.LastID
 		db = db.Where("id > ?", lastID)
 
 		return db.Limit(p.impl.Size())

@@ -1,11 +1,7 @@
 package pagination
 
 import (
-	"encoding/base64"
-
 	"github.com/tx7do/go-crud/pagination"
-	"github.com/tx7do/go-wind-plugins/encoding"
-	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 
 	"github.com/tx7do/go-crud/opensearch/query"
 	"github.com/tx7do/go-crud/pagination/paginator"
@@ -13,14 +9,12 @@ import (
 
 // TokenPaginator 基于 Token 的分页器（MongoDB 版）
 type TokenPaginator struct {
-	impl  pagination.Paginator
-	codec encoding.Codec
+	impl pagination.Paginator
 }
 
 func NewTokenPaginator() *TokenPaginator {
 	return &TokenPaginator{
-		impl:  paginator.NewTokenPaginatorWithDefault(),
-		codec: encoding.GetCodec("json"),
+		impl: paginator.NewTokenPaginatorWithDefault(),
 	}
 }
 
@@ -42,22 +36,14 @@ func (p *TokenPaginator) BuildClause(builder *query.Builder, token string, pageS
 		return builder
 	}
 
-	b, err := base64.StdEncoding.DecodeString(token)
-	if err != nil {
-		builder.SetFromSize(0, size)
-		return builder
-	}
-
-	var c struct {
-		LastID int64 `json:"last_id"`
-	}
-	if err = p.codec.Unmarshal(b, &c); err != nil {
+	lastID, ok := pagination.VerifyAndDecode(token, nil)
+	if !ok {
 		builder.SetFromSize(0, size)
 		return builder
 	}
 
 	// OpenSearch: id > last_id
-	builder.SetRange("id", c.LastID, nil)
+	builder.SetRange("id", lastID, nil)
 	builder.SetFromSize(0, size)
 	return builder
 }
