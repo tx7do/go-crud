@@ -17,39 +17,49 @@ import (
 
 type Client struct {
 	*elasticsearchV9.Client
-	options *elasticsearchV9.Config
+	esOpts []elasticsearchV9.Option
+
+	// pendingBasicAuth buffers username/password set via WithUsername /
+	// WithPassword until both are present, since WithBasicAuth requires them
+	// together regardless of call order.
+	pendingBasicAuth struct {
+		username, password string
+		haveUser, havePass bool
+	}
 
 	log *log.Helper
 }
 
 func NewElasticsearchClient(opts ...Option) (*Client, error) {
 	c := &Client{
-		options: &elasticsearchV9.Config{},
-		log:     log.NewHelper(log.DefaultLogger),
+		log: log.NewHelper(log.DefaultLogger),
 	}
 
 	for _, o := range opts {
 		o(c)
 	}
 
-	if err := c.createESClient(c.options); err != nil {
+	// If both credentials were supplied, emit the single WithBasicAuth option
+	// the transport expects.
+	if c.pendingBasicAuth.haveUser && c.pendingBasicAuth.havePass {
+		c.esOpts = append(c.esOpts, elasticsearchV9.WithBasicAuth(
+			c.pendingBasicAuth.username, c.pendingBasicAuth.password))
+	}
+	c.pendingBasicAuth = struct {
+		username, password string
+		haveUser, havePass bool
+	}{}
+
+	cli, err := elasticsearchV9.New(c.esOpts...)
+	if err != nil {
+		c.log.Errorf("failed to create elasticsearch client: %v", err)
 		return nil, err
 	}
 
-	return c, nil
-}
-
-// createESClient 创建Elasticsearch客户端
-func (c *Client) createESClient(options *elasticsearchV9.Config) error {
-	cli, err := elasticsearchV9.NewClient(*options)
-	if err != nil {
-		c.log.Errorf("failed to create elasticsearch client: %v", err)
-		return err
-	}
-
 	c.Client = cli
+	c.esOpts = nil
 
-	return nil
+	return c, nil
 }
 
 // CheckConnectStatus 检查Elasticsearch连接
