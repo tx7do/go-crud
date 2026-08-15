@@ -39,6 +39,12 @@ func NewProcessor() *Processor {
 
 // Process 处理过滤条件
 func (poc Processor) Process(s *sql.Selector, p *sql.Predicate, op paginationV1.Operator, field, value string, values []string) *sql.Predicate {
+	// 字段白名单：仅允许属于当前表（s.TableName()）的真实列，拒绝跨列访问。
+	// 校验失败时跳过该条件（返回 p 不变），而非注入未知列。
+	// 表未在白名单映射中时 fail-open，保持旧行为。
+	if field == "" || !columnAllowed(s.TableName(), field) {
+		return p
+	}
 	switch op {
 	case paginationV1.Operator_EQ:
 		return poc.Equal(s, p, field, value)

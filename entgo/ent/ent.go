@@ -81,6 +81,12 @@ func checkColumn(t, c string) error {
 	return columnCheck(t, c)
 }
 
+// CheckColumn 是 checkColumn 的导出包装，供 ent 之外的包（如 filter/field/sorting
+// 处理器）在构造查询片段前校验字段是否为当前表的真实列，从而拒绝跨列访问。
+func CheckColumn(t, c string) error {
+	return checkColumn(t, c)
+}
+
 // Asc applies the given fields in ASC order.
 func Asc(fields ...string) func(*sql.Selector) {
 	return func(s *sql.Selector) {

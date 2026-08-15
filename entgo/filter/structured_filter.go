@@ -11,6 +11,7 @@ import (
 	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-crud/entgo/ent"
 	"github.com/tx7do/go-crud/pagination/filter"
 )
 
@@ -118,6 +119,11 @@ func (sf StructuredFilter) processCondition(s *sql.Selector, conditions []*pagin
 
 // Process 处理过滤条件
 func (sf StructuredFilter) Process(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
+	// 字段白名单：getField 对未知列返回空串，此处据此跳过该条件（返回 nil，
+	// 使 processCondition 不将该条件加入谓词集合），不注入未知列到谓词中。
+	if sf.getField(s, condition) == "" {
+		return nil
+	}
 	switch condition.GetOp() {
 	case paginationV1.Operator_EQ:
 		return sf.Equal(s, p, condition)
@@ -168,16 +174,42 @@ func (sf StructuredFilter) Process(s *sql.Selector, p *sql.Predicate, condition 
 	}
 }
 
-// getField 获取字段表达式，支持 JSONB 字段
+// getField 获取字段表达式，支持 JSONB 字段。
+// 字段白名单：对普通列与 JSONB 容器列均校验其是否为当前表（s.TableName()）
+// 的真实列；校验失败返回空串，使调用方据此跳过该条件，拒绝跨列访问。
+// 注意：当表未在白名单映射中（如测试用的临时表）时，fail-open 放行，
+// 保持与无白名单时一致的旧行为；仅对已映射的实体表强制校验。
 func (sf StructuredFilter) getField(s *sql.Selector, condition *paginationV1.FilterCondition) string {
 	if condition == nil {
 		return ""
 	}
 	if condition.GetJsonPath() != "" {
+		// JSONB 容器列也必须通过白名单校验。
+		if !columnAllowed(s.TableName(), condition.GetField()) {
+			return ""
+		}
 		return sf.JsonbField(s, condition)
 	}
 
+	if !columnAllowed(s.TableName(), condition.GetField()) {
+		return ""
+	}
 	return condition.GetField()
+}
+
+// columnAllowed 判断字段是否应被允许用于当前表。
+// 仅当表已被白名单映射（实体表）且列不属于该表时拒绝；表未映射时 fail-open。
+func columnAllowed(table, col string) bool {
+	err := ent.CheckColumn(table, col)
+	if err == nil {
+		return true // 已知表的已知列
+	}
+	// 表未在白名单映射中：fail-open，保持旧行为。
+	if strings.Contains(err.Error(), "unknown table") {
+		return true
+	}
+	// 已知表的未知列：拒绝。
+	return false
 }
 
 // Equal = 相等操作

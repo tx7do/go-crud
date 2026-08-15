@@ -497,6 +497,8 @@ func TestBuildFilterSelectors_JsonField(t *testing.T) {
 
 	t.Run("NestedJsonPath", func(t *testing.T) {
 		// 嵌套 JSON 路径：WHERE JSON_EXTRACT(`meta`, '$.user.name') = 'John'
+		// 注意：使用未在白名单映射中的表名 "t"，使字段白名单 fail-open，
+		// 以便测试 JSONB 路径处理逻辑本身（而非列校验）。
 		expr := &paginationV1.FilterExpr{
 			Type: paginationV1.ExprType_AND,
 			Conditions: []*paginationV1.FilterCondition{
@@ -513,7 +515,7 @@ func TestBuildFilterSelectors_JsonField(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("users"))
+		s := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("t"))
 		sels[0](s)
 		gotSQL, gotArgs := s.Query()
 
@@ -812,4 +814,60 @@ func TestBuildFilterSelectors_JsonField(t *testing.T) {
 			t.Fatalf("expected args for normal field query, got empty")
 		}
 	})
+}
+
+// TestStructuredFilter_FieldAllowlist 验证字段白名单对已映射实体表（users）的强制：
+// 对该表真实列（name）的条件应生成 WHERE；对未知列（password）的条件应被跳过（无 WHERE）。
+func TestStructuredFilter_FieldAllowlist(t *testing.T) {
+	sf := NewStructuredFilter()
+
+	// 已映射表 users 的真实列 name → 应生成 WHERE name = ?
+	validExpr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{
+				Field:      "name",
+				Op:         paginationV1.Operator_EQ,
+				ValueOneof: &paginationV1.FilterCondition_Value{Value: "x"},
+			},
+		},
+	}
+	validSels, err := sf.BuildSelectors(validExpr)
+	if err != nil {
+		t.Fatalf("valid expr error: %v", err)
+	}
+	if len(validSels) != 1 {
+		t.Fatalf("expected 1 selector for valid column, got %d", len(validSels))
+	}
+	validS := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("users"))
+	validSels[0](validS)
+	validSQL, _ := validS.Query()
+	if !strings.Contains(validSQL, "WHERE") {
+		t.Fatalf("expected WHERE for valid column 'name', got: %s", validSQL)
+	}
+
+	// 已映射表 users 的未知列 password → 应被白名单拒绝，无 WHERE
+	invalidExpr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{
+				Field:      "password",
+				Op:         paginationV1.Operator_EQ,
+				ValueOneof: &paginationV1.FilterCondition_Value{Value: "x"},
+			},
+		},
+	}
+	invalidSels, err := sf.BuildSelectors(invalidExpr)
+	if err != nil {
+		t.Fatalf("invalid expr error: %v", err)
+	}
+	if len(invalidSels) != 1 {
+		t.Fatalf("expected 1 selector for invalid column, got %d", len(invalidSels))
+	}
+	invalidS := sql.Dialect(dialect.MySQL).Select("*").From(sql.Table("users"))
+	invalidSels[0](invalidS)
+	invalidSQL, _ := invalidS.Query()
+	if strings.Contains(invalidSQL, "WHERE") {
+		t.Fatalf("expected no WHERE for invalid column 'password' (allowlist should reject), got: %s", invalidSQL)
+	}
 }
