@@ -1,20 +1,30 @@
-# Not Support Windows
-
-.PHONY: help wire conf ent build api openapi init all
-
-ifeq ($(OS),Windows_NT)
-    IS_WINDOWS:=1
-endif
-
-CURRENT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
-
-SRCS_MK := $(foreach dir, app, $(wildcard $(dir)/*/*/Makefile))
+.PHONY: help wire conf ent build api openapi init all test test-short vet
 
 # generate protobuf api go code
 api:
 	cd api && \
 	buf generate
+
+# Run go test across every module that has a go.mod.
+test:
+	@for dir in $$(find . -name go.mod -not -path './.git/*' -not -path './.zcode/*' | sed 's,/go.mod$$,,' | sort); do \
+		echo "==> testing $$dir"; \
+		(cd "$$dir" && go test ./...) || exit 1; \
+	done
+
+# Run only hermetic tests (integration tests skip themselves under -short).
+test-short:
+	@for dir in $$(find . -name go.mod -not -path './.git/*' -not -path './.zcode/*' | sed 's,/go.mod$$,,' | sort); do \
+		echo "==> testing (short) $$dir"; \
+		(cd "$$dir" && go test -short ./...) || exit 1; \
+	done
+
+# Run go vet across every module.
+vet:
+	@for dir in $$(find . -name go.mod -not -path './.git/*' -not -path './.zcode/*' | sed 's,/go.mod$$,,' | sort); do \
+		echo "==> vetting $$dir"; \
+		(cd "$$dir" && go vet ./...) || exit 1; \
+	done
 
 # show help
 help:

@@ -73,6 +73,7 @@ func TestCacheSupport_GetOrLoad_CacheHit(t *testing.T) {
 		Cache:        cache,
 		SingleFlight: NewSingleFlight[testType](),
 		TTL:          time.Minute,
+		metrics:      &nopMetrics{},
 	}
 
 	ctx := context.Background()
@@ -95,6 +96,7 @@ func TestCacheSupport_GetOrLoad_CacheMiss(t *testing.T) {
 		Cache:        cache,
 		SingleFlight: NewSingleFlight[testType](),
 		TTL:          time.Minute,
+		metrics:      &nopMetrics{},
 	}
 
 	loaderCalled := false
@@ -123,6 +125,7 @@ func TestCacheSupport_GetOrLoad_LoaderError(t *testing.T) {
 		Cache:        cache,
 		SingleFlight: NewSingleFlight[testType](),
 		TTL:          time.Minute,
+		metrics:      &nopMetrics{},
 	}
 
 	ctx := context.Background()
@@ -149,6 +152,7 @@ func TestCacheSupport_GetOrLoad_ConcurrentSingleFlight(t *testing.T) {
 		Cache:        cache,
 		SingleFlight: NewSingleFlight[testType](),
 		TTL:          time.Minute,
+		metrics:      &nopMetrics{},
 	}
 
 	ctx := context.Background()
@@ -196,6 +200,7 @@ func TestCacheSupport_GetOrLoad_CacheEmptyOption(t *testing.T) {
 		Cache:        cache,
 		SingleFlight: NewSingleFlight[testType](),
 		TTL:          time.Minute,
+		metrics:      &nopMetrics{},
 	}
 
 	ctx := context.Background()
@@ -230,6 +235,7 @@ func TestCacheSupport_GetOrLoad_NoCacheOption(t *testing.T) {
 		Cache:        cache,
 		SingleFlight: NewSingleFlight[testType](),
 		TTL:          time.Minute,
+		metrics:      &nopMetrics{},
 	}
 
 	ctx := context.Background()

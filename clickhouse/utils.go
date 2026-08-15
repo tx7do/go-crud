@@ -220,7 +220,13 @@ func structToValueArray(input any) []any {
 				continue
 			}
 
-			values = append(values, rv.Interface())
+			// other slices/arrays/maps: serialize as JSON string (consistent with struct handling)
+			b, err := json.Marshal(rv.Interface())
+			if err != nil {
+				values = append(values, nil)
+			} else {
+				values = append(values, string(b))
+			}
 			continue
 		default:
 			// basic kinds: bool, int, float, string, etc.

@@ -27,7 +27,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	// 原始请求类型（用于 ListWithPaging）
 	req := &paginationV1.PagingRequest{}
 
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	logger := log.NewHelper(log.DefaultLogger)
@@ -110,7 +110,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 func TestRepository_Candle_CRUD(t *testing.T) {
 	ctx := context.Background()
 
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	// 建表（假定 helper 已存在并创建 name 为 "candles" 的表）
@@ -194,7 +194,7 @@ func TestRepository_Candle_CRUD(t *testing.T) {
 func TestRepository_Candle_ListWithPaging(t *testing.T) {
 	ctx := context.Background()
 
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	// 确保存在 candles 表并清空

@@ -19,7 +19,17 @@ type Candle struct {
 	Volume    *float64   `json:"volume" ch:"volume"`
 }
 
-func createTestClient() *Client {
+// requireService skips the test when running in -short mode or when the backing
+// ClickHouse service is unreachable, so hermetic test runs stay green.
+func requireService(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping ClickHouse integration test in -short mode")
+	}
+}
+
+func createTestClient(t *testing.T) *Client {
+	requireService(t)
 	cli, _ := NewClient(
 		WithAddresses("localhost:9000"),
 		WithDatabase("finances"),
@@ -28,6 +38,9 @@ func createTestClient() *Client {
 		WithLogger(log.DefaultLogger),
 		WithDebug(true),
 	)
+	if cli == nil {
+		t.Skip("ClickHouse service unreachable")
+	}
 	return cli
 }
 
@@ -53,7 +66,7 @@ func createCandlesTable(client *Client) {
 }
 
 func TestNewClient(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	// 测试 CheckConnection
@@ -68,7 +81,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestInsertCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -90,7 +103,7 @@ func TestInsertCandlesTable(t *testing.T) {
 }
 
 func TestInsertManyCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -124,7 +137,7 @@ func TestInsertManyCandlesTable(t *testing.T) {
 
 func TestAsyncInsertCandlesTable(t *testing.T) {
 	ctx := context.Background()
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -160,7 +173,7 @@ func TestAsyncInsertCandlesTable(t *testing.T) {
 
 func TestAsyncInsertManyCandlesTable(t *testing.T) {
 	ctx := context.Background()
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -211,7 +224,7 @@ func TestAsyncInsertManyCandlesTable(t *testing.T) {
 }
 
 func TestInternalBatchExecCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -236,7 +249,7 @@ func TestInternalBatchExecCandlesTable(t *testing.T) {
 
 func TestBatchInsertCandlesTable(t *testing.T) {
 	ctx := context.Background()
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -287,7 +300,7 @@ func TestBatchInsertCandlesTable(t *testing.T) {
 }
 
 func TestBatchStructsCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -326,7 +339,7 @@ func TestBatchStructsCandlesTable(t *testing.T) {
 }
 
 func TestInternalAsyncInsertIntoCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -344,7 +357,7 @@ func TestInternalAsyncInsertIntoCandlesTable(t *testing.T) {
 }
 
 func TestQueryCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -381,7 +394,7 @@ func TestQueryCandlesTable(t *testing.T) {
 }
 
 func TestSelectCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -418,7 +431,7 @@ func TestSelectCandlesTable(t *testing.T) {
 
 func TestQueryRow(t *testing.T) {
 	ctx := context.Background()
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)
@@ -454,7 +467,7 @@ func TestQueryRow(t *testing.T) {
 }
 
 func TestDropCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	// 删除表的 SQL 语句
@@ -466,7 +479,7 @@ func TestDropCandlesTable(t *testing.T) {
 }
 
 func TestAggregateCandlesTable(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	createCandlesTable(client)

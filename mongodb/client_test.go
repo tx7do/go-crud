@@ -14,6 +14,14 @@ import (
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+
+// requireService skips the test when running in -short mode to keep hermetic runs green.
+func requireService(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping integration test in -short mode")
+	}
+}
 type Candle struct {
 	Symbol    *string                `json:"s"`
 	Open      *float64               `json:"o"`
@@ -25,7 +33,8 @@ type Candle struct {
 	EndTime   *timestamppb.Timestamp `json:"et"`
 }
 
-func createTestClient() *Client {
+func createTestClient(t *testing.T) *Client {
+	requireService(t)
 	cli, _ := NewClient(
 		WithLogger(log.DefaultLogger),
 		WithURI("mongodb://root:123456@127.0.0.1:27017/?compressors=snappy,zlib,zstd"),
@@ -35,14 +44,14 @@ func createTestClient() *Client {
 }
 
 func TestNewClient(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	client.CheckConnect()
 }
 
 func TestInsertOne(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	ctx := context.Background()
@@ -62,7 +71,7 @@ func TestInsertOne(t *testing.T) {
 }
 
 func TestClient_CRUD(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	if client == nil {
 		return
 	}
@@ -132,7 +141,7 @@ func TestClient_CRUD(t *testing.T) {
 }
 
 func TestClient_InsertManyAndOptions(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	if client == nil {
 		return
 	}

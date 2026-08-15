@@ -14,6 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/cache"
+	"github.com/tx7do/go-crud/viewer"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
@@ -67,15 +68,16 @@ func (r *Repository[
 }
 
 // generateCacheKey 生成单条记录的缓存 key
-// 示例: "user:id:123"
+// tenantID 作为 key 的首要维度，确保不同租户的单条缓存互不串扰。
+// 示例: "user:t:42:id:123"
 func (r *Repository[
 	ENT_QUERY, ENT_SELECT,
 	ENT_CREATE, ENT_CREATE_BULK,
 	ENT_UPDATE, ENT_UPDATE_ONE,
 	ENT_DELETE,
 	PREDICATE, DTO, ENTITY,
-]) generateCacheKey(id any) string {
-	return fmt.Sprintf("%sid:%v", r.cacheKeyPrefix, id)
+]) generateCacheKey(tenantID uint64, id any) string {
+	return fmt.Sprintf("%st:%d:id:%v", r.cacheKeyPrefix, tenantID, id)
 }
 
 // generateListCacheKey 生成列表查询的缓存 key（基于 filter + sort + page 的 hash）
@@ -86,13 +88,16 @@ func (r *Repository[
 	ENT_UPDATE, ENT_UPDATE_ONE,
 	ENT_DELETE,
 	PREDICATE, DTO, ENTITY,
-]) generateListCacheKey(req *paginationV1.PagingRequest) (string, error) {
+]) generateListCacheKey(tenantID uint64, req *paginationV1.PagingRequest) (string, error) {
 	if req == nil {
 		return "", errors.New("paging request is nil")
 	}
 
 	var sig strings.Builder
 	sig.WriteString(r.cacheKeyPrefix)
+	// 租户维度：作为签名的首要段，使相同查询参数在不同租户下产生不同 key，
+	// 避免跨租户缓存泄漏。
+	sig.WriteString(fmt.Sprintf("t:%d:", tenantID))
 	sig.WriteString("list:")
 
 	// 1. 分页参数（指针字段必须判空）
@@ -144,13 +149,16 @@ func (r *Repository[
 	ENT_UPDATE, ENT_UPDATE_ONE,
 	ENT_DELETE,
 	PREDICATE, DTO, ENTITY,
-]) generateListCacheKeyFromPagination(req *paginationV1.PaginationRequest) (string, error) {
+]) generateListCacheKeyFromPagination(tenantID uint64, req *paginationV1.PaginationRequest) (string, error) {
 	if req == nil {
 		return "", errors.New("pagination request is nil")
 	}
 
 	var sig strings.Builder
 	sig.WriteString(r.cacheKeyPrefix)
+	// 租户维度：作为签名的首要段，使相同查询参数在不同租户下产生不同 key，
+	// 避免跨租户缓存泄漏。
+	sig.WriteString(fmt.Sprintf("t:%d:", tenantID))
 	sig.WriteString("list:")
 
 	// 1. 分页参数（根据不同类型的分页方式）
@@ -216,7 +224,7 @@ func (r *Repository[
 		return r.Get(ctx, builder, viewMask)
 	}
 
-	cacheKey := r.generateCacheKey(id)
+	cacheKey := r.generateCacheKey(viewer.MustFromContext(ctx).TenantID(), id)
 
 	dto, err := r.cacheSupportSingle.GetOrLoad(
 		ctx,
@@ -248,7 +256,7 @@ func (r *Repository[
 		return r.ListWithPaging(ctx, builder, countBuilder, req)
 	}
 
-	cacheKey, err := r.generateListCacheKey(req)
+	cacheKey, err := r.generateListCacheKey(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
 		log.Warnf("generate list cache key failed: %v, fallback to db", err)
 		return r.ListWithPaging(ctx, builder, countBuilder, req)
@@ -288,7 +296,7 @@ func (r *Repository[
 	}
 
 	// 生成缓存键（复用 PagingRequest 的逻辑，需要转换）
-	cacheKey, err := r.generateListCacheKeyFromPagination(req)
+	cacheKey, err := r.generateListCacheKeyFromPagination(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
 		log.Warnf("generate list cache key failed: %v, fallback to db", err)
 		return r.ListWithPagination(ctx, builder, countBuilder, req)
@@ -326,7 +334,7 @@ func (r *Repository[
 		return r.ListTreeWithPaging(ctx, builder, countBuilder, req)
 	}
 
-	cacheKey, err := r.generateListCacheKey(req)
+	cacheKey, err := r.generateListCacheKey(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
 		log.Warnf("generate list cache key failed: %v, fallback to db", err)
 		return r.ListTreeWithPaging(ctx, builder, countBuilder, req)
@@ -364,7 +372,7 @@ func (r *Repository[
 		return r.ListTreeWithPagination(ctx, builder, countBuilder, req)
 	}
 
-	cacheKey, err := r.generateListCacheKeyFromPagination(req)
+	cacheKey, err := r.generateListCacheKeyFromPagination(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
 		log.Warnf("generate list cache key failed: %v, fallback to db", err)
 		return r.ListTreeWithPagination(ctx, builder, countBuilder, req)
@@ -504,8 +512,9 @@ func (r *Repository[
 		return
 	}
 
-	// 删除单条缓存
-	_ = r.cacheSupportSingle.Cache.Del(ctx, r.generateCacheKey(id))
+	// 删除单条缓存（带租户维度）
+	tenantID := viewer.MustFromContext(ctx).TenantID()
+	_ = r.cacheSupportSingle.Cache.Del(ctx, r.generateCacheKey(tenantID, id))
 	// 注意：列表缓存的 key 生成依赖于查询参数，无法直接删除
 	// 生产环境建议使用 Redis 的 key pattern 删除（如 "user:list:*"），但要谨慎使用以避免误删
 }

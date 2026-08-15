@@ -12,6 +12,14 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+
+// requireService skips the test when running in -short mode to keep hermetic runs green.
+func requireService(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping integration test in -short mode")
+	}
+}
 type Candle struct {
 	Timestamp *time.Time `json:"timestamp" db:"timestamp"`
 	Symbol    *string    `json:"symbol" db:"symbol"`
@@ -36,7 +44,8 @@ func newMockClient(t *testing.T) (*Client, sqlmock.Sqlmock, func()) {
 	return c, mock, func() { _ = db.Close() }
 }
 
-func newDorisTestClient() *Client {
+func newDorisTestClient(t *testing.T) *Client {
+	requireService(t)
 	cli, err := NewClient(
 		WithDSN("root:@tcp(localhost:9030)/finances?charset=utf8mb4&parseTime=True&loc=Local"),
 	)

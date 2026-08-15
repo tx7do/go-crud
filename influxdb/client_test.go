@@ -12,6 +12,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+
+// requireService skips the test when running in -short mode to keep hermetic runs green.
+func requireService(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping integration test in -short mode")
+	}
+}
 type Candle struct {
 	Symbol    *string
 	Open      *float64
@@ -107,7 +115,8 @@ func (m *CandleMapper) ToData(point *influxdb3.Point) *Candle {
 	}
 }
 
-func createTestClient() *Client {
+func createTestClient(t *testing.T) *Client {
+	requireService(t)
 	cli, _ := NewClient(
 		WithHost("http://localhost:8181"),
 		WithToken("apiv3_yYde4mJo0BYC7Ipi_00ZEex-A8if4swdqTBXiO-lCUDKhsIavHlRCQfo3p_DzI7S34ADHOC7Qxf600VVgW6LQQ"),
@@ -119,12 +128,12 @@ func createTestClient() *Client {
 }
 
 func TestNewClient(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 }
 
 func TestClient_Insert(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	item := &Candle{
@@ -144,7 +153,7 @@ func TestClient_Insert(t *testing.T) {
 }
 
 func TestClient_BatchInsert(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	items := []*Candle{
@@ -173,7 +182,7 @@ func TestClient_BatchInsert(t *testing.T) {
 }
 
 func TestClient_Query(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	ctx := context.Background()
@@ -204,7 +213,7 @@ func TestClient_Query(t *testing.T) {
 }
 
 func TestExecQuery_QueryError(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	ctx := context.Background()
@@ -214,7 +223,7 @@ func TestExecQuery_QueryError(t *testing.T) {
 }
 
 func TestExecCount_QueryNotError(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	ctx := context.Background()

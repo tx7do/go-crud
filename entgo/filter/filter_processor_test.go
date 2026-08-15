@@ -17,7 +17,7 @@ func newSelector() *sql.Selector {
 func TestProcessor_BasicOperators(t *testing.T) {
 	s := newSelector()
 	p := sql.P()
-	proc := Processor{}
+	proc := NewProcessor()
 
 	t.Run("Equal_NotNil", func(t *testing.T) {
 		if got := proc.Equal(s, p, "name", "tom"); got == nil {
@@ -77,7 +77,7 @@ func TestProcessor_BasicOperators(t *testing.T) {
 func TestProcessor_StringOperatorsAndRegex(t *testing.T) {
 	s := newSelector()
 	p := sql.P()
-	proc := Processor{}
+	proc := NewProcessor()
 
 	t.Run("Contains_NotNil", func(t *testing.T) {
 		if got := proc.Contains(s, p, "title", "go"); got == nil {
@@ -119,7 +119,7 @@ func TestProcessor_StringOperatorsAndRegex(t *testing.T) {
 func TestProcessor_ProcessDispatcher(t *testing.T) {
 	s := newSelector()
 	p := sql.P()
-	proc := Processor{}
+	proc := NewProcessor()
 
 	cases := []struct {
 		op    paginationV1.Operator
@@ -145,7 +145,7 @@ func TestProcessor_ProcessDispatcher(t *testing.T) {
 func TestProcessor_DatePartAndJsonbHelpers(t *testing.T) {
 	s := newSelector()
 	p := sql.P()
-	proc := Processor{}
+	proc := NewProcessor()
 
 	t.Run("DatePartField_NotEmpty", func(t *testing.T) {
 		if got := proc.DatePartField(s, "year", "created_at"); got == "" {

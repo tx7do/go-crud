@@ -150,7 +150,7 @@ func TestBuilder_BasicAndAdvanced(t *testing.T) {
 	// LimitBy appends into orderBy slice and should appear in ORDER BY clause when built
 	qb.LimitBy(5, "name")
 	query, _ = qb.Build()
-	assert.Contains(t, query, "LIMIT BY 5 (name)")
+	assert.Contains(t, query, "LIMIT 5 BY (name)")
 
 	// PreWhere should prepend condition and its args should be first in params
 	qb.PreWhere("status = ?", "active")

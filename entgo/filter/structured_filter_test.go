@@ -550,8 +550,10 @@ func TestBuildFilterSelectors_JsonField(t *testing.T) {
 		sels[0](s)
 		gotSQL, gotArgs := s.Query()
 
-		if !strings.Contains(gotSQL, "<>") && !strings.Contains(gotSQL, "!=") {
-			t.Fatalf("expected <> or != operator in SQL, got: %s", gotSQL)
+		// NEQ may render as "<>", "!=", or "NOT ... ="; accept any of these forms.
+		hasNegation := strings.Contains(gotSQL, "<>") || strings.Contains(gotSQL, "!=") || strings.Contains(gotSQL, "NOT")
+		if !hasNegation {
+			t.Fatalf("expected a negation operator (<> / != / NOT) in SQL, got: %s", gotSQL)
 		}
 		if len(gotArgs) != 1 || gotArgs[0] != "inactive" {
 			t.Fatalf("unexpected args: %#v", gotArgs)

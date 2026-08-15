@@ -25,7 +25,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	logger := log.NewHelper(log.DefaultLogger)
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
-	client := createTestClient()
+	client := createTestClient(t)
 
 	// 1. ListWithPaging: db 为 nil -> 错误
 	repoNilDB := NewRepository[NoDeleted, NoDeleted](nil, "tmp", noDelMapper, logger)
@@ -67,7 +67,7 @@ func TestRepository_UpdateSuccess(t *testing.T) {
 	logger := log.NewHelper(log.DefaultLogger)
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
-	client := createTestClient()
+	client := createTestClient(t)
 	repo := NewRepository[NoDeleted, NoDeleted](client, "test_update", noDelMapper, logger)
 
 	// 插入初始记录
@@ -93,7 +93,7 @@ func TestRepository_CRUDAndList(t *testing.T) {
 	logger := log.NewHelper(log.DefaultLogger)
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
-	client := createTestClient()
+	client := createTestClient(t)
 	repo := NewRepository[NoDeleted, NoDeleted](client, "test_crud_list", noDelMapper, logger)
 
 	// 清空集合
@@ -157,7 +157,7 @@ func TestRepository_ListWithPaging_ConditionQuery(t *testing.T) {
 	logger := log.NewHelper(log.DefaultLogger)
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
-	client := createTestClient()
+	client := createTestClient(t)
 	repo := NewRepository[NoDeleted, NoDeleted](client, "test_list_query", noDelMapper, logger)
 
 	// 清空集合

@@ -14,6 +14,14 @@ import (
 	"github.com/tx7do/go-utils/trans"
 )
 
+
+// requireService skips the test when running in -short mode to keep hermetic runs green.
+func requireService(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping integration test in -short mode")
+	}
+}
 const (
 	userIndex   = "user"
 	tweetIndex  = "tweet"
@@ -98,7 +106,8 @@ const SensorMapping = `
   }
 }`
 
-func createTestClient() *Client {
+func createTestClient(t *testing.T) *Client {
+	requireService(t)
 	cli, _ := NewOpenSearchClient(
 		WithAddresses("http://localhost:9200"),
 		WithUsername("admin"),
@@ -110,14 +119,14 @@ func createTestClient() *Client {
 }
 
 func TestNewClient(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	client.CheckConnectStatus(t.Context())
 }
 
 func TestCreateIndex(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	{
@@ -140,7 +149,7 @@ func TestCreateIndex(t *testing.T) {
 }
 
 func TestDeleteIndex(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	err := client.DeleteIndex(t.Context(), userIndex)
@@ -154,7 +163,7 @@ func TestDeleteIndex(t *testing.T) {
 }
 
 func TestInsertDocument(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	{
@@ -183,7 +192,7 @@ func TestInsertDocument(t *testing.T) {
 }
 
 func TestBatchInsertDocument(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	{
@@ -225,7 +234,7 @@ func TestBatchInsertDocument(t *testing.T) {
 }
 
 func TestGetDocument(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	var user User
@@ -310,7 +319,7 @@ func TestMakeQueryString(t *testing.T) {
 }
 
 func TestSearchBySQLTo(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	// 确保索引存在并插入测试数据
@@ -343,7 +352,7 @@ func TestSearchBySQLTo(t *testing.T) {
 }
 
 func TestQueryWithSQLPagination(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	_ = client.DeleteIndex(t.Context(), userIndex)
@@ -391,7 +400,7 @@ func TestQueryWithSQLPagination(t *testing.T) {
 }
 
 func TestQueryWithSQLPaginationTo(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	_ = client.DeleteIndex(t.Context(), userIndex)

@@ -16,12 +16,16 @@ type testUserEntity struct {
 }
 
 func openTestDBForRepository(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	// 使用 :memory: 且限制单连接，确保每个测试拥有独立、互不干扰的数据库，
+	// 避免 file::memory:?cache=shared 在同一进程内跨测试共享状态导致数据串扰。
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
+	sqlDB, _ := db.DB()
+	sqlDB.SetMaxOpenConns(1)
 	if err := db.AutoMigrate(&testUserEntity{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}

@@ -14,6 +14,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+
+// requireService skips the test when running in -short mode to keep hermetic runs green.
+func requireService(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping integration test in -short mode")
+	}
+}
 const (
 	userIndex   = "user"
 	tweetIndex  = "tweet"
@@ -98,7 +106,8 @@ const SensorMapping = `
   }
 }`
 
-func createTestClient() *Client {
+func createTestClient(t *testing.T) *Client {
+	requireService(t)
 	cli, _ := NewElasticsearchClient(
 		WithAddresses("http://localhost:9200"),
 		WithUsername("admin"),
@@ -111,14 +120,14 @@ func createTestClient() *Client {
 }
 
 func TestNewClient(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	client.CheckConnectStatus()
 }
 
 func TestCreateIndex(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	var esCtx = context.Background()
@@ -143,7 +152,7 @@ func TestCreateIndex(t *testing.T) {
 }
 
 func TestDeleteIndex(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	var esCtx = context.Background()
@@ -159,7 +168,7 @@ func TestDeleteIndex(t *testing.T) {
 }
 
 func TestInsertDocument(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	var esCtx = context.Background()
@@ -190,7 +199,7 @@ func TestInsertDocument(t *testing.T) {
 }
 
 func TestBatchInsertDocument(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	var esCtx = context.Background()
@@ -234,7 +243,7 @@ func TestBatchInsertDocument(t *testing.T) {
 }
 
 func TestGetDocument(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	var esCtx = context.Background()
@@ -246,7 +255,7 @@ func TestGetDocument(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
-	client := createTestClient()
+	client := createTestClient(t)
 	assert.NotNil(t, client)
 
 	var esCtx = context.Background()
