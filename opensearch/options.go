@@ -43,7 +43,7 @@ func WithEnableDebugLogger(enable bool) Option {
 
 func WithDiscoverNodesOnStart(enable bool) Option {
 	return func(o *Client) {
-		o.options.DiscoverNodesOnStart = enable
+		o.options.DiscoverNodesOnStart = &enable
 	}
 }
 

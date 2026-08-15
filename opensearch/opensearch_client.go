@@ -98,7 +98,7 @@ func (c *Client) CheckConnectStatus(ctx context.Context) bool {
 	req := opensearchapiV4.InfoReq{}
 	infoResp := opensearchapiV4.InfoResp{}
 
-	resp, err := c.Client.Do(ctx, req, &infoResp)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &infoResp)
 	if err != nil {
 		c.log.Errorf("failed to connect to OpenSearch: %v", err)
 		return false
@@ -121,7 +121,7 @@ func (c *Client) IndexExists(ctx context.Context, indexName string) (bool, error
 		Indices: []string{indexName},
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodHead, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to check if index exists: %v", err)
 		return false, err
@@ -155,7 +155,7 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 
 	createResp := opensearchapiV4.IndicesCreateResp{}
 
-	resp, err := c.Client.Do(ctx, req, &createResp)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, &createResp)
 	if err != nil {
 		c.log.Errorf("failed to create index: %v", err)
 		return err
@@ -191,7 +191,7 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 		Indices: []string{indexName},
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to delete index: %v", err)
 		return err
@@ -219,7 +219,7 @@ func (c *Client) DeleteDocument(ctx context.Context, indexName, id string) error
 		DocumentID: id,
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to delete document: %v", err)
 		return err
@@ -262,7 +262,7 @@ func (c *Client) InsertDocument(ctx context.Context, indexName, documentId strin
 		Body:       bytes.NewReader(dataBytes),
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to call Index API: %v", err)
 		return err
@@ -317,7 +317,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 	}
 
 	bulkResp := opensearchapiV4.BulkResp{}
-	resp, err := c.Client.Do(ctx, req, &bulkResp)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &bulkResp)
 	if err != nil {
 		c.log.Errorf("failed to perform bulk insert: %v", err)
 		return err
@@ -345,7 +345,7 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 		DocumentID: pk,
 		Body:       bytes.NewReader(dataBytes),
 	}
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to call Update API: %v", err)
 		return err
@@ -379,7 +379,7 @@ func (c *Client) GetDocument(
 
 	getResp := opensearchapiV4.DocumentGetResp{}
 
-	resp, err := c.Client.Do(ctx, req, &getResp)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &getResp)
 	if err != nil {
 		c.log.Errorf("failed to get document: %v", err)
 		return err
@@ -417,7 +417,7 @@ func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, t
 		Body:          bytes.NewReader([]byte(templateBody)),
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to create index template: %v", err)
 		return err
@@ -440,7 +440,7 @@ func (c *Client) ExistsIndexTemplate(ctx context.Context, templateName string) (
 		IndexTemplate: templateName,
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodHead, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to check if index template exists: %v", err)
 		return false, err
@@ -455,7 +455,7 @@ func (c *Client) DeleteIndexTemplate(ctx context.Context, templateName string) e
 		IndexTemplate: templateName,
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to delete index template: %v", err)
 		return err
@@ -479,7 +479,7 @@ func (c *Client) CreateComponentTemplate(ctx context.Context, templateName strin
 		Body:              bytes.NewReader([]byte(templateBody)),
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to create component template: %v", err)
 		return err
@@ -502,7 +502,7 @@ func (c *Client) DeleteComponentTemplate(ctx context.Context, templateName strin
 		ComponentTemplate: templateName,
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to delete component template: %v", err)
 		return err
@@ -525,7 +525,7 @@ func (c *Client) ExistsComponentTemplate(ctx context.Context, templateName strin
 		ComponentTemplate: templateName,
 	}
 
-	resp, err := c.Client.Do(ctx, req, nil)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodHead, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
 		c.log.Errorf("failed to check if component template exists: %v", err)
 		return false, err
@@ -547,7 +547,7 @@ func (c *Client) CreateISMPolicy(ctx context.Context, policyName string, policyB
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.Client.Perform(req)
+	resp, err := c.Client.Stream(req)
 	if err != nil {
 		c.log.Errorf("failed to perform ISM policy request: %v", err)
 		return err
@@ -580,7 +580,7 @@ func (c *Client) DeleteISMPolicy(ctx context.Context, policyName string) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.Client.Perform(req)
+	resp, err := c.Client.Stream(req)
 	if err != nil {
 		c.log.Errorf("failed to perform ISM policy delete request: %v", err)
 		return err
@@ -670,7 +670,7 @@ func (c *Client) Search(
 		Body:    buf,
 	}
 	var searchResult opensearchapiV4.SearchResp
-	resp, err := c.Client.Do(ctx, searchReq, &searchResult)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, searchReq, &searchResult)
 	if err != nil {
 		c.log.Errorf("failed to search documents: %v", err)
 		return nil, err
@@ -729,7 +729,7 @@ func (c *Client) SearchWithHighlight(
 		Body:    buf,
 	}
 	var searchResult opensearchapiV4.SearchResp
-	resp, err := c.Client.Do(ctx, req, &searchResult)
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &searchResult)
 	if err != nil {
 		c.log.Errorf("failed to search documents: %v", err)
 		return nil, err
@@ -763,7 +763,7 @@ func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.Client.Perform(req)
+	resp, err := c.Client.Stream(req)
 	if err != nil {
 		c.log.Errorf("opensearch sql query failed: %v", err)
 		return nil, err
@@ -823,7 +823,7 @@ func (c *Client) SQLToDSL(ctx context.Context, sql string) (map[string]any, erro
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.Client.Perform(req)
+	resp, err := c.Client.Stream(req)
 	if err != nil {
 		return nil, err
 	}
@@ -878,7 +878,7 @@ func (c *Client) SearchBySQLWithHighlight(
 	req.Header.Set("Content-Type", "application/json")
 
 	// 5. 执行（唯一真实存在的方法）
-	resp, err := c.Client.Perform(req)
+	resp, err := c.Client.Stream(req)
 	if err != nil {
 		return nil, err
 	}
@@ -900,7 +900,7 @@ func (c *Client) RefreshIndex(ctx context.Context, indexName string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := c.Client.Perform(req)
+	resp, err := c.Client.Stream(req)
 	if err != nil {
 		return err
 	}
