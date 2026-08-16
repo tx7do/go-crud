@@ -100,13 +100,21 @@ func (poc Processor) colExpr(field string) string {
 		parts := strings.Split(field, ".")
 		col := stringcase.ToSnakeCase(parts[0])
 		jsonKey := strings.Join(parts[1:], ".")
-		// 校验 jsonKey 合法性
+		// 容器列与 JSON key 均须通过白名单；ToSnakeCase 对非法 UTF-8 输入
+		// 原样透传，元字符可存活，故不能依赖归一化做清洗
+		if !isValidIdentifier(col) {
+			return ""
+		}
 		if !jsonKeyPattern.MatchString(jsonKey) {
-			return col // 返回列名，避免注入
+			return col // JSON key 非法：退化为列名，避免注入
 		}
 		return fmt.Sprintf("JSONExtractString(%s, '%s')", col, jsonKey)
 	}
-	return stringcase.ToSnakeCase(field)
+	col := stringcase.ToSnakeCase(field)
+	if !isValidIdentifier(col) {
+		return ""
+	}
+	return col
 }
 
 func (poc Processor) appendWhere(builder *query.Builder, expr string, args ...any) *query.Builder {
@@ -440,6 +448,10 @@ func (poc Processor) DatePartField(datePart, field string) string {
 	}
 	part := strings.ToUpper(datePart)
 	col := stringcase.ToSnakeCase(field)
+	// 字段名经白名单校验，防止导出 API 被直接调用时注入 SQL 元字符
+	if !isValidIdentifier(col) {
+		return ""
+	}
 	// ClickHouse 常用函数名与 SQL 相近，采用 PART(col) 形式（如 YEAR(col), MONTH(col)）
 	return fmt.Sprintf("%s(%s)", part, col)
 }
@@ -450,7 +462,8 @@ func (poc Processor) JsonbField(jsonbField, field string) string {
 	if field == "" || strings.TrimSpace(jsonbField) == "" {
 		return ""
 	}
-	if !jsonKeyPattern.MatchString(jsonbField) {
+	// 容器列与 JSON key 均须通过白名单，防止导出 API 被直接调用时注入
+	if !isValidIdentifier(field) || !jsonKeyPattern.MatchString(jsonbField) {
 		return ""
 	}
 	return fmt.Sprintf("JSONExtractString(%s, '%s')", field, jsonbField)
