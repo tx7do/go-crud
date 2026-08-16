@@ -51,7 +51,11 @@ func NewRepository[DTO any, ENTITY any](
 	client *Client,
 	mapper *mapper.CopierMapper[DTO, ENTITY],
 	table string,
+	logger log.Logger,
 ) *Repository[DTO, ENTITY] {
+	if logger != nil {
+		log.SetLogger(logger)
+	}
 	return &Repository[DTO, ENTITY]{
 		client: client,
 		mapper: mapper,

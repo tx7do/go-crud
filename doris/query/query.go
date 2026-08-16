@@ -30,8 +30,12 @@ type Builder struct {
 	debug       bool   // 是否启用调试
 }
 
-// NewQueryBuilder 创建一个新的 Builder 实例
-func NewQueryBuilder(table string) *Builder {
+// NewQueryBuilder 创建一个新的 Builder 实例。logger 用于在该 builder 上启用
+// go-wind 全局日志（log.SetLogger）；传 nil 则不改变当前全局 logger。
+func NewQueryBuilder(table string, logger log.Logger) *Builder {
+	if logger != nil {
+		log.SetLogger(logger)
+	}
 	return &Builder{
 		table:  table,
 		params: []any{},
@@ -58,6 +62,15 @@ func (qb *Builder) TableName() string {
 
 func (qb *Builder) WithTableName(tableName string) *Builder {
 	qb.table = tableName
+	return qb
+}
+
+// WithLogger 在该 builder 上启用 go-wind 全局日志（log.SetLogger）；
+// 传 nil 则不改变当前全局 logger。
+func (qb *Builder) WithLogger(logger log.Logger) *Builder {
+	if logger != nil {
+		log.SetLogger(logger)
+	}
 	return qb
 }
 
