@@ -23,6 +23,22 @@ func (s *stubUpdateBuilder) Where(ps ...func(*sql.Selector)) *stubUpdateBuilder 
 	return s
 }
 
+// 以下两个方法令 *stubUpdateBuilder 实现 viewer.ScopedModel，使类型门控
+// (IsTenantScopedType) 判定为 tenant-scoped，从而让注入测试走到
+// injectTenantWhereReflect。仅用于测试，无实际 tenant 语义。
+func (s *stubUpdateBuilder) GetTenantID() *uint32 { return nil }
+func (s *stubUpdateBuilder) SetTenantID(uint32)    {}
+
+// badSigBuilder 实现 viewer.ScopedModel（通过类型门控），但其 Where 签名
+// 与预期的 Where(...func(*sql.Selector)) 不符。用于验证
+// injectTenantWhereReflect 在签名不匹配时 fail-closed，而非静默跳过——
+// 这是 B.10 的核心：ent 升级若改了 Where 签名，注入必须报错而非放过。
+type badSigBuilder struct{}
+
+func (*badSigBuilder) Where(int) int { return 0 } // 非变参、参数类型不符
+func (*badSigBuilder) GetTenantID() *uint32 { return nil }
+func (*badSigBuilder) SetTenantID(uint32)    {}
+
 // stubQueryViewer 实现 viewer.Context，可配置 tenant/platform/system。
 type stubQueryViewer struct {
 	tid      uint64
@@ -48,7 +64,7 @@ func (s *stubQueryViewer) ShouldAudit() bool              { return false }
 func TestInjectTenantWhereIntoBuilder_TenantContextInjects(t *testing.T) {
 	ctx := viewer.WithContext(context.Background(), &stubQueryViewer{tid: 7})
 	b := &stubUpdateBuilder{}
-	if err := InjectTenantWhereIntoBuilder(ctx, b); err != nil {
+	if err := InjectTenantWhereIntoBuilder[stubUpdateBuilder](ctx, b); err != nil {
 		t.Fatalf("inject: %v", err)
 	}
 	if !b.whereCalled {
@@ -63,7 +79,7 @@ func TestInjectTenantWhereIntoBuilder_TenantContextInjects(t *testing.T) {
 func TestInjectTenantWhereIntoBuilder_PlatformContextSkips(t *testing.T) {
 	ctx := viewer.WithContext(context.Background(), &stubQueryViewer{tid: 0, platform: true})
 	b := &stubUpdateBuilder{}
-	if err := InjectTenantWhereIntoBuilder(ctx, b); err != nil {
+	if err := InjectTenantWhereIntoBuilder[stubUpdateBuilder](ctx, b); err != nil {
 		t.Fatalf("inject: %v", err)
 	}
 	if b.whereCalled {
@@ -74,7 +90,7 @@ func TestInjectTenantWhereIntoBuilder_PlatformContextSkips(t *testing.T) {
 // TestInjectTenantWhereIntoBuilder_MissingViewerFailClosed 缺身份报错。
 func TestInjectTenantWhereIntoBuilder_MissingViewerFailClosed(t *testing.T) {
 	b := &stubUpdateBuilder{}
-	err := InjectTenantWhereIntoBuilder(context.Background(), b)
+	err := InjectTenantWhereIntoBuilder[stubUpdateBuilder](context.Background(), b)
 	if err == nil {
 		t.Errorf("missing viewer must fail-closed")
 	}
@@ -83,13 +99,26 @@ func TestInjectTenantWhereIntoBuilder_MissingViewerFailClosed(t *testing.T) {
 	}
 }
 
-// TestInjectTenantWhereIntoBuilder_NonTenantBuilderSkips 无 Where 方法的
-// 构建器（非 tenant-scoped）静默放行，不报错。
+// TestInjectTenantWhereIntoBuilder_NonTenantBuilderSkips 非 tenant-scoped
+// 类型（struct{} 不实现 ScopedModel）经类型门控直接放行，不报错、不注入。
 func TestInjectTenantWhereIntoBuilder_NonTenantBuilderSkips(t *testing.T) {
 	ctx := viewer.WithContext(context.Background(), &stubQueryViewer{tid: 7})
-	// 非 tenant-scoped：传一个无 Where 方法的对象
-	err := InjectTenantWhereIntoBuilder(ctx, struct{}{})
+	// 非 tenant-scoped：struct{} 不实现 viewer.ScopedModel → 类型门控放行
+	err := InjectTenantWhereIntoBuilder[struct{}](ctx, struct{}{})
 	if err != nil {
 		t.Errorf("non-tenant builder must pass through, got %v", err)
+	}
+}
+
+// TestInjectTenantWhereIntoBuilder_BadSignatureFailsClosed tenant-scoped
+// 类型但 Where 签名不符（模拟 ent 升级改签名）时必须 fail-closed 报错，
+// 而非静默跳过。这是 B.10 的回归测试：签名失配 = 注入失败 = 拒绝。
+func TestInjectTenantWhereIntoBuilder_BadSignatureFailsClosed(t *testing.T) {
+	ctx := viewer.WithContext(context.Background(), &stubQueryViewer{tid: 7})
+	b := &badSigBuilder{}
+	// badSigBuilder 实现 ScopedModel（过类型门控）但 Where 签名不符
+	err := InjectTenantWhereIntoBuilder[badSigBuilder](ctx, b)
+	if err == nil {
+		t.Fatalf("tenant-scoped builder with unexpected Where signature must fail-closed")
 	}
 }

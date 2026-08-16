@@ -8,59 +8,19 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/entql"
-	"entgo.io/ent/privacy"
 
 	"github.com/tx7do/go-crud/viewer"
 )
 
+// Filter is the interface that wraps the Where function for filtering nodes
+// in queries and mutations. Retained for system.go's OwnerOnlyRule /
+// PermissionRule / SoftDeleteRule helpers (themselves currently call-site-free;
+// cleanup tracked separately).
 type (
-	// Filter is the interface that wraps the Where function
-	// for filtering nodes in queries and mutations.
 	Filter interface {
-		// Where applies a filter on the executed query/mutation.
 		Where(entql.P)
 	}
 )
-
-// AllowIfAdmin is a rule that returns Allow decision if the viewer is admin.
-func AllowIfAdmin() privacy.QueryMutationRule {
-	return privacy.ContextQueryMutationRule(func(ctx context.Context) error {
-		vc, exist := viewer.FromContext(ctx)
-		if !exist {
-			return privacy.Skip
-		}
-		if vc.IsPlatformContext() || vc.IsSystemContext() {
-			return privacy.Allow
-		}
-		// Skip to the next privacy rule (equivalent to returning nil).
-		return privacy.Skip
-	})
-}
-
-// TenantFilterRule 是一个通用的租户过滤规则，用于在查询时注入租户过滤条件。
-// 该规则会根据当前 ViewerContext 中的租户信息，动态添加租户过滤谓词，确保数据隔离和安全性。
-// 适用于包含 tenant_id 字段的实体查询。
-func TenantFilterRule(ctx context.Context, f Filter) error {
-	vc, exist := viewer.FromContext(ctx)
-	// 如果身份丢失，安全起见应直接拒绝操作（Deny），而不是跳过
-	if !exist {
-		return fmt.Errorf("security: missing ViewerContext in context")
-	}
-
-	// 平台管理视图/系统视图放行：允许查看全量数据
-	if vc.IsPlatformContext() || vc.IsSystemContext() {
-		return nil // 在 Privacy 逻辑中 nil 相当于 Skip
-	}
-
-	tid := vc.TenantID()
-
-	tenantPred := entql.Uint64EQ(tid).Field("tenant_id")
-
-	// 注入租户过滤谓词
-	f.Where(tenantPred)
-
-	return nil
-}
 
 type TenantPrivacy[T uint32 | uint64] struct {
 	decision error
@@ -218,7 +178,14 @@ func (f TenantPrivacy[T]) injectTenantWhere(query ent.Query, tenantID T) error {
 //
 // 语义与 EnforceTenant/TenantPrivacy 一致：缺身份 fail-closed，平台/系统
 // 放行，租户业务视图注入 tenant_id = ?。
-func InjectTenantWhereIntoBuilder(ctx context.Context, builder any) error {
+//
+// 与 doris/clickhouse/mongodb 的 InjectTenantFilterIntoBuilder 对齐：仅对
+// 实现 viewer.ScopedModel 的 ENTITY 类型生效（非 tenant 实体直接放行），
+// 类型门控置于最前，避免对无 tenant_id 列的非 tenant 表注入谓词。
+func InjectTenantWhereIntoBuilder[ENTITY any](ctx context.Context, builder any) error {
+	if !viewer.IsTenantScopedType[ENTITY]() {
+		return nil
+	}
 	dec, err := viewer.EnforceTenant(ctx)
 	if err != nil {
 		return err
@@ -238,18 +205,19 @@ func injectTenantWhereReflect(builder any, tenantID uint64) error {
 	rv := reflect.ValueOf(builder)
 	mf := rv.MethodByName("Where")
 	if !mf.IsValid() || mf.Kind() != reflect.Func {
-		// 非 tenant-scoped 构建器无 Where（或签名不符）→ 放行
-		return nil
+		// fail-closed：反射注入失败时必须报错而非静默跳过，
+		// 否则租户过滤悄悄消失（ent 升级改签名即触发）。
+		return fmt.Errorf("security: tenant where-injection failed: builder has no usable Where method (%T)", builder)
 	}
 
 	mt := mf.Type()
 	if !mt.IsVariadic() || mt.NumIn() != 1 {
-		return nil
+		return fmt.Errorf("security: tenant where-injection failed: unexpected Where signature (%T)", builder)
 	}
 	elem := mt.In(0).Elem()
 	selPtrType := reflect.TypeOf((*sql.Selector)(nil))
 	if elem.Kind() != reflect.Func || elem.NumIn() < 1 || elem.In(0) != selPtrType {
-		return nil
+		return fmt.Errorf("security: tenant where-injection failed: unexpected predicate signature (%T)", builder)
 	}
 
 	fn := func(s *sql.Selector) {
@@ -274,51 +242,4 @@ func injectTenantWhereReflect(builder any, tenantID uint64) error {
 	mf.CallSlice([]reflect.Value{slice})
 
 	return nil
-}
-
-// tenantIDMutator 提取的 mutator，负责从 TenantContext 读取 tenant id 并注入 Mutation。
-// 假设生成的 SetTenantID 使用 uint32 类型。
-func tenantIDMutator[T uint32 | uint64](next ent.Mutator) ent.Mutator {
-	return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-		vc, exist := viewer.FromContext(ctx)
-		if !exist {
-			return nil, fmt.Errorf("missing ViewerContext in context")
-		}
-
-		op := m.Op()
-		if !op.Is(ent.OpCreate) {
-			return next.Mutate(ctx, m)
-		}
-
-		tid := vc.TenantID()
-
-		if vc.IsPlatformContext() {
-			// 如果管理员在代码里写了 .SetTenantID(101)，则尊重管理员的选择
-			if _, set := m.Field("tenant_id"); set {
-				return next.Mutate(ctx, m)
-			}
-			// 如果管理员没设置，且当前上下文也没指定目标租户，则按管理员逻辑执行（可能设为 0）
-			return next.Mutate(ctx, m)
-		}
-
-		// 普通用户：强制覆盖，防止越权
-		// 优先使用强类型接口（生成代码常见）
-		if s, ok := m.(interface{ SetTenantID(T) }); ok {
-			s.SetTenantID(T(tid))
-			return next.Mutate(ctx, m)
-		}
-
-		// 兜底：尝试通过反射调用 SetField，以避免编译期因方法签名差异导致的模糊错误
-		rv := reflect.ValueOf(m)
-		if mf := rv.MethodByName("SetField"); mf.IsValid() && mf.Kind() == reflect.Func {
-			// 仅在方法接受两个参数时调用，避免 panic
-			if mf.Type().NumIn() == 2 {
-				mf.Call([]reflect.Value{reflect.ValueOf("tenant_id"), reflect.ValueOf(tid)})
-				return next.Mutate(ctx, m)
-			}
-		}
-
-		// 如果都不可用，则直接返回错误以便上层可感知（也可选择直接 next.Mutate）
-		return nil, fmt.Errorf("unable to set tenant_id on mutation")
-	})
 }
