@@ -352,7 +352,8 @@ func TestMakeQueryString(t *testing.T) {
 	andQuery := `{"name":"张三","age":"23"}`
 	orQuery := ``
 	result := MakeQueryString(andQuery, orQuery)
-	assert.Equal(t, `name:"张三" AND age:"23"`, result)
+	// map 遍历顺序不定，按 AND 分段后无序比较
+	assert.ElementsMatch(t, []string{`name:"张三"`, `age:"23"`}, strings.Split(result, " AND "))
 
 	// 测试 OR 查询
 	andQuery = ``

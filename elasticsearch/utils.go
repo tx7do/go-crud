@@ -108,23 +108,42 @@ func escapeQueryValue(v string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(v) + `"`
 }
 
+// stringifyQueryValue 将 JSON 值转为字符串：数字/布尔直接格式化，
+// 嵌套对象/数组经 JSON 序列化（保持可读）。此前 unmarshal 到
+// map[string]string 时任何非字符串值会使整个解析失败、所有过滤键
+// 被丢弃 → match_all（fail-open 过滤丢弃）。
+func stringifyQueryValue(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case nil:
+		return ""
+	default:
+		b, err := json.Marshal(t)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	}
+}
+
 func ParseQueryString(query string) []string {
 	codec := encoding.GetCodec("json")
 
 	var err error
-	queryMap := make(map[string]string)
+	queryMap := make(map[string]any)
 	if err = codec.Unmarshal([]byte(query), &queryMap); err == nil {
 		var queries []string
 		for k, v := range queryMap {
 			if !queryKeyPattern.MatchString(k) {
 				continue
 			}
-			queries = append(queries, k+":"+escapeQueryValue(v))
+			queries = append(queries, k+":"+escapeQueryValue(stringifyQueryValue(v)))
 		}
 		return queries
 	}
 
-	var queryMapArray []map[string]string
+	var queryMapArray []map[string]any
 	if err = codec.Unmarshal([]byte(query), &queryMapArray); err == nil {
 		var queries []string
 		for _, item := range queryMapArray {
@@ -132,7 +151,7 @@ func ParseQueryString(query string) []string {
 				if !queryKeyPattern.MatchString(k) {
 					continue
 				}
-				queries = append(queries, k+":"+escapeQueryValue(v))
+				queries = append(queries, k+":"+escapeQueryValue(stringifyQueryValue(v)))
 			}
 		}
 		return queries

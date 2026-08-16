@@ -74,3 +74,17 @@ func TestClampPageSize(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildSearchQuery_NonStringValues 验证非字符串 JSON 值不再使整个
+// 过滤丢弃成 match_all：{"age": 30} 应生成 age:"30"。
+func TestBuildSearchQuery_NonStringValues(t *testing.T) {
+	q := BuildSearchQuery(&paginationV1.PagingRequest{
+		FilteringType: &paginationV1.PagingRequest_Query{Query: `{"age":30,"active":true}`},
+	})
+	if !strings.Contains(q, `age:"30"`) || !strings.Contains(q, `active:"true"`) {
+		t.Errorf("non-string values must be stringified into the query, got %q", q)
+	}
+	if strings.Contains(q, "match_all") {
+		t.Errorf("filter must not be dropped, got %q", q)
+	}
+}
