@@ -275,8 +275,18 @@ func (qb *Builder) Offset(n int) *Builder {
 	return qb
 }
 
-// Build 生成最终的 InfluxQL 查询字符串
+// Build 生成最终的 InfluxQL 查询字符串（含分页 LIMIT/OFFSET）
 func (qb *Builder) Build() string {
+	return qb.build(true)
+}
+
+// BuildWithoutPaging 生成不含 LIMIT/OFFSET 的 InfluxQL 查询字符串，
+// 用于 COUNT 等聚合场景——带 LIMIT 的查询会把 total 截断到页长。
+func (qb *Builder) BuildWithoutPaging() string {
+	return qb.build(false)
+}
+
+func (qb *Builder) build(withPaging bool) string {
 	// fields
 	fields := "*"
 	if len(qb.fields) > 0 {
@@ -308,12 +318,14 @@ func (qb *Builder) Build() string {
 		sb.WriteString(strings.Join(qb.orderBy, ", "))
 	}
 
-	// limit/offset
-	if qb.limit >= 0 {
-		sb.WriteString(fmt.Sprintf(" LIMIT %d", qb.limit))
-	}
-	if qb.offset >= 0 {
-		sb.WriteString(fmt.Sprintf(" OFFSET %d", qb.offset))
+	// limit/offset（计数场景不施加分页）
+	if withPaging {
+		if qb.limit >= 0 {
+			sb.WriteString(fmt.Sprintf(" LIMIT %d", qb.limit))
+		}
+		if qb.offset >= 0 {
+			sb.WriteString(fmt.Sprintf(" OFFSET %d", qb.offset))
+		}
 	}
 
 	return sb.String()

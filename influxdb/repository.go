@@ -117,8 +117,8 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 		qb.Limit(paginator.NoPagingMaxLimit)
 	}
 
-	// 计数
-	total, err := r.client.Count(ctx, qb.Build())
+	// 计数：不带分页 LIMIT 的查询，否则 total 会被截断到页长
+	total, err := r.client.Count(ctx, qb.BuildWithoutPaging())
 	if err != nil {
 		return nil, 0, err
 	}
@@ -187,8 +187,8 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		}
 	}
 
-	// 计数
-	total, err := r.client.Count(ctx, qb.Build())
+	// 计数：不带分页 LIMIT 的查询，否则 total 会被截断到页长
+	total, err := r.client.Count(ctx, qb.BuildWithoutPaging())
 	if err != nil {
 		return nil, 0, err
 	}
