@@ -6,6 +6,7 @@ import (
 	"time"
 
 	clickhouseV2 "github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/tx7do/go-wind/log"
 )
 
 type Creator func() any
@@ -86,7 +87,7 @@ func WithPassword(password string) Option {
 
 func WithTLSConfig(tlsConfig *tls.Config) Option {
 	return func(o *Client) {
-		//o.TLS = tlsConfig
+		o.options.TLS = tlsConfig
 	}
 }
 
@@ -105,18 +106,6 @@ func WithDebug(debug bool) Option {
 func WithDebugMode(debug bool) Option {
 	return func(o *Client) {
 		o.options.Debug = debug
-	}
-}
-
-func WithEnableTracing(enableTracing bool) Option {
-	return func(o *Client) {
-		//o.options.EnableTracing = enableTracing
-	}
-}
-
-func WithEnableMetrics(enableMetrics bool) Option {
-	return func(o *Client) {
-		//o.options.EnableMetrics = enableMetrics
 	}
 }
 
@@ -191,5 +180,11 @@ func WithConnectionOpenStrategy(connectionOpenStrategy string) Option {
 			strategy = clickhouseV2.ConnOpenRandom
 		}
 		o.options.ConnOpenStrategy = strategy
+	}
+}
+
+func WithLogger(logger log.Logger) Option {
+	return func(c *Client) {
+		log.SetLogger(logger)
 	}
 }
