@@ -13,6 +13,11 @@ import (
 // signedTokenPrefix 是签名 token 的版本前缀，用于与旧的明文 token 区分。
 const signedTokenPrefix = "v2."
 
+// maxTokenPayloadLen 是 base64 编码载荷的长度上限。tokenCursor 序列化后
+// 仅约 20 字节，256 字节为未来字段增长留充足余量，同时拒绝客户端发送
+// 的超大 blob（F-5：避免对兆级 base64 做解码+JSON 解析耗 CPU）。
+const maxTokenPayloadLen = 256
+
 // tokenCursor 是分页游标在序列化时的载荷结构。
 type tokenCursor struct {
 	LastID int64 `json:"last_id"`
@@ -61,6 +66,11 @@ func VerifyAndDecode(token string, secret []byte) (int64, bool) {
 		encoded := body[:dot]
 		sigHex := body[dot+1:]
 
+		// F-5：拒绝超大载荷，避免对兆级 base64 做解码+JSON 解析耗 CPU。
+		if len(encoded) > maxTokenPayloadLen {
+			return 0, false
+		}
+
 		mac := hmac.New(sha256.New, secret)
 		mac.Write([]byte(encoded))
 		expectedSig := hex.EncodeToString(mac.Sum(nil))
@@ -72,6 +82,10 @@ func VerifyAndDecode(token string, secret []byte) (int64, bool) {
 
 	// 旧式未签名 token：迁移期（secret 非空）拒绝，否则兼容解码。
 	if len(secret) != 0 {
+		return 0, false
+	}
+	// F-5：旧式 token 同样施加长度上限。
+	if len(token) > maxTokenPayloadLen {
 		return 0, false
 	}
 	return decodeCursor(token)

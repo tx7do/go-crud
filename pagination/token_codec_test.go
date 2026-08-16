@@ -95,6 +95,19 @@ func TestTokenCodec_EmptyRejected(t *testing.T) {
 	}
 }
 
+// TestTokenCodec_OversizedRejected 验证超大载荷被拒（F-5：避免兆级 base64
+// 解码+JSON 解析耗 CPU）。构造一个远超 maxTokenPayloadLen 的旧式 token。
+func TestTokenCodec_OversizedRejected(t *testing.T) {
+	// 构造一个长 base64 串（> maxTokenPayloadLen），无 v2. 前缀。
+	big := make([]byte, 512)
+	for i := range big {
+		big[i] = 'A'
+	}
+	if _, ok := VerifyAndDecode(string(big), nil); ok {
+		t.Fatal("expected oversized token to be rejected")
+	}
+}
+
 // flip 把 base64 载荷的首字符改成另一个字符以制造篡改。
 func flip(s string) string {
 	b := []byte(s)
