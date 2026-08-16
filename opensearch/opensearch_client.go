@@ -887,8 +887,9 @@ func (c *Client) Search(
 			_ = c.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
 		}
 	} else if paginator.NoPagingMaxLimit > 0 {
-		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
-		_ = c.offsetPaginator.BuildClause(qb, 0, paginator.NoPagingMaxLimit)
+		// no_paging 为客户端可设置字段，仍施加行数兜底，防止无界查询构成 DoS。
+		// NoPagingMaxLimit 是服务端策略而非客户端页长，直接对 builder 施加。
+		qb.SetFromSize(0, paginator.NoPagingMaxLimit)
 	}
 
 	body := qb.Build()
@@ -1198,8 +1199,9 @@ func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, r
 			_ = c.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
 		}
 	} else if paginator.NoPagingMaxLimit > 0 {
-		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
-		_ = c.offsetPaginator.BuildClause(qb, 0, paginator.NoPagingMaxLimit)
+		// no_paging 为客户端可设置字段，仍施加行数兜底，防止无界查询构成 DoS。
+		// NoPagingMaxLimit 是服务端策略而非客户端页长，直接对 builder 施加。
+		qb.SetFromSize(0, paginator.NoPagingMaxLimit)
 	}
 
 	sql := qb.BuildSQL(indexName)

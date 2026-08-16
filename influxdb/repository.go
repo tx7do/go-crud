@@ -180,6 +180,11 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		_ = r.pagePaginator.BuildClause(qb, int(req.GetPageBased().GetPage()), int(req.GetPageBased().GetPageSize()))
 	case *paginationV1.PaginationRequest_TokenBased:
 		_ = r.tokenPaginator.BuildClause(qb, req.GetTokenBased().GetToken(), int(req.GetTokenBased().GetPageSize()))
+	default:
+		// 未指定分页类型（含 no_paging oneof）：施加行数兜底，防止无界查询 DoS
+		if paginator.NoPagingMaxLimit > 0 {
+			qb.Limit(paginator.NoPagingMaxLimit)
+		}
 	}
 
 	// 计数

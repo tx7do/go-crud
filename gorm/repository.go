@@ -212,8 +212,9 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, db *gorm.D
 			pagingSelector = r.tokenPaginator.BuildDB(req.GetToken(), int(req.GetOffset()))
 		}
 	} else if paginator.NoPagingMaxLimit > 0 {
-		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
-		pagingSelector = r.offsetPaginator.BuildDB(0, paginator.NoPagingMaxLimit)
+		// no_paging 为客户端可设置字段，仍施加行数兜底，防止无界查询构成 DoS。
+		// NoPagingMaxLimit 是服务端策略而非客户端页长，直接对 builder 施加。
+		pagingSelector = func(db *gorm.DB) *gorm.DB { return db.Limit(paginator.NoPagingMaxLimit) }
 	}
 
 	// 构造查询 DB 并应用 selectors
@@ -318,6 +319,11 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, db *go
 		pagingSelector = r.pagePaginator.BuildDB(int(req.GetPageBased().GetPage()), int(req.GetPageBased().GetPageSize()))
 	case *paginationV1.PaginationRequest_TokenBased:
 		pagingSelector = r.tokenPaginator.BuildDB(req.GetTokenBased().GetToken(), int(req.GetTokenBased().GetPageSize()))
+	default:
+		// 未指定分页类型（含 no_paging oneof）：施加行数兜底，防止无界查询 DoS
+		if paginator.NoPagingMaxLimit > 0 {
+			pagingSelector = func(db *gorm.DB) *gorm.DB { return db.Limit(paginator.NoPagingMaxLimit) }
+		}
 	}
 
 	// 构造查询 DB 并应用 selectors

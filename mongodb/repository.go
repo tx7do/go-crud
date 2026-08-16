@@ -121,8 +121,9 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 			_ = r.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
 		}
 	} else if paginator.NoPagingMaxLimit > 0 {
-		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
-		_ = r.offsetPaginator.BuildClause(qb, 0, paginator.NoPagingMaxLimit)
+		// no_paging 为客户端可设置字段，仍施加行数兜底，防止无界查询构成 DoS。
+		// NoPagingMaxLimit 是服务端策略而非客户端页长，直接对 builder 施加。
+		qb.SetLimit(int64(paginator.NoPagingMaxLimit))
 	}
 
 	// 计数
@@ -208,6 +209,11 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		_ = r.pagePaginator.BuildClause(qb, int(req.GetPageBased().GetPage()), int(req.GetPageBased().GetPageSize()))
 	case *paginationV1.PaginationRequest_TokenBased:
 		_ = r.tokenPaginator.BuildClause(qb, req.GetTokenBased().GetToken(), int(req.GetTokenBased().GetPageSize()))
+	default:
+		// 未指定分页类型（含 no_paging oneof）：施加行数兜底，防止无界查询 DoS
+		if paginator.NoPagingMaxLimit > 0 {
+			qb.SetLimit(int64(paginator.NoPagingMaxLimit))
+		}
 	}
 
 	// 计数
