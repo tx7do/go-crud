@@ -100,7 +100,9 @@ func BuildSearchQuery(req *paginationV1.PagingRequest) string {
 
 // queryKeyPattern 查询键（字段名）白名单：字母、数字、下划线、点、连字符。
 // 键直接拼入 query_string DSL，必须先过白名单。
-var queryKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_.\-]+$`)
+// 首字符不得为连字符：query_string 中 -field:val 表示 NOT 语义，
+// 客户端可用 "-status":"active" 翻转过滤实现过度返回。
+var queryKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_.][A-Za-z0-9_.\-]*$`)
 
 // escapeQueryValue 将值转为 query_string 的带引号字面量（转义内部引号与反斜杠），
 // 防止值中携带 OR/AND/:/通配符等语法改变查询结构（DSL 注入）。
