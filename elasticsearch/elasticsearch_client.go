@@ -104,6 +104,8 @@ func (c *Client) IndexExists(ctx context.Context, indexName string) (bool, error
 		log.Error(context.Background(), fmt.Sprintf("failed to check if index exists: %v", err))
 		return false, err
 	}
+	// 关闭响应体，防止连接泄漏（连接池耗尽 DoS）
+	defer resp.Body.Close()
 
 	return !resp.IsError(), nil
 }
@@ -188,7 +190,7 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 
 // DeleteDocument 删除一条数据
 func (c *Client) DeleteDocument(ctx context.Context, indexName, id string) error {
-	_, err := c.Client.Delete(
+	resp, err := c.Client.Delete(
 		indexName, id,
 		c.Client.Delete.WithContext(ctx),
 	)
@@ -196,6 +198,8 @@ func (c *Client) DeleteDocument(ctx context.Context, indexName, id string) error
 		log.Error(context.Background(), fmt.Sprintf("failed to delete document: %v", err))
 		return err
 	}
+	// 关闭响应体，防止连接泄漏（连接池耗尽 DoS）
+	defer resp.Body.Close()
 	return nil
 }
 
@@ -781,7 +785,7 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 		return err
 	}
 
-	_, err = c.Client.Update(
+	resp, err := c.Client.Update(
 		indexName, pk,
 		bytes.NewReader(data),
 		c.Client.Update.WithContext(ctx),
@@ -790,6 +794,9 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 		log.Error(context.Background(), fmt.Sprintf("failed to update document: %v", err))
 		return err
 	}
+	// 关闭响应体，防止连接泄漏（连接池耗尽 DoS）；与 ParseErrorMessage
+	// 内部的双重 Close 幂等，安全。
+	defer resp.Body.Close()
 
 	return nil
 }
@@ -811,6 +818,9 @@ func (c *Client) GetDocument(
 		log.Error(context.Background(), fmt.Sprintf("failed to get document: %v", err))
 		return err
 	}
+	// 关闭响应体，防止连接泄漏（连接池耗尽 DoS）；与 ParseErrorMessage
+	// 内部的双重 Close 幂等，安全。
+	defer resp.Body.Close()
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
