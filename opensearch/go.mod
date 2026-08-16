@@ -10,7 +10,7 @@ require (
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/pagination v0.0.14
+	github.com/tx7do/go-crud/pagination v0.0.15
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-wind v0.0.2
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
