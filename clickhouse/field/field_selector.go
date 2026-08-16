@@ -24,6 +24,10 @@ func (fs Selector) BuildSelector(builder *query.Builder, fields []string) (*quer
 	}
 
 	for _, field := range fields {
+		// NormalizePaths 会把含非法字符的路径整条置空（防注入/防 panic），跳过之
+		if field == "" {
+			continue
+		}
 		builder.Select(field)
 	}
 
