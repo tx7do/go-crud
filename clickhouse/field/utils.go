@@ -17,7 +17,7 @@ func NormalizeFieldMaskPaths(fm *fieldmaskpb.FieldMask) {
 	fm.Paths = NormalizePaths(fm.Paths)
 }
 
-// NormalizePaths 将字段路径标准化（简单地为标识符添加反引号，保留 *）。
+// NormalizePaths 将字段路径标准化：为标识符添加反引号并转义内部反引号（防注入），保留 *。
 func NormalizePaths(fields []string) []string {
 	res := make([]string, len(fields))
 	for i, f := range fields {
@@ -32,7 +32,9 @@ func NormalizePaths(fields []string) []string {
 			if p == "*" || p == "" {
 				parts[j] = p
 			} else {
-				parts[j] = "`" + p + "`"
+				// FieldMask 路径来自客户端请求，内部反引号必须成对转义，
+				// 否则 `a`,(select version()),`b` 这类输入可注入子查询。
+				parts[j] = "`" + strings.ReplaceAll(p, "`", "``") + "`"
 			}
 		}
 		res[i] = strings.Join(parts, ".")
