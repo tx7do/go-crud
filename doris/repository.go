@@ -21,6 +21,7 @@ import (
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 	"github.com/tx7do/go-crud/pagination/paginator"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
+	"github.com/tx7do/go-crud/viewer"
 )
 
 // PagingResult 是通用的分页返回结构，包含 items 和 total 字段
@@ -99,6 +100,13 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, w
 		}
 	}
 
+	// 租户行级强制：tenant-scoped 实体追加 tenant_id 谓词。
+	var err2 error
+	baseWhere, whereArgs, err2 = InjectTenantFilterIntoBaseWhere[ENTITY](ctx, baseWhere, whereArgs)
+	if err2 != nil {
+		return 0, err2
+	}
+
 	aSql := "SELECT COUNT(1) FROM " + r.table
 	bw := strings.TrimSpace(baseWhere)
 	if bw != "" {
@@ -147,6 +155,11 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
 	if err != nil {
 		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
+		return nil, err
+	}
+
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, queryBuilder); err != nil {
 		return nil, err
 	}
 
@@ -250,6 +263,11 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		return nil, err
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, queryBuilder); err != nil {
+		return nil, err
+	}
+
 	// 计数
 	aSql, args := queryBuilder.BuildWhereParam()
 	total, err := r.Count(ctx, aSql, args...)
@@ -347,6 +365,11 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 		}
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return nil, err
+	}
+
 	// 获取 SQL 与参数，并确保只取一条记录
 	sqlStr, args := qb.Build()
 	sqlStr = strings.TrimSpace(sqlStr)
@@ -401,6 +424,11 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO, viewMask
 
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)
+
+	// 租户强制：tenant-scoped 实体在租户业务视图下强制覆盖 tenant_id。
+	if err := viewer.EnforceOnScopedInstance(ctx, ent); err != nil {
+		return nil, err
+	}
 
 	// 通过反射收集列名与值（优先使用 struct tag: db -> ch -> json，否则使用小写字段名）
 	v := reflect.ValueOf(ent)
@@ -486,6 +514,11 @@ func (r *Repository[DTO, ENTITY]) CreateX(ctx context.Context, dto *DTO, viewMas
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)
 
+	// 租户强制：tenant-scoped 实体在租户业务视图下强制覆盖 tenant_id。
+	if err := viewer.EnforceOnScopedInstance(ctx, ent); err != nil {
+		return 0, err
+	}
+
 	// 通过反射收集列名与值（优先使用 struct tag: db -> ch -> json，否则使用小写字段名）
 	v := reflect.ValueOf(ent)
 	if v.Kind() == reflect.Ptr {
@@ -569,6 +602,10 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 			continue
 		}
 		ent := r.mapper.ToEntity(dto)
+		// 租户强制：每个实体在租户业务视图下强制覆盖 tenant_id。
+		if err := viewer.EnforceOnScopedInstance(ctx, ent); err != nil {
+			return nil, err
+		}
 		entities = append(entities, ent)
 	}
 	if len(entities) == 0 {
@@ -776,10 +813,29 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 
 	// 构造 ALTER TABLE ... UPDATE ... WHERE ... （Doris mutation）
 	whereClause := fmt.Sprintf("%s = ?", pkCol)
+
+	// 租户行级强制：tenant-scoped 实体追加 tenant_id 谓词到 UPDATE 的 WHERE。
+	var tenantArg any
+	if viewer.IsTenantScopedType[ENTITY]() {
+		dec, err := viewer.EnforceTenant(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if dec.Enforce {
+			whereClause += " AND tenant_id = ?"
+			tenantArg = dec.TenantID
+		}
+	}
+
 	aSql := fmt.Sprintf("ALTER TABLE %s UPDATE %s WHERE %s", r.table, strings.Join(setExprs, ", "), whereClause)
 
 	// 执行更新
-	args := append(setVals, pkVal)
+	var args []any
+	args = append(args, setVals...)
+	args = append(args, pkVal)
+	if tenantArg != nil {
+		args = append(args, tenantArg)
+	}
 	if _, err := r.client.Exec(aSql, args...); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("update failed: %v", err))
 		return nil, errors.New("update failed")
@@ -792,7 +848,12 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 		return &e
 	}
 	selectSQL := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1", r.table, whereClause)
-	if err := r.client.Query(ctx, creator, &rawResults, selectSQL, pkVal); err != nil {
+	var readArgs []any
+	readArgs = append(readArgs, pkVal)
+	if tenantArg != nil {
+		readArgs = append(readArgs, tenantArg)
+	}
+	if err := r.client.Query(ctx, creator, &rawResults, selectSQL, readArgs...); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("read updated record failed: %v", err))
 		return nil, errors.New("read updated record failed")
 	}
@@ -1123,6 +1184,23 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, qb *query.Builder,
 		whereSQL, args = qb.BuildWhereParam()
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	// tenant-scoped 实体在租户业务视图下必须有 tenant 谓词；qb==nil 时无法注入，
+	// fail-closed 拒绝（否则全表删除/更新）。
+	if viewer.IsTenantScopedType[ENTITY]() {
+		dec, err := viewer.EnforceTenant(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if dec.Enforce {
+			if qb == nil {
+				return 0, errors.New("tenant-scoped delete requires a query builder for tenant predicate")
+			}
+			qb.Where("tenant_id = ?", dec.TenantID)
+			whereSQL, args = qb.BuildWhereParam()
+		}
+	}
+
 	if notSoftDelete {
 		// 硬删除，按条件删除
 		sqlStr := fmt.Sprintf("DELETE FROM %s", r.table)
@@ -1221,6 +1299,13 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, 
 		}
 	}
 
+	// 租户行级强制：tenant-scoped 实体追加 tenant_id 谓词。
+	var err2 error
+	baseWhere, whereArgs, err2 = InjectTenantFilterIntoBaseWhere[ENTITY](ctx, baseWhere, whereArgs)
+	if err2 != nil {
+		return false, err2
+	}
+
 	sqlStr := fmt.Sprintf("SELECT 1 FROM %s", r.table)
 	bw := strings.TrimSpace(baseWhere)
 	if bw != "" {
@@ -1261,6 +1346,13 @@ func (r *Repository[DTO, ENTITY]) BatchInsert(ctx context.Context, data any) err
 	}
 	if r.table == "" {
 		return errors.New("table is empty")
+	}
+	// 租户强制：tenant-scoped 实体在缺身份时 fail-closed。此 map 路径
+	// 绕过类型化 mapper，调用方须在 map 中自填 tenant_id；平台/系统视图放行。
+	if viewer.IsTenantScopedType[ENTITY]() {
+		if _, err := viewer.EnforceTenant(ctx); err != nil {
+			return err
+		}
 	}
 	rv := reflect.ValueOf(data)
 	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {

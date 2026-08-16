@@ -6,6 +6,8 @@ replace github.com/tx7do/go-crud/api => ../api
 
 replace github.com/tx7do/go-crud/pagination => ../pagination
 
+replace github.com/tx7do/go-crud/viewer => ../viewer
+
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/go-sql-driver/mysql v1.10.0
@@ -29,6 +31,7 @@ require (
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/tx7do/go-crud/viewer v0.0.6 // indirect
 	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1 // indirect
 	go.einride.tech/aip v0.86.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
