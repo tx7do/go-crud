@@ -20,6 +20,27 @@ type Audit struct {
 }
 
 // Hooks 审计日志核心逻辑
+// auditQueueSize 审计异步队列容量：有界缓冲 + 单 worker，
+// 防止慢 sink 导致 goroutine 无限堆积（此前每次审计写操作 spawn 裸 goroutine）。
+const auditQueueSize = 256
+
+type auditRecord struct {
+	auditor audit.Auditor
+	entry   audit.Entry
+}
+
+var auditQueue = make(chan auditRecord, auditQueueSize)
+
+func init() {
+	go func() {
+		for rec := range auditQueue {
+			if recErr := rec.auditor.Record(context.Background(), &rec.entry); recErr != nil {
+				log.Printf("[Audit][ERROR] record failed: %v", recErr)
+			}
+		}
+	}()
+}
+
 func (Audit) Hooks() []ent.Hook {
 	return []ent.Hook{
 		func(next ent.Mutator) ent.Mutator {
@@ -84,12 +105,13 @@ func (Audit) Hooks() []ent.Hook {
 					eCopy.PostValue = append([]byte(nil), eCopy.PostValue...)
 				}
 
-				// 异步写入日志
-				go func(a audit.Auditor, e audit.Entry) {
-					if recErr := a.Record(context.Background(), &e); recErr != nil {
-						log.Printf("[Audit][ERROR] record failed: %v", recErr)
-					}
-				}(ac, eCopy)
+				// 异步写入日志：有界队列 + 单 worker；队列满时丢弃并告警
+				// （审计不应阻塞业务写操作）
+				select {
+				case auditQueue <- auditRecord{auditor: ac, entry: eCopy}:
+				default:
+					log.Printf("[Audit][WARN] audit queue full, dropping audit entry Trace=%s User=%d Resource=%s", vc.TraceID(), vc.UserID(), m.Type())
+				}
 
 				return value, nil
 			})
@@ -142,13 +164,30 @@ func buildPostDataFromValue(value any) map[string]any {
 		return nil
 	}
 
-	// 脱敏敏感字段
-	for k := range m {
-		if isSensitiveField(k) {
-			m[k] = "********"
+	// 递归脱敏敏感字段（嵌套 map/slice 内的键同样检查，此前仅顶层）
+	return redactNested(m).(map[string]any)
+}
+
+// redactNested 递归脱敏：对嵌套的 map/slice 逐层检查敏感键并替换为掩码。
+func redactNested(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, val := range t {
+			if isSensitiveField(k) {
+				t[k] = "********"
+			} else {
+				t[k] = redactNested(val)
+			}
 		}
+		return t
+	case []any:
+		for i := range t {
+			t[i] = redactNested(t[i])
+		}
+		return t
+	default:
+		return v
 	}
-	return m
 }
 
 // extractTargetID 尝试从返回值中提取 ID（支持方法 ID()、字段 ID/Id），否则回退到 fmt.Sprintf
@@ -233,6 +272,13 @@ var sensitiveFieldNames = map[string]struct{}{
 	"card_number":    {},
 	"cvv":            {},
 	"address_detail": {},
+	"email":          {},
+	"ssn":            {},
+	"address":        {},
+	"birthday":       {},
+	"passwd":         {},
+	"pwd":            {},
+	"credential":     {},
 }
 
 // AddSensitiveField 添加敏感字段名
