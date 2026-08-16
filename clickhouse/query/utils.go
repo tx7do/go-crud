@@ -29,3 +29,9 @@ func isValidCondition(condition string) bool {
 	// 简单验证条件中是否包含危险字符
 	return !strings.Contains(condition, ";") && !strings.Contains(condition, "--")
 }
+
+// LimitKeywordPattern 匹配作为 SQL 关键字的 LIMIT（大小写不敏感，词边界
+// 锚定，后随空白/数字/结尾）。用于 Get 强制 LIMIT 1 时识别查询是否已含
+// LIMIT——此前用 strings.Contains(upper,"LIMIT") 会把 rate_limit 这类
+// 列名误判成已含 LIMIT 而跳过，导致返回多行。
+var LimitKeywordPattern = regexp.MustCompile(`(?i)(^|[^A-Za-z0-9_])LIMIT\s`)

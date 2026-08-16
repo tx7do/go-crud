@@ -363,8 +363,9 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 	// 获取 SQL 与参数，并确保只取一条记录
 	sqlStr, args := qb.Build()
 	sqlStr = strings.TrimSpace(sqlStr)
-	upper := strings.ToUpper(sqlStr)
-	if !strings.Contains(upper, "LIMIT") {
+	// 词边界匹配 LIMIT 关键字，避免列名含子串（如 rate_limit）误判
+	// 而跳过 LIMIT 1（导致返回多行）。
+	if !query.LimitKeywordPattern.MatchString(sqlStr) {
 		sqlStr = sqlStr + " LIMIT 1"
 	}
 
