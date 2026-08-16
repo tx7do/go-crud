@@ -117,18 +117,13 @@ type Client struct {
 	getMigrateModels GetMigrateModelsFunc
 
 	gormCfg   *gorm.Config
-	cfgStruct any
 	mixins    []Mixin
 
 	ctx       context.Context
-	envPrefix string
 
 	// 钩子
 	beforeOpen []func(*gorm.DB) error
 	afterOpen  []func(*gorm.DB) error
-
-	// 任意原始选项
-	rawOptions RawOptions
 
 	// logger helper
 	logger log.Logger

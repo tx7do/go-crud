@@ -17,7 +17,6 @@ type Option func(*Client)
 
 type Mixin func(*gorm.DB) error
 type GetMigrateModelsFunc func() []any
-type RawOptions map[string]any
 
 func WithGormDB(db *gorm.DB) Option {
 	return func(c *Client) {
@@ -118,20 +117,6 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
-// WithConfigStruct 注入任意配置结构体（例如从 config 解码后的结构）
-func WithConfigStruct(cfg any) Option {
-	return func(c *Client) {
-		c.cfgStruct = cfg
-	}
-}
-
-// WithEnvPrefix 指定从环境变量读取配置时的前缀（可在 NewClient 中解析）
-func WithEnvPrefix(prefix string) Option {
-	return func(c *Client) {
-		c.envPrefix = prefix
-	}
-}
-
 // WithBeforeOpen 在建立 gorm.DB 之前执行的回调（可用于修改 DSN、日志等）
 func WithBeforeOpen(fn func(*gorm.DB) error) Option {
 	return func(c *Client) {
@@ -143,18 +128,6 @@ func WithBeforeOpen(fn func(*gorm.DB) error) Option {
 func WithAfterOpen(fn func(*gorm.DB) error) Option {
 	return func(c *Client) {
 		c.afterOpen = append(c.afterOpen, fn)
-	}
-}
-
-// WithRawOptions 注入任意键值参数供 Client 或 mixin 使用
-func WithRawOptions(m RawOptions) Option {
-	return func(c *Client) {
-		if c.rawOptions == nil {
-			c.rawOptions = make(RawOptions)
-		}
-		for k, v := range m {
-			c.rawOptions[k] = v
-		}
 	}
 }
 
