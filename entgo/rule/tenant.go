@@ -94,7 +94,31 @@ func (f TenantPrivacy[T]) EvalMutation(ctx context.Context, m ent.Mutation) erro
 	}
 
 	op := m.Op()
+
+	// 更新/删除：ent mutation 不支持注入行级谓词（生成的 mutation 无 AddPredicate），
+	// 行级租户过滤依赖查询侧 EvalQuery + 拦截器；此处至少阻断跨租户逃逸——
+	// 非平台上下文触碰 tenant_id 时，仅允许"值不变的冗余设置"（旧行、新值、
+	// 当前访问者三者同租户），把记录移到其他租户或改他租户记录一律拒绝。
 	if !op.Is(ent.OpCreate) {
+		if vc.IsPlatformContext() || vc.IsSystemContext() {
+			return nil
+		}
+		if val, set := m.Field("tenant_id"); set {
+			if old, ok := m.(interface {
+				OldTenantID(context.Context) (*T, error)
+			}); ok {
+				prev, err := old.OldTenantID(ctx)
+				if err != nil {
+					return fmt.Errorf("security: tenant rule cannot verify tenant_id change: %w", err)
+				}
+				viewerTid := fmt.Sprint(T(vc.TenantID()))
+				if prev == nil || fmt.Sprint(*prev) != fmt.Sprint(val) || viewerTid != fmt.Sprint(val) {
+					return fmt.Errorf("security: cross-tenant tenant_id change denied")
+				}
+			} else {
+				return fmt.Errorf("security: tenant rule cannot verify tenant_id change on %s", op)
+			}
+		}
 		return nil
 	}
 
@@ -136,13 +160,15 @@ func (f TenantPrivacy[T]) injectTenantWhere(query ent.Query, tenantID T) error {
 	rv := reflect.ValueOf(query)
 	mf := rv.MethodByName("Where")
 	if !mf.IsValid() || mf.Kind() != reflect.Func {
-		return nil
+		// fail-closed：反射注入失败时必须报错而非静默跳过，
+		// 否则租户过滤悄悄消失（ent 升级改签名即触发）。
+		return fmt.Errorf("security: tenant where-injection failed: query has no usable Where method (%T)", query)
 	}
 
 	mt := mf.Type()
 	// 期待形如 Where(...T) 且只有一个参数（变参）
 	if !mt.IsVariadic() || mt.NumIn() != 1 {
-		return nil
+		return fmt.Errorf("security: tenant where-injection failed: unexpected Where signature (%T)", query)
 	}
 
 	// mt.In(0) 是 slice 元素类型（可能为命名类型），取其 Elem
@@ -150,7 +176,7 @@ func (f TenantPrivacy[T]) injectTenantWhere(query ent.Query, tenantID T) error {
 	// 元素应为函数且第一个参数为 *sql.Selector
 	selPtrType := reflect.TypeOf((*sql.Selector)(nil))
 	if elem.Kind() != reflect.Func || elem.NumIn() < 1 || elem.In(0) != selPtrType {
-		return nil
+		return fmt.Errorf("security: tenant where-injection failed: unexpected predicate signature (%T)", query)
 	}
 
 	// 通用实现（原生类型 func(*sql.Selector)）

@@ -42,13 +42,14 @@ func injectTenantWhere(query ent.Query, tenantID uint64) error {
 	rv := reflect.ValueOf(query)
 	mf := rv.MethodByName("Where")
 	if !mf.IsValid() || mf.Kind() != reflect.Func {
-		return nil
+		// fail-closed：注入失败必须报错而非静默跳过，否则租户过滤悄悄消失。
+		return fmt.Errorf("security: tenant where-injection failed: query has no usable Where method (%T)", query)
 	}
 
 	mt := mf.Type()
 	// 期待形如 Where(...T) 且只有一个参数（变参）
 	if !mt.IsVariadic() || mt.NumIn() != 1 {
-		return nil
+		return fmt.Errorf("security: tenant where-injection failed: unexpected Where signature (%T)", query)
 	}
 
 	// mt.In(0) 是 slice 元素类型（可能为命名类型），取其 Elem
@@ -56,7 +57,7 @@ func injectTenantWhere(query ent.Query, tenantID uint64) error {
 	// 元素应为函数且第一个参数为 *sql.Selector
 	selPtrType := reflect.TypeOf((*sql.Selector)(nil))
 	if elem.Kind() != reflect.Func || elem.NumIn() < 1 || elem.In(0) != selPtrType {
-		return nil
+		return fmt.Errorf("security: tenant where-injection failed: unexpected predicate signature (%T)", query)
 	}
 
 	// 通用实现（原生类型 func(*sql.Selector)）

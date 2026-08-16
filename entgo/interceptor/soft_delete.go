@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"entgo.io/ent"
@@ -25,18 +26,20 @@ func injectSoftDeleteWhere(query ent.Query) error {
 	rv := reflect.ValueOf(query)
 	mf := rv.MethodByName("Where")
 	if !mf.IsValid() || mf.Kind() != reflect.Func {
-		return nil
+		// fail-closed：注入失败必须报错而非静默跳过，
+		// 否则 deleted_at 过滤悄悄消失、已删除数据被重新暴露。
+		return fmt.Errorf("security: soft-delete where-injection failed: query has no usable Where method (%T)", query)
 	}
 
 	mt := mf.Type()
 	if !mt.IsVariadic() || mt.NumIn() != 1 {
-		return nil
+		return fmt.Errorf("security: soft-delete where-injection failed: unexpected Where signature (%T)", query)
 	}
 
 	elem := mt.In(0).Elem()
 	selPtrType := reflect.TypeOf((*sql.Selector)(nil))
 	if elem.Kind() != reflect.Func || elem.NumIn() < 1 || elem.In(0) != selPtrType {
-		return nil
+		return fmt.Errorf("security: soft-delete where-injection failed: unexpected predicate signature (%T)", query)
 	}
 
 	fn := func(s *sql.Selector) {
