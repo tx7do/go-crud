@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/tx7do/go-wind-plugins/encoding"
 	_ "github.com/tx7do/go-wind-plugins/encoding/json"
@@ -66,48 +65,3 @@ func MergeOptions(mapping, settings string) (string, error) {
 	return string(bodyBytes), nil
 }
 
-func ParseQueryString(query string) []string {
-	codec := encoding.GetCodec("json")
-
-	var err error
-	queryMap := make(map[string]string)
-	if err = codec.Unmarshal([]byte(query), &queryMap); err == nil {
-		var queries []string
-		for k, v := range queryMap {
-			queries = append(queries, k+":"+v)
-		}
-		return queries
-	}
-
-	var queryMapArray []map[string]string
-	if err = codec.Unmarshal([]byte(query), &queryMapArray); err == nil {
-		var queries []string
-		for _, item := range queryMapArray {
-			for k, v := range item {
-				queries = append(queries, k+":"+v)
-			}
-		}
-		return queries
-	}
-
-	return nil
-}
-
-func MakeQueryString(andQuery, orQuery string) string {
-	a := ParseQueryString(andQuery)
-	o := ParseQueryString(orQuery)
-
-	if len(a) == 0 && len(o) == 0 {
-		return ""
-	}
-
-	if len(a) > 0 && len(o) == 0 {
-		return strings.Join(a, " AND ")
-	} else if len(a) == 0 && len(o) > 0 {
-		return strings.Join(o, " OR ")
-	} else if len(a) > 0 && len(o) > 0 {
-		return strings.Join(a, " AND ") + " AND (" + strings.Join(o, " OR ") + ")"
-	} else {
-		return strings.Join(a, " AND ") + " AND " + strings.Join(o, " OR ")
-	}
-}

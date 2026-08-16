@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -292,53 +291,6 @@ func TestMergeOptions(t *testing.T) {
 	assert.Nil(t, err)
 	//assert.Equal(t, expected, result)
 	t.Log(result)
-}
-
-func TestParseQueryString(t *testing.T) {
-	// 测试单个键值对的查询字符串
-	query := `{"name":"张三"}`
-	result := ParseQueryString(query)
-	assert.NotNil(t, result)
-	assert.Equal(t, []string{"name:张三"}, result)
-
-	// 测试多个键值对的查询字符串
-	query = `[{"name":"张三"},{"age":"23"}]`
-	result = ParseQueryString(query)
-	assert.NotNil(t, result)
-	assert.Equal(t, []string{"name:张三", "age:23"}, result)
-
-	t.Log(strings.Join(result, " AND "))
-
-	// 测试无效的查询字符串
-	query = `invalid`
-	result = ParseQueryString(query)
-	assert.Nil(t, result)
-}
-
-func TestMakeQueryString(t *testing.T) {
-	// 测试 AND 查询
-	andQuery := `{"name":"张三","age":"23"}`
-	orQuery := ``
-	result := MakeQueryString(andQuery, orQuery)
-	assert.Equal(t, "name:张三 AND age:23", result)
-
-	// 测试 OR 查询
-	andQuery = ``
-	orQuery = `[{"city":"北京"},{"country":"中国"}]`
-	result = MakeQueryString(andQuery, orQuery)
-	assert.Equal(t, "city:北京 OR country:中国", result)
-
-	// 测试 AND 和 OR 查询同时存在
-	andQuery = `{"name":"张三"}`
-	orQuery = `[{"city":"北京"},{"country":"中国"}]`
-	result = MakeQueryString(andQuery, orQuery)
-	assert.Equal(t, "name:张三 AND (city:北京 OR country:中国)", result)
-
-	// 测试空查询
-	andQuery = ``
-	orQuery = ``
-	result = MakeQueryString(andQuery, orQuery)
-	assert.Equal(t, "", result)
 }
 
 func TestSearchBySQLTo(t *testing.T) {
