@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/tx7do/go-wind-plugins/encoding"
@@ -231,36 +232,37 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) bsonV2.
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return bsonV2.M{key: bsonV2.M{"$regex": val}}
+		// 值转义为正则字面量：$regex 是 PCRE，原始值可全匹配（.*）或触发 ReDoS
+		return bsonV2.M{key: bsonV2.M{"$regex": regexp.QuoteMeta(val)}}
 	case paginationV1.Operator_ICONTAINS:
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return bsonV2.M{key: bsonV2.M{"$regex": val, "$options": "i"}}
+		return bsonV2.M{key: bsonV2.M{"$regex": regexp.QuoteMeta(val), "$options": "i"}}
 	case paginationV1.Operator_STARTS_WITH:
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return bsonV2.M{key: bsonV2.M{"$regex": "^" + val}}
+		return bsonV2.M{key: bsonV2.M{"$regex": "^" + regexp.QuoteMeta(val)}}
 	case paginationV1.Operator_ISTARTS_WITH:
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return bsonV2.M{key: bsonV2.M{"$regex": "^" + val, "$options": "i"}}
+		return bsonV2.M{key: bsonV2.M{"$regex": "^" + regexp.QuoteMeta(val), "$options": "i"}}
 	case paginationV1.Operator_ENDS_WITH:
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return bsonV2.M{key: bsonV2.M{"$regex": val + "$"}}
+		return bsonV2.M{key: bsonV2.M{"$regex": regexp.QuoteMeta(val) + "$"}}
 	case paginationV1.Operator_IENDS_WITH:
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return bsonV2.M{key: bsonV2.M{"$regex": val + "$", "$options": "i"}}
+		return bsonV2.M{key: bsonV2.M{"$regex": regexp.QuoteMeta(val) + "$", "$options": "i"}}
 	case paginationV1.Operator_EXACT:
 		return bsonV2.M{key: val}
 	case paginationV1.Operator_IEXACT:
-		return bsonV2.M{key: bsonV2.M{"$regex": "^" + val + "$", "$options": "i"}}
+		return bsonV2.M{key: bsonV2.M{"$regex": "^" + regexp.QuoteMeta(val) + "$", "$options": "i"}}
 	case paginationV1.Operator_REGEXP:
 		if strings.TrimSpace(val) == "" {
 			return nil
@@ -275,8 +277,8 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) bsonV2.
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		// fallback to regex contains
-		return bsonV2.M{key: bsonV2.M{"$regex": val}}
+		// fallback to regex contains（值转义为正则字面量）
+		return bsonV2.M{key: bsonV2.M{"$regex": regexp.QuoteMeta(val)}}
 	default:
 		// unknown operator -> fallback to equality if value present
 		if val != "" {
