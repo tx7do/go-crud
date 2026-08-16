@@ -19,9 +19,12 @@ func NewOffsetPaginator() *OffsetPaginator {
 }
 
 func (p *OffsetPaginator) BuildSelector(offset, limit int) func(*sql.Selector) {
+	// 注意参数顺序：WithOffset(offset).WithLimit(limit)。
+	// 此前两者写反（WithLimit(offset).WithOffset(limit)），导致 OFFSET/LIMIT 互换，
+	// offset 分页全部返回错误的页窗口。
 	p.impl.
-		WithLimit(offset).
-		WithOffset(limit)
+		WithOffset(offset).
+		WithLimit(limit)
 
 	return func(s *sql.Selector) {
 		s.
