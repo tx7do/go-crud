@@ -21,6 +21,7 @@ import (
 	paging "github.com/tx7do/go-crud/gorm/pagination"
 	"github.com/tx7do/go-crud/gorm/sorting"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
+	"github.com/tx7do/go-crud/pagination/paginator"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 )
 
@@ -206,6 +207,9 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, db *gorm.D
 		} else if req.Token != nil && req.Offset != nil {
 			pagingSelector = r.tokenPaginator.BuildDB(req.GetToken(), int(req.GetOffset()))
 		}
+	} else if paginator.NoPagingMaxLimit > 0 {
+		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
+		pagingSelector = r.offsetPaginator.BuildDB(0, paginator.NoPagingMaxLimit)
 	}
 
 	// 构造查询 DB 并应用 selectors

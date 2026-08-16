@@ -16,6 +16,7 @@ import (
 	"github.com/tx7do/go-crud/influxdb/sorting"
 
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
+	"github.com/tx7do/go-crud/pagination/paginator"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 )
 
@@ -109,6 +110,9 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 		} else if req.Token != nil && req.Offset != nil {
 			_ = r.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
 		}
+	} else if paginator.NoPagingMaxLimit > 0 {
+		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
+		_ = r.offsetPaginator.BuildClause(qb, 0, paginator.NoPagingMaxLimit)
 	}
 
 	// 计数

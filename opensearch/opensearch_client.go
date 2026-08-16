@@ -18,6 +18,7 @@ import (
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
+	"github.com/tx7do/go-crud/pagination/paginator"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 
 	"github.com/tx7do/go-crud/opensearch/field"
@@ -885,6 +886,9 @@ func (c *Client) Search(
 		} else if req.Token != nil && req.Offset != nil {
 			_ = c.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
 		}
+	} else if paginator.NoPagingMaxLimit > 0 {
+		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
+		_ = c.offsetPaginator.BuildClause(qb, 0, paginator.NoPagingMaxLimit)
 	}
 
 	body := qb.Build()
@@ -1193,6 +1197,9 @@ func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, r
 		} else if req.Token != nil && req.Offset != nil {
 			_ = c.tokenPaginator.BuildClause(qb, req.GetToken(), int(req.GetOffset()))
 		}
+	} else if paginator.NoPagingMaxLimit > 0 {
+		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
+		_ = c.offsetPaginator.BuildClause(qb, 0, paginator.NoPagingMaxLimit)
 	}
 
 	sql := qb.BuildSQL(indexName)
