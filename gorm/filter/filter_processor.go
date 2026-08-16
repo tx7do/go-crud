@@ -18,6 +18,29 @@ import (
 
 var jsonKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_\.]+$`)
 
+// identifierPattern 列名白名单：字母/下划线开头，仅含字母、数字、下划线。
+var identifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// jsonExprPattern 精确匹配 JsonbFieldExpr 可生成的两类 JSON 表达式：
+//   - postgres/sqlite: `col ->> 'key'`
+//   - mysql:           `JSON_EXTRACT(col, '$.key')`
+var jsonExprPattern = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]* ->> '[A-Za-z0-9_.]+'|JSON_EXTRACT\([A-Za-z_][A-Za-z0-9_]*, '\$\.[A-Za-z0-9_.]+'\))$`)
+
+// isValidIdentifier 校验列名是否为合法标识符（防止过滤字段名注入 SQL）。
+func isValidIdentifier(identifier string) bool {
+	return identifierPattern.MatchString(strings.TrimSpace(identifier))
+}
+
+// isValidFieldExpr 校验字段名是否为合法列名，或为 JsonbFieldExpr 生成的受信任 JSON 表达式。
+// 不合法时调用方必须拒绝该条件（fail-closed），不得透传进 SQL。
+func isValidFieldExpr(field string) bool {
+	f := strings.TrimSpace(field)
+	if f == "" {
+		return false
+	}
+	return identifierPattern.MatchString(f) || jsonExprPattern.MatchString(f)
+}
+
 // Processor 过滤处理器（GORM 版）
 type Processor struct {
 	codec encoding.Codec
@@ -92,6 +115,10 @@ func (poc Processor) Process(db *gorm.DB, op paginationV1.Operator, field, value
 
 // Equal 相等比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Equal(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -100,6 +127,10 @@ func (poc Processor) Equal(db *gorm.DB, field, value string) *gorm.DB {
 
 // NotEqual 不相等比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) NotEqual(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -109,6 +140,10 @@ func (poc Processor) NotEqual(db *gorm.DB, field, value string) *gorm.DB {
 
 // GTE 大于等于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) GTE(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -117,6 +152,10 @@ func (poc Processor) GTE(db *gorm.DB, field, value string) *gorm.DB {
 
 // GT 大于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) GT(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -125,6 +164,10 @@ func (poc Processor) GT(db *gorm.DB, field, value string) *gorm.DB {
 
 // LTE 小于等于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) LTE(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -133,6 +176,10 @@ func (poc Processor) LTE(db *gorm.DB, field, value string) *gorm.DB {
 
 // LT 小于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) LT(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -143,6 +190,10 @@ func (poc Processor) LT(db *gorm.DB, field, value string) *gorm.DB {
 
 // In 支持两种输入方式：1) value 作为 JSON 数组字符串；2) values 作为多个单值输入。空值不添加条件。
 func (poc Processor) In(db *gorm.DB, field, value string, values []string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if len(value) > 0 {
 		var jsonValues []any
 		if err := poc.codec.Unmarshal([]byte(value), &jsonValues); err == nil {
@@ -160,6 +211,10 @@ func (poc Processor) In(db *gorm.DB, field, value string, values []string) *gorm
 
 // NotIn 支持两种输入方式：1) value 作为 JSON 数组字符串；2) values 作为多个单值输入。空值不添加条件。
 func (poc Processor) NotIn(db *gorm.DB, field, value string, values []string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if len(value) > 0 {
 		var jsonValues []any
 		if err := poc.codec.Unmarshal([]byte(value), &jsonValues); err == nil {
@@ -179,6 +234,10 @@ func (poc Processor) NotIn(db *gorm.DB, field, value string, values []string) *g
 
 // Range 支持两种输入方式：1) value 作为 JSON 数组字符串，且必须包含两个元素；2) values 作为两个单值输入。空值不添加条件。
 func (poc Processor) Range(db *gorm.DB, field, value string, values []string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if len(value) > 0 {
 		var jsonValues []any
 		if err := poc.codec.Unmarshal([]byte(value), &jsonValues); err == nil {
@@ -197,11 +256,19 @@ func (poc Processor) Range(db *gorm.DB, field, value string, values []string) *g
 
 // IsNull IS NULL 判断
 func (poc Processor) IsNull(db *gorm.DB, field string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	return db.Where(fmt.Sprintf("%s IS NULL", field))
 }
 
 // IsNotNull IS NOT NULL 判断
 func (poc Processor) IsNotNull(db *gorm.DB, field string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	return db.Where(fmt.Sprintf("%s IS NOT NULL", field))
 }
 
@@ -209,6 +276,10 @@ func (poc Processor) IsNotNull(db *gorm.DB, field string) *gorm.DB {
 
 // Contains 使用 LIKE '%value%' 进行包含匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Contains(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -217,6 +288,10 @@ func (poc Processor) Contains(db *gorm.DB, field, value string) *gorm.DB {
 
 // InsensitiveContains 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的包含匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveContains(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -230,6 +305,10 @@ func (poc Processor) InsensitiveContains(db *gorm.DB, field, value string) *gorm
 
 // StartsWith 使用 LIKE 'value%' 进行前缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) StartsWith(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -238,6 +317,10 @@ func (poc Processor) StartsWith(db *gorm.DB, field, value string) *gorm.DB {
 
 // InsensitiveStartsWith 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的前缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveStartsWith(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -251,6 +334,10 @@ func (poc Processor) InsensitiveStartsWith(db *gorm.DB, field, value string) *go
 
 // EndsWith 使用 LIKE '%value' 进行后缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) EndsWith(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -259,6 +346,10 @@ func (poc Processor) EndsWith(db *gorm.DB, field, value string) *gorm.DB {
 
 // InsensitiveEndsWith 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的后缀匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveEndsWith(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -272,6 +363,10 @@ func (poc Processor) InsensitiveEndsWith(db *gorm.DB, field, value string) *gorm
 
 // Exact 使用等于比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Exact(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -281,6 +376,10 @@ func (poc Processor) Exact(db *gorm.DB, field, value string) *gorm.DB {
 
 // InsensitiveExact 使用 ILIKE（PostgreSQL）或 LOWER + LIKE（其他）进行大小写不敏感的精确匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveExact(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -296,6 +395,10 @@ func (poc Processor) InsensitiveExact(db *gorm.DB, field, value string) *gorm.DB
 
 // Regex 根据不同数据库使用正则表达式进行匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) Regex(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -314,6 +417,10 @@ func (poc Processor) Regex(db *gorm.DB, field, value string) *gorm.DB {
 
 // InsensitiveRegex 根据不同数据库使用正则表达式进行大小写不敏感的匹配，空值不添加条件（与 ent 的 EmptyBehavior 类似）
 func (poc Processor) InsensitiveRegex(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -337,6 +444,10 @@ func (poc Processor) InsensitiveRegex(db *gorm.DB, field, value string) *gorm.DB
 
 // Search 根据不同数据库实现全文搜索
 func (poc Processor) Search(db *gorm.DB, field, value string) *gorm.DB {
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
