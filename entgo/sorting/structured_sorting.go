@@ -39,6 +39,11 @@ func (ss StructuredSorting) BuildSelector(orders []*paginationV1.Sorting) (func(
 			if order == nil || order.GetField() == "" {
 				continue
 			}
+			// 硬性标识符校验（先于列白名单）：白名单对未注册表 fail-open，
+			// 含 SQL 元字符的排序字段必须无条件拒绝，防止 ent Ident 原样写入。
+			if !ent.IsValidFieldName(order.GetField()) {
+				continue
+			}
 			// 字段白名单：仅允许属于当前表（s.TableName()）的真实列，拒绝跨列访问。
 			if !columnAllowed(s.TableName(), order.GetField()) {
 				continue
@@ -56,7 +61,10 @@ func (ss StructuredSorting) BuildSelector(orders []*paginationV1.Sorting) (func(
 func (ss StructuredSorting) BuildSelectorWithDefaultField(orders []*paginationV1.Sorting, defaultOrderField string, defaultDesc bool) (func(s *sql.Selector), error) {
 	if len(orders) == 0 && defaultOrderField != "" {
 		return func(s *sql.Selector) {
-			// 默认排序字段同样需通过白名单校验。
+			// 默认排序字段同样需通过硬性标识符与白名单校验。
+			if !ent.IsValidFieldName(defaultOrderField) {
+				return
+			}
 			if !columnAllowed(s.TableName(), defaultOrderField) {
 				return
 			}

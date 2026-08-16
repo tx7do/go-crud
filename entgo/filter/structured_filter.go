@@ -185,6 +185,12 @@ func (sf StructuredFilter) getField(s *sql.Selector, condition *paginationV1.Fil
 	if condition == nil {
 		return ""
 	}
+	// 硬性标识符校验（先于列白名单）：列白名单对未注册表 fail-open，而 ent 的
+	// Builder.Ident 会把含括号/引号/AS 的字符串原样写入 SQL，因此含元字符的字段
+	// 必须无条件拒绝，防止 FilterCondition.Field 注入（返回空串 → 调用方跳过该条件）。
+	if !ent.IsValidFieldName(condition.GetField()) {
+		return ""
+	}
 	if condition.GetJsonPath() != "" {
 		// JSONB 容器列也必须通过白名单校验。
 		if !columnAllowed(s.TableName(), condition.GetField()) {
