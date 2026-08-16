@@ -142,7 +142,9 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) map[str
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return map[string]any{"wildcard": map[string]any{key: "*" + val}}
+		// 值内的 * ? 通配符转义为字面量，仅保留前缀 * 的"以…结尾"语义，
+		// 防止客户端通过通配符加宽匹配到任意文档。
+		return map[string]any{"wildcard": map[string]any{key: "*" + escapeWildcard(val)}}
 	case paginationV1.Operator_EXACT, paginationV1.Operator_IEXACT:
 		return map[string]any{"term": map[string]any{key: val}}
 	case paginationV1.Operator_REGEXP, paginationV1.Operator_IREGEXP:
@@ -154,7 +156,9 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) map[str
 		if strings.TrimSpace(val) == "" {
 			return nil
 		}
-		return map[string]any{"query_string": map[string]any{"query": val}}
+		// 值转义为引号字面量：query_string 是 Lucene DSL，原始值可注入
+		// OR/AND/字段名/通配符改变查询结构（与 elasticsearch 模块一致的防注入）。
+		return map[string]any{"query_string": map[string]any{"query": escapeQueryValue(val)}}
 	default:
 		if val != "" {
 			return map[string]any{"term": map[string]any{key: val}}
