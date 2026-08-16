@@ -10,6 +10,8 @@ import (
 	"github.com/tx7do/go-wind-plugins/encoding"
 	_ "github.com/tx7do/go-wind-plugins/encoding/json"
 	"github.com/tx7do/go-wind/log"
+
+	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 )
 
 // ParseErrorMessage 解析 Elasticsearch 错误消息
@@ -64,6 +66,35 @@ func MergeOptions(mapping, settings string) (string, error) {
 	}
 
 	return string(bodyBytes), nil
+}
+
+// MaxPageSize 是分页每页条数的硬上限，与 Elasticsearch index.max_result_window
+// 的默认值（10000）一致，防止客户端超大 page_size 造成 DoS。
+const MaxPageSize = 10000
+
+// DefaultPageSize 是未指定 page size 时的默认值。
+const DefaultPageSize = 20
+
+// ClampPageSize 将 page size 规整到 [1, MaxPageSize]；0 或未指定时取默认值。
+func ClampPageSize(size uint32) int {
+	switch {
+	case size == 0:
+		return DefaultPageSize
+	case size > MaxPageSize:
+		return MaxPageSize
+	default:
+		return int(size)
+	}
+}
+
+// BuildSearchQuery 将 PagingRequest.query（JSON 对象或对象数组的查询串）
+// 转换为 Elasticsearch query_string DSL（如 "field1:value1 AND field2:value2"）。
+// 解析失败（空/非法 JSON）返回空串（match_all），与底层 search 的空查询语义一致。
+func BuildSearchQuery(req *paginationV1.PagingRequest) string {
+	if req == nil {
+		return ""
+	}
+	return MakeQueryString(req.GetQuery(), "")
 }
 
 func ParseQueryString(query string) []string {

@@ -842,17 +842,16 @@ func (c *Client) Search(
 	indexName string,
 	req *paginationV1.PagingRequest,
 ) (*SearchResult, error) {
-	var query string
-	ParseQueryString(req.GetQuery())
+	// 此前 ParseQueryString 的返回值被丢弃、query 恒为空串，导致 Search 恒为
+	// match_all（客户端过滤条件静默失效、全索引返回）。现在把请求中的 query
+	// 真正接入查询，并对 page size 施加上限。
+	query := BuildSearchQuery(req)
 
 	sortBy := make(map[string]bool)
 
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20 // Default page size
-	}
+	pageSize := ClampPageSize(req.GetPageSize())
 
-	return c.search(ctx, indexName, query, nil, sortBy, int(req.GetPage()), int(pageSize))
+	return c.search(ctx, indexName, query, nil, sortBy, int(req.GetPage()), pageSize)
 }
 
 // search 查询数据
