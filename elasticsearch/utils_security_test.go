@@ -10,20 +10,35 @@ import (
 // TestBuildSearchQuery_Wiring 验证 Search 的 query 真正来自请求
 // （此前 ParseQueryString 返回值被丢弃，Search 恒为 match_all）。
 func TestBuildSearchQuery_Wiring(t *testing.T) {
-	// JSON 对象
+	// JSON 对象（值为带引号字面量）
 	q := BuildSearchQuery(&paginationV1.PagingRequest{
 		FilteringType: &paginationV1.PagingRequest_Query{Query: `{"status":"active"}`},
 	})
-	if q != "status:active" {
-		t.Errorf("object query: got %q, want %q", q, "status:active")
+	if q != `status:"active"` {
+		t.Errorf("object query: got %q, want %q", q, `status:"active"`)
 	}
 
 	// JSON 对象数组：多条件 AND 连接（顺序无关断言）
 	q = BuildSearchQuery(&paginationV1.PagingRequest{
 		FilteringType: &paginationV1.PagingRequest_Query{Query: `[{"a":"1"},{"b":"2"}]`},
 	})
-	if !strings.Contains(q, "a:1") || !strings.Contains(q, "b:2") || !strings.Contains(q, " AND ") {
+	if !strings.Contains(q, `a:"1"`) || !strings.Contains(q, `b:"2"`) || !strings.Contains(q, " AND ") {
 		t.Errorf("array query: got %q", q)
+	}
+
+	// DSL 注入载荷：值中的语法字符被引号字面量化，无法改变查询结构
+	q = BuildSearchQuery(&paginationV1.PagingRequest{
+		FilteringType: &paginationV1.PagingRequest_Query{Query: `{"a":"x OR admin_field:1"}`},
+	})
+	if q != `a:"x OR admin_field:1"` {
+		t.Errorf("hostile value must be quoted literal, got %q", q)
+	}
+	// 非法键（含元字符）整条丢弃
+	q = BuildSearchQuery(&paginationV1.PagingRequest{
+		FilteringType: &paginationV1.PagingRequest_Query{Query: `{"a(b":"1","c":"2"}`},
+	})
+	if strings.Contains(q, "a(b") || !strings.Contains(q, `c:"2"`) {
+		t.Errorf("hostile key must be dropped, got %q", q)
 	}
 
 	// 非法/空输入 → 空串（match_all）
