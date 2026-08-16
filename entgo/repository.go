@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"github.com/redis/go-redis/v9"
 	"github.com/tx7do/go-wind/log"
 
 	"github.com/tx7do/go-utils/fieldmaskutil"
@@ -25,6 +26,7 @@ import (
 	"github.com/tx7do/go-crud/entgo/update"
 	paginationCurd "github.com/tx7do/go-crud/pagination"
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
+	"github.com/tx7do/go-crud/pagination/paginator"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 )
 
@@ -54,6 +56,9 @@ type Repository[
 	cacheKeyPrefix     string        // 缓存 key 前缀，如 "user:"
 	cacheTTL           time.Duration // 单条缓存 TTL
 	cacheListTTL       time.Duration // 列表缓存 TTL（通常更短）
+
+	// cacheRedisClient 用于写操作后按模式失效缓存（单条 key 含 userID 维度，需跨用户清除）
+	cacheRedisClient *redis.Client
 }
 
 func NewRepository[
@@ -380,6 +385,9 @@ func (r *Repository[
 		} else if req.Token != nil && req.Offset != nil {
 			pagingSelector = r.tokenPaginator.BuildSelector(req.GetToken(), int(req.GetOffset()))
 		}
+	} else if paginator.NoPagingMaxLimit > 0 {
+		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
+		pagingSelector = r.offsetPaginator.BuildSelector(0, paginator.NoPagingMaxLimit)
 	}
 	if pagingSelector != nil {
 		querySelectors = append(querySelectors, pagingSelector)
