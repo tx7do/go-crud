@@ -195,7 +195,7 @@ func TestNewProcessor_UsesJSONCodec(t *testing.T) {
 		t.Fatalf("NewProcessor returned nil or missing codec")
 	}
 	// codec 能解析基本 JSON
-	var arr []interface{}
+	var arr []any
 	if err := proc.codec.Unmarshal([]byte(`["a","b"]`), &arr); err != nil {
 		t.Fatalf("codec.Unmarshal failed: %v", err)
 	}

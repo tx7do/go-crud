@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/tx7do/go-utils/mapper"
 	"github.com/tx7do/go-utils/trans"
+	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
@@ -30,7 +30,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	client := createTestClient(t)
 	assert.NotNil(t, client)
 
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
 	t.Run("ListWithPaging_client is nil", func(t *testing.T) {
@@ -116,7 +116,7 @@ func TestRepository_Candle_CRUD(t *testing.T) {
 	// 建表（假定 helper 已存在并创建 name 为 "candles" 的表）
 	createCandlesTable(client)
 
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	candleMapper := mapper.NewCopierMapper[Candle, Candle]()
 
 	repo := NewRepository[Candle, Candle](client, candleMapper, "candles", logger)
@@ -200,7 +200,7 @@ func TestRepository_Candle_ListWithPaging(t *testing.T) {
 	// 确保存在 candles 表并清空
 	createCandlesTable(client)
 
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	candleMapper := mapper.NewCopierMapper[Candle, Candle]()
 	repo := NewRepository[Candle, Candle](client, candleMapper, "candles", logger)
 	assert.NotNil(t, repo)

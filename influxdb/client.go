@@ -2,16 +2,14 @@ package influxdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 )
 
 type Client struct {
-	cli *influxdb3.Client
-
-	log *log.Helper
-
+	cli     *influxdb3.Client
 	options *influxdb3.ClientConfig
 }
 
@@ -23,11 +21,6 @@ func NewClient(opts ...Option) (*Client, error) {
 	for _, o := range opts {
 		o(c)
 	}
-
-	if c.log == nil {
-		c.log = log.NewHelper(log.DefaultLogger)
-	}
-
 	if err := c.createInfluxdbClient(c.options); err != nil {
 		return nil, err
 	}
@@ -39,7 +32,7 @@ func NewClient(opts ...Option) (*Client, error) {
 func (c *Client) createInfluxdbClient(opt *influxdb3.ClientConfig) error {
 	client, err := influxdb3.New(*opt)
 	if err != nil {
-		c.log.Errorf("failed to create influxdb client: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create influxdb client: %v", err))
 		return err
 	}
 
@@ -51,14 +44,14 @@ func (c *Client) createInfluxdbClient(opt *influxdb3.ClientConfig) error {
 // Close 关闭InfluxDB客户端
 func (c *Client) Close() {
 	if c.cli == nil {
-		c.log.Warn("influxdb client is nil, nothing to close")
+		log.Warn(context.Background(), "influxdb client is nil, nothing to close")
 		return
 	}
 
 	if err := c.cli.Close(); err != nil {
-		c.log.Errorf("failed to close influxdb client: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to close influxdb client: %v", err))
 	} else {
-		c.log.Info("influxdb client closed successfully")
+		log.Info(context.Background(), "influxdb client closed successfully")
 		c.cli = nil
 	}
 }
@@ -66,12 +59,12 @@ func (c *Client) Close() {
 // ServerVersion 获取InfluxDB服务器版本
 func (c *Client) ServerVersion() string {
 	if c.cli == nil {
-		c.log.Warn("influxdb client is nil, cannot get server version")
+		log.Warn(context.Background(), "influxdb client is nil, cannot get server version")
 		return ""
 	}
 	ver, err := c.cli.GetServerVersion()
 	if err != nil {
-		c.log.Errorf("failed to get server version: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to get server version: %v", err))
 		return ""
 	}
 	return ver
@@ -85,7 +78,7 @@ func (c *Client) Query(ctx context.Context, query string) (*influxdb3.QueryItera
 
 	result, err := c.ExecInfluxQLQuery(ctx, query)
 	if err != nil {
-		c.log.Errorf("failed to query data: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to query data: %v", err))
 		return nil, ErrInfluxDBQueryFailed
 	}
 
@@ -96,7 +89,7 @@ func (c *Client) Query(ctx context.Context, query string) (*influxdb3.QueryItera
 func (c *Client) QueryWithParams(
 	ctx context.Context,
 	table string,
-	filters map[string]interface{},
+	filters map[string]any,
 	operators map[string]string,
 	fields []string,
 ) (*influxdb3.QueryIterator, error) {
@@ -108,7 +101,7 @@ func (c *Client) QueryWithParams(
 
 	result, err := c.ExecInfluxQLQuery(ctx, query)
 	if err != nil {
-		c.log.Errorf("failed to query data: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to query data: %v", err))
 		return nil, ErrInfluxDBQueryFailed
 	}
 
@@ -127,7 +120,7 @@ func (c *Client) Insert(ctx context.Context, point *influxdb3.Point) error {
 
 	points := []*influxdb3.Point{point}
 	if err := c.WritePointsStrict(ctx, points); err != nil {
-		c.log.Errorf("failed to insert data: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to insert data: %v", err))
 		return ErrInsertFailed
 	}
 
@@ -145,7 +138,7 @@ func (c *Client) BatchInsert(ctx context.Context, points []*influxdb3.Point) err
 	}
 
 	if err := c.WritePointsStrict(ctx, points); err != nil {
-		c.log.Errorf("failed to batch insert data: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to batch insert data: %v", err))
 		return ErrBatchInsertFailed
 	}
 
@@ -173,7 +166,7 @@ func (c *Client) Count(ctx context.Context, query string) (int64, error) {
 		}
 	}
 	if err = it.Err(); err != nil {
-		c.log.Errorf("query iterator error: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("query iterator error: %v", err))
 		return 0, ErrInfluxDBQueryFailed
 	}
 	// 未读到记录时返回 0
@@ -188,7 +181,7 @@ func (c *Client) Exist(ctx context.Context, query string) (bool, error) {
 
 	it, err := c.ExecInfluxQLQuery(ctx, query)
 	if err != nil {
-		c.log.Errorf("failed to exec exist query: %v, query: %s", err, query)
+		log.Error(context.Background(), fmt.Sprintf("failed to exec exist query: %v, query: %s", err, query))
 		return false, ErrInfluxDBQueryFailed
 	}
 
@@ -198,7 +191,7 @@ func (c *Client) Exist(ctx context.Context, query string) (bool, error) {
 	}
 
 	if err = it.Err(); err != nil {
-		c.log.Errorf("query iterator error: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("query iterator error: %v", err))
 		return false, ErrInfluxDBQueryFailed
 	}
 
@@ -214,7 +207,7 @@ func (c *Client) ExecInfluxQLQuery(ctx context.Context, query string, opts ...in
 	finalOpts := append([]influxdb3.QueryOption{influxdb3.WithQueryType(influxdb3.InfluxQL)}, opts...)
 	it, err := c.cli.Query(ctx, query, finalOpts...)
 	if err != nil {
-		c.log.Errorf("failed to exec InfluxQL query: %v, query: %s", err, query)
+		log.Error(context.Background(), fmt.Sprintf("failed to exec InfluxQL query: %v, query: %s", err, query))
 		return nil, ErrInfluxDBQueryFailed
 	}
 
@@ -230,7 +223,7 @@ func (c *Client) ExecSQLQuery(ctx context.Context, query string, opts ...influxd
 	finalOpts := append([]influxdb3.QueryOption{influxdb3.WithQueryType(influxdb3.SQL)}, opts...)
 	it, err := c.cli.Query(ctx, query, finalOpts...)
 	if err != nil {
-		c.log.Errorf("failed to exec SQL query: %v, query: %s", err, query)
+		log.Error(context.Background(), fmt.Sprintf("failed to exec SQL query: %v, query: %s", err, query))
 		return nil, ErrInfluxDBQueryFailed
 	}
 
@@ -246,7 +239,7 @@ func (c *Client) WritePointsStrict(ctx context.Context, points []*influxdb3.Poin
 		return nil
 	}
 	if err := c.cli.WritePoints(ctx, points); err != nil {
-		c.log.Errorf("failed to write points: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to write points: %v", err))
 		return ErrBatchInsertFailed
 	}
 	return nil

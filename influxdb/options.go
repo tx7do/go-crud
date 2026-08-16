@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
-	"github.com/tx7do/go-crud/log"
 )
 
 type Option func(o *Client)
@@ -46,12 +45,6 @@ func WithDatabase(database string) Option {
 func WithTLSConfig(tlsConfig *tls.Config) Option {
 	return func(o *Client) {
 		//o.options.TLS = tlsConfig
-	}
-}
-
-func WithLogger(logger log.Logger) Option {
-	return func(o *Client) {
-		o.log = log.NewHelper(log.With(logger, "module", "influxdb-client"))
 	}
 }
 

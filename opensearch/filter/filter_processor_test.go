@@ -74,7 +74,7 @@ func TestProcessor_BuildOpenSearchQuery_AND_OR(t *testing.T) {
 	}
 	q := proc.BuildOpenSearchQuery(andExpr)
 	assert.NotNil(t, q)
-	boolQ := q["bool"].(map[string]interface{})
+	boolQ := q["bool"].(map[string]any)
 	assert.Len(t, boolQ["must"], 2)
 	// OR
 	orExpr := &paginationV1.FilterExpr{
@@ -86,7 +86,7 @@ func TestProcessor_BuildOpenSearchQuery_AND_OR(t *testing.T) {
 	}
 	q2 := proc.BuildOpenSearchQuery(orExpr)
 	assert.NotNil(t, q2)
-	boolQ2 := q2["bool"].(map[string]interface{})
+	boolQ2 := q2["bool"].(map[string]any)
 	assert.Len(t, boolQ2["should"], 2)
 }
 

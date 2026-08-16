@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.30.0"
 	"go.opentelemetry.io/otel/trace"
@@ -16,8 +16,8 @@ import (
 type Option func(*Client)
 
 type Mixin func(*gorm.DB) error
-type GetMigrateModelsFunc func() []interface{}
-type RawOptions map[string]interface{}
+type GetMigrateModelsFunc func() []any
+type RawOptions map[string]any
 
 func WithGormDB(db *gorm.DB) Option {
 	return func(c *Client) {
@@ -90,7 +90,7 @@ func WithMixins(ms ...Mixin) Option {
 }
 
 // WithAutoMigrate 将 AutoMigrate 封装为 mixin，在 NewClient 时自动执行
-func WithAutoMigrate(models ...interface{}) Option {
+func WithAutoMigrate(models ...any) Option {
 	return func(c *Client) {
 		c.mixins = append(c.mixins, func(db *gorm.DB) error {
 			return db.AutoMigrate(models...)
@@ -105,7 +105,7 @@ func WithGetMigrateModels(fn GetMigrateModelsFunc) Option {
 	}
 }
 
-func WithLogger(l *log.Helper) Option {
+func WithLogger(l log.Logger) Option {
 	return func(c *Client) {
 		c.gormCfg.Logger = NewGormLogger(l)
 	}
@@ -119,7 +119,7 @@ func WithContext(ctx context.Context) Option {
 }
 
 // WithConfigStruct 注入任意配置结构体（例如从 config 解码后的结构）
-func WithConfigStruct(cfg interface{}) Option {
+func WithConfigStruct(cfg any) Option {
 	return func(c *Client) {
 		c.cfgStruct = cfg
 	}

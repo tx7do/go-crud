@@ -2,10 +2,11 @@ package gorm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -25,24 +26,77 @@ import (
 	"gorm.io/plugin/dbresolver"
 )
 
-type gormLoggerWriter struct {
-	helper *log.Helper
+type gormLogger struct {
+	cfg logger.Config
 }
 
-func (w gormLoggerWriter) Printf(format string, args ...interface{}) {
-	w.helper.Debugf(format, args...)
-}
+func NewGormLogger(l log.Logger) logger.Interface {
+	if l != nil {
+		log.SetLogger(l.With("module", "gorm"))
+	}
 
-func NewGormLogger(l *log.Helper) logger.Interface {
-	w := gormLoggerWriter{helper: l}
-	return logger.New(
-		w,
-		logger.Config{
-			SlowThreshold: time.Millisecond * 100, // 慢 SQL 阈值（超过 100ms 标为慢 SQL）
-			LogLevel:      logger.Info,            // 核心：Info 级别会打印所有 SQL
-			Colorful:      true,                   // 终端彩色输出（文件输出需关闭）
+	return &gormLogger{
+		cfg: logger.Config{
+			SlowThreshold:             100 * time.Millisecond,
+			LogLevel:                  logger.Info,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  false,
 		},
-	)
+	}
+}
+
+func (l *gormLogger) LogMode(level logger.LogLevel) logger.Interface {
+	clone := *l
+	clone.cfg.LogLevel = level
+	return &clone
+}
+
+func (l *gormLogger) Info(ctx context.Context, msg string, data ...any) {
+	if l.cfg.LogLevel < logger.Info {
+		return
+	}
+	log.Info(ctx, fmt.Sprintf(msg, data...))
+}
+
+func (l *gormLogger) Warn(ctx context.Context, msg string, data ...any) {
+	if l.cfg.LogLevel < logger.Warn {
+		return
+	}
+	log.Warn(ctx, fmt.Sprintf(msg, data...))
+}
+
+func (l *gormLogger) Error(ctx context.Context, msg string, data ...any) {
+	if l.cfg.LogLevel < logger.Error {
+		return
+	}
+	log.Error(ctx, fmt.Sprintf(msg, data...))
+}
+
+func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+	if l.cfg.LogLevel == logger.Silent {
+		return
+	}
+
+	elapsed := time.Since(begin)
+	sql, rows := fc()
+	base := fmt.Sprintf("elapsed=%s rows=%d sql=%s", elapsed, rows, sql)
+
+	if err != nil && l.cfg.LogLevel >= logger.Error {
+		if errors.Is(err, gorm.ErrRecordNotFound) && l.cfg.IgnoreRecordNotFoundError {
+			return
+		}
+		log.Error(ctx, fmt.Sprintf("[GORM] %s err=%v", base, err))
+		return
+	}
+
+	if l.cfg.SlowThreshold > 0 && elapsed > l.cfg.SlowThreshold && l.cfg.LogLevel >= logger.Warn {
+		log.Warn(ctx, fmt.Sprintf("[GORM][SLOW] %s threshold=%s", base, l.cfg.SlowThreshold))
+		return
+	}
+
+	if l.cfg.LogLevel >= logger.Info {
+		log.Info(ctx, fmt.Sprintf("[GORM] %s", base))
+	}
 }
 
 // Client GORM 客户端
@@ -59,11 +113,11 @@ type Client struct {
 	enableMetrics    bool
 	enableDbResolver bool
 
-	migrateModels    []interface{}
+	migrateModels    []any
 	getMigrateModels GetMigrateModelsFunc
 
 	gormCfg   *gorm.Config
-	cfgStruct interface{}
+	cfgStruct any
 	mixins    []Mixin
 
 	ctx       context.Context
@@ -77,7 +131,7 @@ type Client struct {
 	rawOptions RawOptions
 
 	// logger helper
-	logger *log.Helper
+	logger log.Logger
 
 	prometheusConfig prometheus.Config
 	tracingOption    []tracing.Option
@@ -157,8 +211,8 @@ func (c *Client) Use(m Mixin) {
 	c.mixins = append(c.mixins, m)
 }
 
-func (c *Client) resolveMigrateModels() []interface{} {
-	var out []interface{}
+func (c *Client) resolveMigrateModels() []any {
+	var out []any
 
 	// 已注册的模型（全局注册函数）
 	if regs := getRegisteredMigrateModels(); len(regs) > 0 {

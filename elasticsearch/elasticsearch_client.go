@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 
 	elasticsearchV9 "github.com/elastic/go-elasticsearch/v9"
 	esapiV9 "github.com/elastic/go-elasticsearch/v9/esapi"
@@ -26,14 +26,10 @@ type Client struct {
 		username, password string
 		haveUser, havePass bool
 	}
-
-	log *log.Helper
 }
 
 func NewElasticsearchClient(opts ...Option) (*Client, error) {
-	c := &Client{
-		log: log.NewHelper(log.DefaultLogger),
-	}
+	c := &Client{}
 
 	for _, o := range opts {
 		o(c)
@@ -52,7 +48,7 @@ func NewElasticsearchClient(opts ...Option) (*Client, error) {
 
 	cli, err := elasticsearchV9.New(c.esOpts...)
 	if err != nil {
-		c.log.Errorf("failed to create elasticsearch client: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create elasticsearch client: %v", err))
 		return nil, err
 	}
 
@@ -70,28 +66,28 @@ func (c *Client) CheckConnectStatus() bool {
 
 	resp, err := c.Client.Info()
 	if err != nil {
-		c.log.Errorf("failed to connect to elasticsearch: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to connect to elasticsearch: %v", err))
 		return false
 	}
 	defer func(Body io.ReadCloser) {
 		if err = Body.Close(); err != nil {
-			c.log.Errorf("failed to close response body: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to close response body: %v", err))
 		}
 	}(resp.Body)
 
 	if resp.IsError() {
-		c.log.Errorf("Error: %s", resp.String())
+		log.Error(context.Background(), fmt.Sprintf("Error: %s", resp.String()))
 		return false
 	}
 
 	var r map[string]any
 	if err = json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		log.Fatalf("Error parsing the response body: %s", err)
+		log.Error(context.Background(), fmt.Sprintf("Error parsing the response body: %s", err))
 		return false
 	}
 
-	c.log.Infof("Client Version: %s", elasticsearchV9.Version)
-	c.log.Infof("Server Version: %s", r["version"].(map[string]any)["number"])
+	log.Info(context.Background(), fmt.Sprintf("Client Version: %s", elasticsearchV9.Version))
+	log.Info(context.Background(), fmt.Sprintf("Server Version: %s", r["version"].(map[string]any)["number"]))
 
 	return true
 }
@@ -103,7 +99,7 @@ func (c *Client) IndexExists(ctx context.Context, indexName string) (bool, error
 		c.Client.Indices.Exists.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to check if index exists: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to check if index exists: %v", err))
 		return false, err
 	}
 
@@ -124,7 +120,7 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 
 	body, err := MergeOptions(mapping, settings)
 	if err != nil {
-		c.log.Errorf("failed to merge options: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to merge options: %v", err))
 		return err
 	}
 
@@ -134,18 +130,18 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 		c.Client.Indices.Create.WithBody(bytes.NewReader([]byte(body))),
 	)
 	if err != nil {
-		c.log.Errorf("failed to create index: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create index: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
 
-		c.log.Errorf("create index failed: %s", errResp.Error)
+		log.Error(context.Background(), fmt.Sprintf("create index failed: %s", errResp.Error))
 
 		return ErrCreateIndex
 	}
@@ -157,7 +153,7 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 	exist, err := c.IndexExists(ctx, indexName)
 	if err != nil {
-		c.log.Errorf("failed to check if index exists: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to check if index exists: %v", err))
 		return err
 	}
 	if !exist {
@@ -169,18 +165,18 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 		c.Client.Indices.Delete.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to delete index: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete index: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
 
-		c.log.Errorf("delete index failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("delete index failed: %s", errResp.Error.Reason))
 
 		return ErrDeleteIndex
 	}
@@ -195,7 +191,7 @@ func (c *Client) DeleteDocument(ctx context.Context, indexName, id string) error
 		c.Client.Delete.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to delete document: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete document: %v", err))
 		return err
 	}
 	return nil
@@ -208,7 +204,7 @@ func (c *Client) InsertDocument(ctx context.Context, indexName, id string, data 
 	var dataBytes []byte
 	dataBytes, err = json.Marshal(data)
 	if err != nil {
-		c.log.Errorf("failed to marshal data: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to marshal data: %v", err))
 		return err
 	}
 
@@ -224,7 +220,7 @@ func (c *Client) InsertDocument(ctx context.Context, indexName, id string, data 
 
 	resp, err = c.Client.Index(indexName, bytes.NewReader(dataBytes), opts...)
 	if err != nil {
-		c.log.Errorf("failed to call Index API: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to call Index API: %v", err))
 		return err
 	}
 	defer resp.Body.Close()
@@ -232,7 +228,7 @@ func (c *Client) InsertDocument(ctx context.Context, indexName, id string, data 
 	if resp.IsError() {
 		// 读取并解析错误（避免重复读取 Body）
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("insert document failed [%d]: %s", resp.StatusCode, string(bodyBytes))
+		log.Error(context.Background(), fmt.Sprintf("insert document failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
 
 		// 可选：区分 400/409 等不同错误类型
 		if resp.StatusCode == 409 {
@@ -256,7 +252,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 	// 批次大小限制：避免 OOM（建议 500~2000 条/批）
 	const maxBatchSize = 1000
 	if len(dataSet) > maxBatchSize {
-		c.log.Warnf("batch size %d exceeds limit %d, splitting into chunks", len(dataSet), maxBatchSize)
+		log.Warn(context.Background(), fmt.Sprintf("batch size %d exceeds limit %d, splitting into chunks", len(dataSet), maxBatchSize))
 		for i := 0; i < len(dataSet); i += maxBatchSize {
 			end := i + maxBatchSize
 			if end > len(dataSet) {
@@ -278,22 +274,22 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 
 	for i, data := range dataSet {
 		// 构建 metadata：指定 _id 实现幂等
-		var meta map[string]interface{}
+		var meta map[string]any
 		if len(ids) > 0 && i < len(ids) && ids[i] != "" {
-			meta = map[string]interface{}{
-				"index": map[string]interface{}{
+			meta = map[string]any{
+				"index": map[string]any{
 					"_id": ids[i],
 				},
 			}
 		} else {
-			meta = map[string]interface{}{
-				"index": map[string]interface{}{}, // 无 ID 则让 ES 自动生成（不推荐）
+			meta = map[string]any{
+				"index": map[string]any{}, // 无 ID 则让 ES 自动生成（不推荐）
 			}
 		}
 
 		metaBytes, err := json.Marshal(meta)
 		if err != nil {
-			c.log.Errorf("failed to marshal meta for item %d: %v", i, err)
+			log.Error(context.Background(), fmt.Sprintf("failed to marshal meta for item %d: %v", i, err))
 			failedCount++
 			continue
 		}
@@ -301,7 +297,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 
 		dataBytes, err := json.Marshal(data)
 		if err != nil {
-			c.log.Errorf("failed to marshal data for item %d: %v", i, err)
+			log.Error(context.Background(), fmt.Sprintf("failed to marshal data for item %d: %v", i, err))
 			failedCount++
 			continue
 		}
@@ -324,13 +320,13 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 		c.Client.Bulk.WithRefresh("wait_for"), // 可选：确保写入后可立即搜索
 	)
 	if err != nil {
-		c.log.Errorf("failed to call Bulk API: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to call Bulk API: %v", err))
 		return err
 	}
 
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			c.log.Warnf("failed to close bulk response body: %v", closeErr)
+			log.Warn(context.Background(), fmt.Sprintf("failed to close bulk response body: %v", closeErr))
 		}
 	}()
 
@@ -338,9 +334,9 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 		// 读取 Body（只能读一次）
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			c.log.Errorf("bulk API error [%d], failed to read body: %v", resp.StatusCode, readErr)
+			log.Error(context.Background(), fmt.Sprintf("bulk API error [%d], failed to read body: %v", resp.StatusCode, readErr))
 		} else {
-			c.log.Errorf("bulk API error [%d]: %s", resp.StatusCode, string(bodyBytes))
+			log.Error(context.Background(), fmt.Sprintf("bulk API error [%d]: %s", resp.StatusCode, string(bodyBytes)))
 		}
 		return ErrBatchInsertDocument
 	}
@@ -361,7 +357,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 	// 重新读取 Body（上面已读完，需重置或使用副本）
 	// 实际生产中建议在 resp.IsError() 判断前先用 io.TeeReader 缓存
 	if err := json.NewDecoder(resp.Body).Decode(&bulkResp); err != nil {
-		c.log.Errorf("failed to decode bulk response: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to decode bulk response: %v", err))
 		return err
 	}
 
@@ -372,12 +368,12 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 			for _, result := range item {
 				if result.Status >= 400 {
 					failedIDs = append(failedIDs, result.ID)
-					c.log.Warnf("bulk item %d (id=%s) failed [%d]: %s - %s",
-						i, result.ID, result.Status, result.Error.Type, result.Error.Reason)
+					log.Warn(context.Background(), fmt.Sprintf("bulk item %d (id=%s) failed [%d]: %s - %s",
+						i, result.ID, result.Status, result.Error.Type, result.Error.Reason))
 				}
 			}
 		}
-		c.log.Warnf("bulk insert completed with %d/%d failures", len(failedIDs), len(dataSet))
+		log.Warn(context.Background(), fmt.Sprintf("bulk insert completed with %d/%d failures", len(failedIDs), len(dataSet)))
 		return &PartialFailureError{
 			Total:     len(dataSet),
 			Failed:    len(failedIDs),
@@ -385,14 +381,14 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 		}
 	}
 
-	c.log.Debugf("bulk insert succeeded: %d documents to %s", len(dataSet), indexName)
+	log.Debug(context.Background(), fmt.Sprintf("bulk insert succeeded: %d documents to %s", len(dataSet), indexName))
 	return nil
 }
 
 func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string, doc any) error {
 	data, err := json.Marshal(doc)
 	if err != nil {
-		c.log.Errorf("failed to marshal data: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to marshal data: %v", err))
 		return err
 	}
 
@@ -402,7 +398,7 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 		c.Client.Update.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to update document: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to update document: %v", err))
 		return err
 	}
 
@@ -423,29 +419,29 @@ func (c *Client) GetDocument(
 		c.Client.Get.WithSource(sourceFields...), // 指定返回的字段
 	)
 	if err != nil {
-		c.log.Errorf("failed to get document: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to get document: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
 
 		if resp.StatusCode == 404 {
-			c.log.Warnf("document not found: %s", errResp.Error.Reason)
+			log.Warn(context.Background(), fmt.Sprintf("document not found: %s", errResp.Error.Reason))
 			return ErrDocumentNotFound
 		}
 
-		c.log.Errorf("get document failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("get document failed: %s", errResp.Error.Reason))
 
 		return ErrGetDocument
 	}
 
 	if err = json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		c.log.Errorf("failed to decode document: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to decode document: %v", err))
 		return err
 	}
 
@@ -506,12 +502,12 @@ func (c *Client) search(
 		c.Client.Search.WithSource(sourceFields...), // 指定返回的字段
 	)
 	if err != nil {
-		c.log.Errorf("failed to search documents: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to search documents: %v", err))
 		return nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		if err = Body.Close(); err != nil {
-			c.log.Errorf("failed to close response body: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to close response body: %v", err))
 		}
 	}(resp.Body)
 
@@ -521,14 +517,14 @@ func (c *Client) search(
 			return nil, err
 		}
 
-		c.log.Errorf("search document failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("search document failed: %s", errResp.Error.Reason))
 
 		return nil, ErrSearchDocument
 	}
 
 	var searchResult SearchResult
 	if err = json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		c.log.Errorf("failed to decode search result: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to decode search result: %v", err))
 		return nil, err
 	}
 
@@ -543,19 +539,19 @@ func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, t
 		c.Client.Indices.PutIndexTemplate.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to create index template: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create index template: %v", err))
 		return err
 	}
 	defer func(Body io.ReadCloser) {
 		if err = Body.Close(); err != nil {
-			c.log.Errorf("failed to close response body: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to close response body: %v", err))
 		}
 	}(resp.Body)
 
 	if resp.IsError() {
 		var errResp map[string]any
 		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			c.log.Errorf("create index template failed: %v", errResp)
+			log.Error(context.Background(), fmt.Sprintf("create index template failed: %v", errResp))
 		}
 		return ErrCreateIndex
 	}
@@ -569,12 +565,12 @@ func (c *Client) ExistsIndexTemplate(ctx context.Context, templateName string) (
 		c.Client.Indices.ExistsIndexTemplate.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to check if index template exists: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to check if index template exists: %v", err))
 		return false, err
 	}
 	defer func(Body io.ReadCloser) {
 		if err = Body.Close(); err != nil {
-			c.log.Errorf("failed to close response body: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to close response body: %v", err))
 		}
 	}(resp.Body)
 	return !resp.IsError(), nil
@@ -588,20 +584,20 @@ func (c *Client) CreateILMPolicy(ctx context.Context, policyName string, policyB
 		c.Client.ILM.PutLifecycle.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to create ILM policy: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create ILM policy: %v", err))
 		return err
 	}
 	defer func(Body io.ReadCloser) {
 		closeErr := Body.Close()
 		if closeErr != nil {
-			c.log.Errorf("failed to close response body: %v", closeErr)
+			log.Error(context.Background(), fmt.Sprintf("failed to close response body: %v", closeErr))
 		}
 	}(resp.Body)
 
 	if resp.IsError() {
 		var errResp map[string]any
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
-		c.log.Errorf("create ILM policy failed: status=%d, resp=%v", resp.StatusCode, errResp)
+		log.Error(context.Background(), fmt.Sprintf("create ILM policy failed: status=%d, resp=%v", resp.StatusCode, errResp))
 		return ErrCreateILMPolicy
 	}
 	return nil
@@ -614,19 +610,19 @@ func (c *Client) DeleteILMPolicy(ctx context.Context, policyName string) error {
 		c.Client.ILM.DeleteLifecycle.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("failed to delete ILM policy: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete ILM policy: %v", err))
 		return err
 	}
 	defer func(Body io.ReadCloser) {
 		if err = Body.Close(); err != nil {
-			c.log.Errorf("failed to close response body: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to close response body: %v", err))
 		}
 	}(resp.Body)
 
 	if resp.IsError() {
 		var errResp map[string]any
 		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			c.log.Errorf("delete ILM policy failed: %v", errResp)
+			log.Error(context.Background(), fmt.Sprintf("delete ILM policy failed: %v", errResp))
 		}
 		return ErrDeleteIndex
 	}
@@ -669,7 +665,7 @@ func (c *Client) SearchWithHighlight(
 
 	buf := &bytes.Buffer{}
 	if err := json.NewEncoder(buf).Encode(body); err != nil {
-		c.log.Errorf("failed to encode search body: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to encode search body: %v", err))
 		return nil, err
 	}
 
@@ -679,12 +675,12 @@ func (c *Client) SearchWithHighlight(
 		c.Client.Search.WithBody(buf),
 	)
 	if err != nil {
-		c.log.Errorf("failed to search documents: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to search documents: %v", err))
 		return nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		if err := Body.Close(); err != nil {
-			c.log.Errorf("failed to close response body: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to close response body: %v", err))
 		}
 	}(resp.Body)
 
@@ -693,13 +689,13 @@ func (c *Client) SearchWithHighlight(
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
 			return nil, err
 		}
-		c.log.Errorf("search document failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("search document failed: %s", errResp.Error.Reason))
 		return nil, ErrSearchDocument
 	}
 
 	var searchResult SearchResult
 	if err = json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
-		c.log.Errorf("failed to decode search result: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to decode search result: %v", err))
 		return nil, err
 	}
 
@@ -720,21 +716,21 @@ func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error
 		c.Client.SQL.Query.WithContext(ctx),
 	)
 	if err != nil {
-		c.log.Errorf("sql query error: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("sql query error: %v", err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.IsError() {
 		body, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("sql query failed: %s", string(body))
+		log.Error(context.Background(), fmt.Sprintf("sql query failed: %s", string(body)))
 		return nil, ErrSearchDocument
 	}
 
 	// 解析 SQL 专用结构
 	var result SQLResult
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		c.log.Errorf("decode sql result error: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("decode sql result error: %v", err))
 		return nil, err
 	}
 
@@ -762,7 +758,7 @@ func (c *Client) SearchBySQLTo(ctx context.Context, sql string, out any) error {
 
 	if resp.IsError() {
 		body, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("sql error: %s", string(body))
+		log.Error(context.Background(), fmt.Sprintf("sql error: %s", string(body)))
 		return ErrSearchDocument
 	}
 

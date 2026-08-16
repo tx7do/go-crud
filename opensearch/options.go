@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchtransport"
 	"github.com/opensearch-project/opensearch-go/v4/signer"
 )
@@ -74,12 +73,6 @@ func WithMaxRetries(maxRetries int) Option {
 func WithCompressRequestBody(enable bool) Option {
 	return func(o *Client) {
 		o.options.CompressRequestBody = enable
-	}
-}
-
-func WithLogger(logger log.Logger) Option {
-	return func(o *Client) {
-		o.log = log.NewHelper(log.With(logger, "module", "opensearch-client"))
 	}
 }
 

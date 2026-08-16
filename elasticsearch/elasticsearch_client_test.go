@@ -10,10 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/tx7do/go-wind/log"
 )
-
 
 // requireService skips the test when running in -short mode to keep hermetic runs green.
 func requireService(t *testing.T) {
@@ -22,6 +21,7 @@ func requireService(t *testing.T) {
 		t.Skip("skipping integration test in -short mode")
 	}
 }
+
 const (
 	userIndex   = "user"
 	tweetIndex  = "tweet"
@@ -113,7 +113,7 @@ func createTestClient(t *testing.T) *Client {
 		WithUsername("admin"),
 		WithPassword("@Abcd#123456"),
 		WithEnableDebugLogger(true),
-		WithLogger(log.DefaultLogger),
+		WithLogger(log.GetLogger()),
 		WithEnableCompatibilityMode(true),
 	)
 	return cli

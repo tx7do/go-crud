@@ -1,11 +1,12 @@
 package query
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-utils/stringcase"
+	"github.com/tx7do/go-wind/log"
 )
 
 // Builder 用于构建 Doris SQL 查询
@@ -23,19 +24,17 @@ type Builder struct {
 	offset      int
 	limit       int
 	limitBy     string
-	params      []interface{} // 用于存储参数
-	useIndex    string        // 索引提示
-	cacheResult bool          // 是否缓存查询结果
-	debug       bool          // 是否启用调试
-	log         *log.Helper
+	params      []any  // 用于存储参数
+	useIndex    string // 索引提示
+	cacheResult bool   // 是否缓存查询结果
+	debug       bool   // 是否启用调试
 }
 
 // NewQueryBuilder 创建一个新的 Builder 实例
-func NewQueryBuilder(table string, log *log.Helper) *Builder {
+func NewQueryBuilder(table string) *Builder {
 	return &Builder{
-		log:    log,
 		table:  table,
-		params: []interface{}{},
+		params: []any{},
 	}
 }
 
@@ -48,7 +47,7 @@ func (qb *Builder) EnableDebug() *Builder {
 // logDebug 打印调试信息
 func (qb *Builder) logDebug(message string) {
 	if qb.debug {
-		qb.log.Debug("[Builder Debug]:", message)
+		log.Debug(context.Background(), "[Builder Debug]:", message)
 	}
 }
 
@@ -57,19 +56,8 @@ func (qb *Builder) TableName() string {
 	return qb.table
 }
 
-func (qb *Builder) Logger() *log.Helper {
-	return qb.log
-}
-
 func (qb *Builder) WithTableName(tableName string) *Builder {
 	qb.table = tableName
-	return qb
-}
-
-func (qb *Builder) WithLogger(l *log.Helper) *Builder {
-	if l != nil {
-		qb.log = l
-	}
 	return qb
 }
 
@@ -96,12 +84,12 @@ func (qb *Builder) Distinct() *Builder {
 }
 
 // Where 添加查询条件并支持参数化
-func (qb *Builder) Where(condition string, args ...interface{}) *Builder {
+func (qb *Builder) Where(condition string, args ...any) *Builder {
 	if qb.conditions == nil {
 		qb.conditions = []string{}
 	}
 	if qb.params == nil {
-		qb.params = []interface{}{}
+		qb.params = []any{}
 	}
 
 	if !isValidCondition(condition) {
@@ -157,7 +145,7 @@ func (qb *Builder) GroupBy(columns ...string) *Builder {
 }
 
 // Having 添加分组后的过滤条件并支持参数化
-func (qb *Builder) Having(condition string, args ...interface{}) *Builder {
+func (qb *Builder) Having(condition string, args ...any) *Builder {
 	qb.having = append(qb.having, condition)
 	qb.params = append(qb.params, args...)
 	return qb
@@ -212,7 +200,7 @@ func (qb *Builder) LimitBy(limit int, columns ...string) *Builder {
 }
 
 // PreWhere 添加 PREWHERE 子句
-func (qb *Builder) PreWhere(condition string, args ...interface{}) *Builder {
+func (qb *Builder) PreWhere(condition string, args ...any) *Builder {
 	qb.conditions = append([]string{condition}, qb.conditions...)
 	qb.params = append(args, qb.params...)
 	return qb
@@ -249,7 +237,7 @@ func (qb *Builder) CacheResult() *Builder {
 }
 
 // Build 构建最终的 SQL 查询
-func (qb *Builder) Build() (string, []interface{}) {
+func (qb *Builder) Build() (string, []any) {
 	query := ""
 
 	if qb.cacheResult {
@@ -304,6 +292,6 @@ func (qb *Builder) buildColumns() string {
 }
 
 // BuildWhereParam 构建 WHERE 子句和参数列表
-func (qb *Builder) BuildWhereParam() (string, []interface{}) {
+func (qb *Builder) BuildWhereParam() (string, []any) {
 	return strings.Join(qb.conditions, " AND "), qb.params
 }

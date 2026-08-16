@@ -11,7 +11,7 @@ func TestBuilder_BasicSelect(t *testing.T) {
 }
 
 func TestBuilder_WhereOperators(t *testing.T) {
-	filters := map[string]interface{}{
+	filters := map[string]any{
 		"host":  "server1",
 		"usage": 0.5,
 		"ids":   []int{1, 2},
@@ -30,7 +30,7 @@ func TestBuilder_WhereOperators(t *testing.T) {
 }
 
 func TestBuilder_RegexWhere(t *testing.T) {
-	filters := map[string]interface{}{
+	filters := map[string]any{
 		"message": "err.+",
 	}
 	ops := map[string]string{
@@ -58,7 +58,7 @@ func TestBuilder_GroupOrderLimitOffset(t *testing.T) {
 }
 
 func TestBuildQueryWithParams_Helper(t *testing.T) {
-	filters := map[string]interface{}{
+	filters := map[string]any{
 		"a": 1,
 	}
 	ops := map[string]string{

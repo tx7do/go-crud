@@ -15,12 +15,12 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-crud/cache v0.0.1
-	github.com/tx7do/go-crud/log v0.0.0-00010101000000-000000000000
 	github.com/tx7do/go-crud/pagination v0.0.14
 	github.com/tx7do/go-crud/viewer v0.0.6
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/id v0.0.6
 	github.com/tx7do/go-utils/mapper v0.0.3
+	github.com/tx7do/go-wind v0.0.2
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
 	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
 	go.opentelemetry.io/otel v1.45.0
@@ -105,7 +105,6 @@ require (
 	github.com/sirupsen/logrus v1.10.0 // indirect
 	github.com/sony/sonyflake v1.3.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
-	github.com/tx7do/go-wind v0.0.1 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.einride.tech/aip v0.86.3 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
@@ -139,4 +138,4 @@ require (
 	modernc.org/sqlite v1.56.0 // indirect
 )
 
-replace github.com/tx7do/go-crud/log => ../log
+replace github.com/tx7do/go-crud => ../

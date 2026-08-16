@@ -7,7 +7,7 @@ import (
 )
 
 // formatValue 根据类型格式化值；slice 会被格式化为 "(v1,v2,...)"
-func formatValue(v interface{}) string {
+func formatValue(v any) string {
 	if v == nil {
 		return "NULL"
 	}
@@ -43,7 +43,7 @@ func formatValue(v interface{}) string {
 }
 
 // formatRegex 将值包装为 /.../ 形式，用于 =~ 操作
-func formatRegex(v interface{}) string {
+func formatRegex(v any) string {
 	s := ""
 	switch t := v.(type) {
 	case string:

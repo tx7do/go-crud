@@ -2,11 +2,12 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/tx7do/go-wind/log"
 )
 
 type Candle struct {
@@ -35,7 +36,7 @@ func createTestClient(t *testing.T) *Client {
 		WithDatabase("finances"),
 		WithUsername(""),
 		WithPassword("*Abcd123456"),
-		WithLogger(log.DefaultLogger),
+		WithLogger(log.GetLogger()),
 		WithDebug(true),
 	)
 	if cli == nil {
@@ -60,7 +61,7 @@ func createCandlesTable(client *Client) {
 	`
 	err := client.Exec(context.Background(), createTableQuery)
 	if err != nil {
-		log.Errorf("Failed to create candles table: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("Failed to create candles table: %v", err))
 		return
 	}
 }
@@ -236,7 +237,7 @@ func TestInternalBatchExecCandlesTable(t *testing.T) {
 	`
 
 	// 测试数据
-	data := [][]interface{}{
+	data := [][]any{
 		{"2023-10-01 12:00:00", "AAPL", 100.5, 105.0, 99.5, 102.0, 1500.0},
 		{"2023-10-01 12:01:00", "GOOG", 200.5, 205.0, 199.5, 202.0, 2500.0},
 		{"2023-10-01 12:02:00", "MSFT", 300.5, 305.0, 299.5, 302.0, 3500.0},
@@ -372,7 +373,7 @@ func TestQueryCandlesTable(t *testing.T) {
 	var results []any
 
 	// 执行查询
-	err := client.Query(context.Background(), func() interface{} { return &Candle{} }, &results, query)
+	err := client.Query(context.Background(), func() any { return &Candle{} }, &results, query)
 	assert.NoError(t, err, "QueryCandlesTable 应该成功执行")
 	assert.NotEmpty(t, results, "QueryCandlesTable 应该返回结果")
 	for _, result := range results {

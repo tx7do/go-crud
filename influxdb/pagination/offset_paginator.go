@@ -35,14 +35,14 @@ func (p *OffsetPaginator) BuildClause(builder *query.Builder, offset, limit int)
 
 	// 如果 builder 实现了 SetSkip，则设置 skip
 	if off > 0 && builder != nil {
-		if s, ok := interface{}(builder).(interface{ SetSkip(int64) }); ok {
+		if s, ok := any(builder).(interface{ SetSkip(int64) }); ok {
 			s.SetSkip(int64(off))
 		}
 	}
 
 	// 如果 builder 实现了 SetLimit，则设置 limit
 	if builder != nil {
-		if l, ok := interface{}(builder).(interface{ SetLimit(int64) }); ok {
+		if l, ok := any(builder).(interface{ SetLimit(int64) }); ok {
 			l.SetLimit(int64(lim))
 		}
 	}

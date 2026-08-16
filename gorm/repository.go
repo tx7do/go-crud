@@ -3,12 +3,13 @@ package gorm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/tx7do/go-utils/mapper"
@@ -94,7 +95,7 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, db *gorm.DB, whereS
 
 	var cnt int64
 	if err := countDB.Count(&cnt).Error; err != nil {
-		log.Errorf("query count failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("query count failed: %s", err.Error()))
 		return 0, errors.New("query count failed")
 	}
 	return cnt, nil
@@ -140,7 +141,7 @@ func (r *Repository[DTO, ENTITY]) CountWithOptions(ctx context.Context, db *gorm
 
 	var cnt int64
 	if err := countDB.Count(&cnt).Error; err != nil {
-		log.Errorf("query count failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("query count failed: %s", err.Error()))
 		return 0, errors.New("query count failed")
 	}
 	return cnt, nil
@@ -165,21 +166,21 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, db *gorm.D
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, err
 	}
 	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
 
 	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
 	if err != nil {
-		log.Errorf("build structured filter selectors failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
 	}
 
 	// select fields
 	if req.GetFieldMask() != nil && len(req.GetFieldMask().Paths) > 0 {
 		selectSelector, err = r.fieldSelector.BuildSelector(req.GetFieldMask().GetPaths())
 		if err != nil {
-			log.Errorf("build field select selector failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("build field select selector failed: %s", err.Error()))
 		}
 	}
 
@@ -188,7 +189,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, db *gorm.D
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, err
 		}
 		sortingSelector = r.structuredSorting.BuildScope(sortings)
@@ -227,7 +228,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, db *gorm.D
 	// 执行查询
 	var entities []*ENTITY
 	if err = listDB.Find(&entities).Error; err != nil {
-		log.Errorf("query list failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("query list failed: %s", err.Error()))
 		return nil, errors.New("query list failed")
 	}
 
@@ -240,7 +241,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, db *gorm.D
 	// 计数（只使用 whereSelectors）
 	total, err := r.Count(ctx, db, whereSelectors)
 	if err != nil {
-		log.Errorf("count query failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("count query failed: %s", err.Error()))
 		return nil, err
 	}
 
@@ -270,21 +271,21 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, db *go
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPaginationRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, err
 	}
 	req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
 
 	whereSelectors, err = r.structuredFilter.BuildSelectors(req.GetFilterExpr())
 	if err != nil {
-		log.Errorf("build structured filter selectors failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
 	}
 
 	// select fields
 	if req.GetFieldMask() != nil && len(req.GetFieldMask().Paths) > 0 {
 		selectSelector, err = r.fieldSelector.BuildSelector(req.GetFieldMask().GetPaths())
 		if err != nil {
-			log.Errorf("build field select selector failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("build field select selector failed: %s", err.Error()))
 		}
 	}
 
@@ -293,7 +294,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, db *go
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, err
 		}
 		sortingSelector = r.structuredSorting.BuildScope(sortings)
@@ -331,7 +332,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, db *go
 	// 执行查询
 	var entities []*ENTITY
 	if err = listDB.Find(&entities).Error; err != nil {
-		log.Errorf("query list failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("query list failed: %s", err.Error()))
 		return nil, errors.New("query list failed")
 	}
 
@@ -344,7 +345,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, db *go
 	// 计数
 	total, err := r.Count(ctx, db, whereSelectors)
 	if err != nil {
-		log.Errorf("count query failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("count query failed: %s", err.Error()))
 		return nil, err
 	}
 
@@ -438,7 +439,7 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, db *gorm.DB, dto *
 	qdb := db.WithContext(ctx).Model(new(ENTITY))
 	res := qdb.Create(&ent)
 	if res.Error != nil {
-		log.Errorf("create failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("create failed: %s", res.Error.Error()))
 		return nil, errors.New("create failed")
 	}
 
@@ -473,7 +474,7 @@ func (r *Repository[DTO, ENTITY]) CreateX(ctx context.Context, db *gorm.DB, dto 
 	// 执行创建
 	res := qdb.Create(&ent)
 	if res.Error != nil {
-		log.Errorf("create failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("create failed: %s", res.Error.Error()))
 		return 0, errors.New("create failed")
 	}
 	return res.RowsAffected, nil
@@ -511,7 +512,7 @@ func (r *Repository[DTO, ENTITY]) CreateXWithFilters(ctx context.Context, db *go
 	// 执行创建
 	res := qdb.Create(&ent)
 	if res.Error != nil {
-		log.Errorf("create failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("create failed: %s", res.Error.Error()))
 		return 0, errors.New("create failed")
 	}
 	return res.RowsAffected, nil
@@ -547,7 +548,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, db *gorm.DB, 
 
 		createResult := qdb.Create(&ent)
 		if createResult.Error != nil {
-			log.Errorf("batch create failed: %s", createResult.Error.Error())
+			log.Error(context.Background(), fmt.Sprintf("batch create failed: %s", createResult.Error.Error()))
 			return nil, errors.New("batch create failed")
 		}
 
@@ -584,7 +585,7 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, db *gorm.DB, dto *
 	// 执行更新
 	res := qdb.Updates(ent)
 	if res.Error != nil {
-		log.Errorf("update failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("update failed: %s", res.Error.Error()))
 		return nil, errors.New("update failed")
 	}
 
@@ -629,7 +630,7 @@ func (r *Repository[DTO, ENTITY]) UpdateWithFilters(ctx context.Context, db *gor
 	// 执行更新
 	res := qdb.Updates(ent)
 	if res.Error != nil {
-		log.Errorf("update failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("update failed: %s", res.Error.Error()))
 		return nil, errors.New("update failed")
 	}
 
@@ -669,7 +670,7 @@ func (r *Repository[DTO, ENTITY]) UpdateX(ctx context.Context, db *gorm.DB, dto 
 	// 执行更新
 	res := qdb.Updates(ent)
 	if res.Error != nil {
-		log.Errorf("update failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("update failed: %s", res.Error.Error()))
 		return 0, errors.New("update failed")
 	}
 	return res.RowsAffected, nil
@@ -707,7 +708,7 @@ func (r *Repository[DTO, ENTITY]) UpdateXWithFilters(ctx context.Context, db *go
 	// 执行更新
 	res := qdb.Updates(ent)
 	if res.Error != nil {
-		log.Errorf("update failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("update failed: %s", res.Error.Error()))
 		return 0, errors.New("update failed")
 	}
 	return res.RowsAffected, nil
@@ -747,7 +748,7 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, db *gorm.DB, dto *
 	// 执行 upsert
 	res := qdb.Clauses(onConflict).Create(&ent)
 	if res.Error != nil {
-		log.Errorf("upsert failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("upsert failed: %s", res.Error.Error()))
 		return nil, errors.New("upsert failed")
 	}
 
@@ -794,7 +795,7 @@ func (r *Repository[DTO, ENTITY]) UpsertWithFilters(ctx context.Context, db *gor
 	// 执行 upsert
 	res := qdb.Clauses(onConflict).Create(&ent)
 	if res.Error != nil {
-		log.Errorf("upsert failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("upsert failed: %s", res.Error.Error()))
 		return nil, errors.New("upsert failed")
 	}
 
@@ -835,7 +836,7 @@ func (r *Repository[DTO, ENTITY]) UpsertX(ctx context.Context, db *gorm.DB, dto 
 	// 执行 upsert
 	res := qdb.Clauses(onConflict).Create(&ent)
 	if res.Error != nil {
-		log.Errorf("upsert failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("upsert failed: %s", res.Error.Error()))
 		return 0, errors.New("upsert failed")
 	}
 
@@ -881,7 +882,7 @@ func (r *Repository[DTO, ENTITY]) UpsertXWithFilters(ctx context.Context, db *go
 	// 执行 upsert
 	res := qdb.Clauses(onConflict).Create(&ent)
 	if res.Error != nil {
-		log.Errorf("upsert failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("upsert failed: %s", res.Error.Error()))
 		return 0, errors.New("upsert failed")
 	}
 
@@ -903,7 +904,7 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, db *gorm.DB, notSo
 
 	res := qdb.Delete(new(ENTITY))
 	if res.Error != nil {
-		log.Errorf("delete failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("delete failed: %s", res.Error.Error()))
 		return 0, errors.New("delete failed")
 	}
 	return res.RowsAffected, nil
@@ -925,7 +926,7 @@ func (r *Repository[DTO, ENTITY]) DeleteWithFilters(ctx context.Context, db *gor
 
 	res := qdb.Delete(new(ENTITY))
 	if res.Error != nil {
-		log.Errorf("delete failed: %s", res.Error.Error())
+		log.Error(context.Background(), fmt.Sprintf("delete failed: %s", res.Error.Error()))
 		return 0, errors.New("delete failed")
 	}
 	return res.RowsAffected, nil
@@ -953,7 +954,7 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, db *gorm.DB) (bool
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
-		log.Errorf("exists query failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("exists query failed: %s", err.Error()))
 		return false, errors.New("exists query failed")
 	}
 	return true, nil
@@ -978,7 +979,7 @@ func (r *Repository[DTO, ENTITY]) ExistsWithFilters(ctx context.Context, db *gor
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
-		log.Errorf("exists query failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("exists query failed: %s", err.Error()))
 		return false, errors.New("exists query failed")
 	}
 	return true, nil

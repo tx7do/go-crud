@@ -1,14 +1,16 @@
 package filter
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-wind-plugins/encoding"
 	_ "github.com/tx7do/go-wind-plugins/encoding/json"
+	"github.com/tx7do/go-wind/log"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/entgo/ent"
@@ -34,7 +36,7 @@ func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func
 
 	// Skip unspecified expressions
 	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
-		log.Warn("Skipping unspecified FilterExpr")
+		log.Warn(context.Background(), "Skipping unspecified FilterExpr")
 		return nil, nil
 	}
 
@@ -56,13 +58,13 @@ func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (f
 
 	// Skip nil expressions
 	if expr == nil {
-		log.Warn("Skipping nil FilterExpr")
+		log.Warn(context.Background(), "Skipping nil FilterExpr")
 		return nil, nil
 	}
 
 	// Skip unspecified expressions
 	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
-		log.Warn("Skipping unspecified FilterExpr")
+		log.Warn(context.Background(), "Skipping unspecified FilterExpr")
 		return nil, nil
 	}
 
@@ -72,7 +74,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (f
 		for _, cond := range expr.GetGroups() {
 			subSelector, err := sf.buildFilterSelector(cond)
 			if err != nil {
-				log.Errorf("Error processing sub-group: %v", err)
+				log.Error(context.Background(), fmt.Sprintf("Error processing sub-group: %v", err))
 				continue
 			}
 			if subSelector != nil {

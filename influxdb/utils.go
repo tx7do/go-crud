@@ -17,12 +17,12 @@ import (
 
 func BuildQuery(
 	table string,
-	filters map[string]interface{},
+	filters map[string]any,
 	operators map[string]string,
 	fields []string,
-) (string, []interface{}) {
+) (string, []any) {
 	var queryBuilder strings.Builder
-	args := make([]interface{}, 0)
+	args := make([]any, 0)
 
 	// 构建 SELECT 语句
 	queryBuilder.WriteString("SELECT ")
@@ -179,7 +179,7 @@ func Uint64ToString(value *uint64) string {
 
 func BuildQueryWithParams(
 	table string,
-	filters map[string]interface{},
+	filters map[string]any,
 	operators map[string]string,
 	fields []string,
 ) string {
@@ -251,7 +251,7 @@ func numericToInt64(v any) (int64, bool) {
 
 // StructToPoint 通用转换函数：将带 influx tag 的 struct 转为 influxdb3.Point
 // 参数：s 带 tag 的 struct 实例（不能是指针）
-func StructToPoint(s interface{}) (*influxdb3.Point, error) {
+func StructToPoint(s any) (*influxdb3.Point, error) {
 	val := reflect.ValueOf(s)
 	// 若传入指针，解引用（支持传入 &struct 或 struct）
 	if val.Kind() == reflect.Ptr {
@@ -266,7 +266,7 @@ func StructToPoint(s interface{}) (*influxdb3.Point, error) {
 	var (
 		measurement string
 		tags        = make(map[string]string)
-		fields      = make(map[string]interface{})
+		fields      = make(map[string]any)
 		timestamp   time.Time
 	)
 
@@ -438,7 +438,7 @@ func ProtoMessageToPoint(msg proto.Message, overrides map[string]string) (*influ
 	var (
 		measurement string
 		tags        = make(map[string]string)
-		fields      = make(map[string]interface{})
+		fields      = make(map[string]any)
 		timestamp   time.Time
 	)
 
@@ -473,7 +473,7 @@ func ProtoMessageToPoint(msg proto.Message, overrides map[string]string) (*influ
 		}
 
 		// convert protoreflect.Value -> go native
-		var gv interface{}
+		var gv any
 		switch fd.Kind() {
 		case protoreflect.BoolKind:
 			gv = v.Bool()

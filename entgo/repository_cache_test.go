@@ -13,11 +13,11 @@ import (
 func TestRepositoryCache(t *testing.T) {
 	// 创建一个 repository 实例用于验证 key 生成逻辑（无需 DB/Redis）。
 	repo := NewRepository[
-		interface{}, interface{},
-		interface{}, interface{},
-		interface{}, interface{},
-		interface{},
-		interface{}, interface{}, interface{},
+		any, any,
+		any, any,
+		any, any,
+		any,
+		any, any, any,
 	](nil)
 	repo.cacheKeyPrefix = "test:"
 

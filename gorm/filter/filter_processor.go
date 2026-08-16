@@ -403,7 +403,7 @@ func (poc Processor) Jsonb(db *gorm.DB, jsonbField, field string) *gorm.DB {
 }
 
 // JsonbFieldExpr 返回一个表达式字符串与对应参数，可用于 Select/Order 等
-func (poc Processor) JsonbFieldExpr(db *gorm.DB, jsonbField, field string) (string, []interface{}) {
+func (poc Processor) JsonbFieldExpr(db *gorm.DB, jsonbField, field string) (string, []any) {
 	jsonbField = strings.TrimSpace(jsonbField)
 	if jsonbField == "" || !jsonKeyPattern.MatchString(jsonbField) {
 		return "", nil

@@ -1,11 +1,12 @@
 package filter
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-wind-plugins/encoding"
+	"github.com/tx7do/go-wind/log"
 
 	"github.com/tx7do/go-utils/stringcase"
 
@@ -35,7 +36,7 @@ func (sf StructuredFilter) BuildSelectors(builder *query.Builder, expr *paginati
 		return builder, nil
 	}
 	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
-		log.Warn("Skipping unspecified FilterExpr")
+		log.Warn(context.Background(), "Skipping unspecified FilterExpr")
 		return builder, nil
 	}
 
@@ -58,7 +59,7 @@ func (sf StructuredFilter) BuildSelectors(builder *query.Builder, expr *paginati
 }
 
 // buildParts 将 expr 展开为若干子表达式及其对应参数列表（不直接修改 builder）
-func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, [][]interface{}, error) {
+func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, [][]any, error) {
 	if expr == nil {
 		return nil, nil, nil
 	}
@@ -67,7 +68,7 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 	}
 
 	// helper: 根据 condition 生成单个 SQL 片段和参数
-	buildCond := func(cond *paginationV1.FilterCondition) (string, []interface{}) {
+	buildCond := func(cond *paginationV1.FilterCondition) (string, []any) {
 		if cond == nil {
 			return "", nil
 		}
@@ -95,24 +96,24 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 
 		switch opName {
 		case "OP_EQ", "EQ", "EQUAL", "OP_EQUAL":
-			return fmt.Sprintf("%s = ?", colExpr), []interface{}{val}
+			return fmt.Sprintf("%s = ?", colExpr), []any{val}
 		case "OP_NEQ", "NE", "NEQ", "OP_NOT_EQUAL":
-			return fmt.Sprintf("%s != ?", colExpr), []interface{}{val}
+			return fmt.Sprintf("%s != ?", colExpr), []any{val}
 		case "OP_GT", "GT":
-			return fmt.Sprintf("%s > ?", colExpr), []interface{}{val}
+			return fmt.Sprintf("%s > ?", colExpr), []any{val}
 		case "OP_GTE", "GTE":
-			return fmt.Sprintf("%s >= ?", colExpr), []interface{}{val}
+			return fmt.Sprintf("%s >= ?", colExpr), []any{val}
 		case "OP_LT", "LT":
-			return fmt.Sprintf("%s < ?", colExpr), []interface{}{val}
+			return fmt.Sprintf("%s < ?", colExpr), []any{val}
 		case "OP_LTE", "LTE":
-			return fmt.Sprintf("%s <= ?", colExpr), []interface{}{val}
+			return fmt.Sprintf("%s <= ?", colExpr), []any{val}
 		case "OP_IS_NULL", "IS_NULL":
 			return fmt.Sprintf("%s IS NULL", colExpr), nil
 		case "OP_IS_NOT_NULL", "IS_NOT_NULL":
 			return fmt.Sprintf("%s IS NOT NULL", colExpr), nil
 		case "OP_IN", "IN":
 			// 支持 values 列表，否则如果只有 Value 则解析逗号分隔
-			var args []interface{}
+			var args []any
 			if len(values) > 0 {
 				for _, v := range values {
 					args = append(args, v)
@@ -131,32 +132,32 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 			return fmt.Sprintf("%s IN (%s)", colExpr, ps), args
 		case "OP_BETWEEN", "BETWEEN":
 			if len(values) >= 2 {
-				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []interface{}{values[0], values[1]}
+				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []any{values[0], values[1]}
 			}
 			parts := strings.Split(val, ",")
 			if len(parts) >= 2 {
-				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []interface{}{strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])}
+				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []any{strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])}
 			}
-			return fmt.Sprintf("%s = ?", colExpr), []interface{}{val}
+			return fmt.Sprintf("%s = ?", colExpr), []any{val}
 		case "OP_CONTAINS", "CONTAINS", "OP_LIKE", "LIKE":
 			p := "%" + val + "%"
-			return fmt.Sprintf("%s LIKE ?", colExpr), []interface{}{p}
+			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}
 		case "OP_STARTS_WITH", "STARTS_WITH":
 			p := val + "%"
-			return fmt.Sprintf("%s LIKE ?", colExpr), []interface{}{p}
+			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}
 		case "OP_ENDS_WITH", "ENDS_WITH":
 			p := "%" + val
-			return fmt.Sprintf("%s LIKE ?", colExpr), []interface{}{p}
+			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}
 		default:
 			if val != "" {
-				return fmt.Sprintf("%s = ?", colExpr), []interface{}{val}
+				return fmt.Sprintf("%s = ?", colExpr), []any{val}
 			}
 			return "", nil
 		}
 	}
 
-	flatten := func(arr [][]interface{}) []interface{} {
-		var out []interface{}
+	flatten := func(arr [][]any) []any {
+		var out []any
 		for _, a := range arr {
 			if len(a) > 0 {
 				out = append(out, a...)
@@ -166,7 +167,7 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 	}
 
 	var parts []string
-	var partsArgs [][]interface{}
+	var partsArgs [][]any
 
 	switch expr.GetType() {
 	case paginationV1.ExprType_AND:
@@ -183,7 +184,7 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 		for _, g := range expr.GetGroups() {
 			subParts, subArgs, err := sf.buildParts(g)
 			if err != nil {
-				log.Errorf("buildParts sub-group error: %v", err)
+				log.Error(context.Background(), fmt.Sprintf("buildParts sub-group error: %v", err))
 				continue
 			}
 			if len(subParts) == 0 {
@@ -197,7 +198,7 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 
 	case paginationV1.ExprType_OR:
 		var orParts []string
-		var orArgs [][]interface{}
+		var orArgs [][]any
 		// 条件集合作为 OR 的子项
 		for _, cond := range expr.GetConditions() {
 			clause, args := buildCond(cond)
@@ -211,7 +212,7 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 		for _, g := range expr.GetGroups() {
 			subParts, subArgs, err := sf.buildParts(g)
 			if err != nil {
-				log.Errorf("buildParts sub-group error: %v", err)
+				log.Error(context.Background(), fmt.Sprintf("buildParts sub-group error: %v", err))
 				continue
 			}
 			if len(subParts) == 0 {

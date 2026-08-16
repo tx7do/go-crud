@@ -12,7 +12,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	entSql "entgo.io/ent/dialect/sql"
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
@@ -154,13 +154,13 @@ func MakeTxCleanup(tx EntTx, errPtr *error) func() {
 			// 处理 panic：回滚并重新 panic
 			if p := recover(); p != nil {
 				if rbErr := tx.Rollback(); rbErr != nil {
-					log.Errorf("transaction rollback failed during panic: %v", rbErr)
+					log.Error(context.Background(), fmt.Sprintf("transaction rollback failed during panic: %v", rbErr))
 				}
 				panic(p)
 			}
 			// 尝试提交并记录错误
 			if commitErr := tx.Commit(); commitErr != nil {
-				log.Errorf("transaction commit failed: %v", commitErr)
+				log.Error(context.Background(), fmt.Sprintf("transaction commit failed: %v", commitErr))
 			}
 			return
 		}
@@ -181,14 +181,14 @@ func MakeTxCleanup(tx EntTx, errPtr *error) func() {
 		if *errPtr != nil {
 			*errPtr = Rollback(tx, *errPtr)
 			if *errPtr != nil {
-				log.Errorf("transaction rollback encountered error: %v", *errPtr)
+				log.Error(context.Background(), fmt.Sprintf("transaction rollback encountered error: %v", *errPtr))
 			}
 			return
 		}
 
 		// 否则尝试提交，提交失败时包装错误返回
 		if commitErr := tx.Commit(); commitErr != nil {
-			log.Errorf("transaction commit failed: %v", commitErr)
+			log.Error(context.Background(), fmt.Sprintf("transaction commit failed: %v", commitErr))
 			*errPtr = fmt.Errorf("transaction commit failed: %w", commitErr)
 		}
 	}
@@ -241,13 +241,13 @@ func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *E
 
 	rows := &entSql.Rows{}
 	if err := entClient.Query(ctx, query, []any{parentID}, rows); err != nil {
-		log.Errorf("query child nodes failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("query child nodes failed: %s", err.Error()))
 		return nil, errors.New("query child nodes failed: " + err.Error())
 	}
 	defer func(rows *entSql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			log.Errorf("close rows failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("close rows failed: %s", err.Error()))
 		}
 	}(rows)
 
@@ -256,7 +256,7 @@ func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *E
 		var id uint32
 
 		if err := rows.Scan(&id); err != nil {
-			log.Errorf("scan child node failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("scan child node failed: %s", err.Error()))
 			return nil, errors.New("scan child node failed")
 		}
 

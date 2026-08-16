@@ -6,7 +6,6 @@ import (
 	"time"
 
 	clickhouseV2 "github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/tx7do/go-crud/log"
 )
 
 type Creator func() any
@@ -22,12 +21,6 @@ var compressionMap = map[string]clickhouseV2.CompressionMethod{
 }
 
 type Option func(o *Client)
-
-func WithLogger(logger log.Logger) Option {
-	return func(o *Client) {
-		o.logger = log.NewHelper(log.With(logger, "module", "clickhouse-client"))
-	}
-}
 
 func WithOptions(opts *clickhouseV2.Options) Option {
 	return func(o *Client) {

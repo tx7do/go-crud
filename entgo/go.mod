@@ -19,12 +19,12 @@ require (
 	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-crud/audit v0.0.2
 	github.com/tx7do/go-crud/cache v0.0.1
-	github.com/tx7do/go-crud/log v0.0.0-00010101000000-000000000000
 	github.com/tx7do/go-crud/pagination v0.0.14
 	github.com/tx7do/go-crud/viewer v0.0.6
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/id v0.0.6
 	github.com/tx7do/go-utils/mapper v0.0.3
+	github.com/tx7do/go-wind v0.0.2
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
 	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
 	github.com/xiaoqidun/entps v1.50.1
@@ -59,7 +59,6 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sony/sonyflake v1.3.0 // indirect
-	github.com/tx7do/go-wind v0.0.1 // indirect
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.2.0 // indirect
 	go.einride.tech/aip v0.86.3 // indirect
@@ -83,4 +82,4 @@ require (
 	modernc.org/sqlite v1.50.1 // indirect
 )
 
-replace github.com/tx7do/go-crud/log => ../log
+replace github.com/tx7do/go-crud => ../

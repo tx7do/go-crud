@@ -1,13 +1,15 @@
 package filter
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
 	"gorm.io/gorm"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-wind-plugins/encoding"
 	_ "github.com/tx7do/go-wind-plugins/encoding/json"
+	"github.com/tx7do/go-wind/log"
 
 	"github.com/tx7do/go-utils/stringcase"
 
@@ -38,7 +40,7 @@ func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func
 
 	// 未指定类型视为跳过（测试期望返回 nil）
 	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
-		log.Warn("Skipping unspecified FilterExpr")
+		log.Warn(context.Background(), "Skipping unspecified FilterExpr")
 		return nil, nil
 	}
 
@@ -55,11 +57,11 @@ func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func
 // buildFilterSelector 将单个 FilterExpr 转为 *gorm.DB 闭包（递归处理组）
 func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (func(*gorm.DB) *gorm.DB, error) {
 	if expr == nil {
-		log.Warn("Skipping nil FilterExpr")
+		log.Warn(context.Background(), "Skipping nil FilterExpr")
 		return nil, nil
 	}
 	if expr.GetType() == paginationV1.ExprType_EXPR_TYPE_UNSPECIFIED {
-		log.Warn("Skipping unspecified FilterExpr")
+		log.Warn(context.Background(), "Skipping unspecified FilterExpr")
 		return nil, nil
 	}
 
@@ -109,7 +111,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (f
 				subSel, err := sf.buildFilterSelector(g)
 				if err != nil {
 					// 忽略错误，但记录
-					log.Errorf("buildFilterSelector sub-group error: %v", err)
+					log.Error(context.Background(), fmt.Sprintf("buildFilterSelector sub-group error: %v", err))
 					continue
 				}
 				if subSel != nil {
@@ -139,7 +141,7 @@ func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (f
 				for _, g := range expr.GetGroups() {
 					subSel, err := sf.buildFilterSelector(g)
 					if err != nil {
-						log.Errorf("buildFilterSelector sub-group error: %v", err)
+						log.Error(context.Background(), fmt.Sprintf("buildFilterSelector sub-group error: %v", err))
 						continue
 					}
 					if subSel == nil {

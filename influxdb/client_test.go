@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
-	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/tx7do/go-utils/trans"
+	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
 
 // requireService skips the test when running in -short mode to keep hermetic runs green.
 func requireService(t *testing.T) {
@@ -20,6 +19,7 @@ func requireService(t *testing.T) {
 		t.Skip("skipping integration test in -short mode")
 	}
 }
+
 type Candle struct {
 	Symbol    *string
 	Open      *float64
@@ -122,7 +122,7 @@ func createTestClient(t *testing.T) *Client {
 		WithToken("apiv3_yYde4mJo0BYC7Ipi_00ZEex-A8if4swdqTBXiO-lCUDKhsIavHlRCQfo3p_DzI7S34ADHOC7Qxf600VVgW6LQQ"),
 		WithOrganization("primary"),
 		WithDatabase("finances"),
-		WithLogger(log.DefaultLogger),
+		WithLogger(log.GetLogger()),
 	)
 	return cli
 }

@@ -4,7 +4,7 @@ package influxdb
 //	"context"
 //	"testing"
 //
-//	"github.com/tx7do/go-crud/log"
+//	"github.com/tx7do/go-wind/log"
 //	"github.com/stretchr/testify/assert"
 //	"github.com/tx7do/go-utils/mapper"
 //
@@ -19,7 +19,7 @@ package influxdb
 //
 //func TestRepository_ErrorBranches(t *testing.T) {
 //	ctx := context.Background()
-//	logger := log.NewHelper(log.DefaultLogger)
+//	logger := log.GetLogger()
 //	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 //
 //	// 1. ListWithPaging: db 为 nil -> 错误
@@ -46,7 +46,7 @@ package influxdb
 //	assert.Nil(t, out)
 //
 //	// 5. Update: qb 为 nil -> 错误（在参数校验处返回）
-//	_, err = repo.Update(ctx, nil, map[string]interface{}{"a": 1})
+//	_, err = repo.Update(ctx, nil, map[string]any{"a": 1})
 //	assert.Error(t, err)
 //	assert.Equal(t, "query builder is nil for update", err.Error())
 //

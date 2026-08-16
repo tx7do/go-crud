@@ -1,7 +1,11 @@
 package cassandra
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/gocql/gocql"
+	"github.com/tx7do/go-wind/log"
 )
 
 func NewCassandraClient(opts ...Option) *gocql.Session {
@@ -35,7 +39,7 @@ func NewCassandraClient(opts ...Option) *gocql.Session {
 
 	session, err := clusterConfig.CreateSession()
 	if err != nil {
-		o.Logger.Fatalf("failed opening connection to cassandra: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed opening connection to cassandra: %v", err))
 		return nil
 	}
 

@@ -85,8 +85,8 @@ func TestNewClient_AutoMigrateWithGetMigrateModels(t *testing.T) {
 			c.masterDSN = ":memory:"
 			c.enableMigrate = true
 			// 提供非空的 getMigrateModels，避免潜在的 nil 调用
-			c.getMigrateModels = func() []interface{} {
-				return []interface{}{&Person{}}
+			c.getMigrateModels = func() []any {
+				return []any{&Person{}}
 			}
 		}),
 	}

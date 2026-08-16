@@ -101,7 +101,7 @@ func (poc Processor) colExpr(field string) string {
 	return stringcase.ToSnakeCase(field)
 }
 
-func (poc Processor) appendWhere(builder *query.Builder, expr string, args ...interface{}) *query.Builder {
+func (poc Processor) appendWhere(builder *query.Builder, expr string, args ...any) *query.Builder {
 	if expr == "" {
 		return builder
 	}
@@ -138,7 +138,7 @@ func (poc Processor) In(builder *query.Builder, field, value string, values []st
 
 	// 支持 JSON 数组字符串或 values 列表
 	if value != "" {
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
 			if len(arr) == 0 {
 				return poc.appendWhere(builder, "1 = 0")
@@ -149,7 +149,7 @@ func (poc Processor) In(builder *query.Builder, field, value string, values []st
 		} else {
 			if strings.Contains(value, ",") {
 				parts := strings.Split(value, ",")
-				args := make([]interface{}, 0, len(parts))
+				args := make([]any, 0, len(parts))
 				for _, p := range parts {
 					p = strings.TrimSpace(p)
 					if p != "" {
@@ -169,7 +169,7 @@ func (poc Processor) In(builder *query.Builder, field, value string, values []st
 	if len(values) > 0 {
 		ps := strings.Repeat("?,", len(values))
 		ps = strings.TrimRight(ps, ",")
-		args := make([]interface{}, 0, len(values))
+		args := make([]any, 0, len(values))
 		for _, v := range values {
 			args = append(args, v)
 		}
@@ -187,7 +187,7 @@ func (poc Processor) NotIn(builder *query.Builder, field, value string, values [
 	}
 	// 支持 JSON 数组字符串
 	if value != "" {
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
 			if len(arr) == 0 {
 				// 空集合 -> 不追加条件（或可视为始终为真）
@@ -199,7 +199,7 @@ func (poc Processor) NotIn(builder *query.Builder, field, value string, values [
 		} else {
 			if strings.Contains(value, ",") {
 				parts := strings.Split(value, ",")
-				args := make([]interface{}, 0, len(parts))
+				args := make([]any, 0, len(parts))
 				for _, p := range parts {
 					p = strings.TrimSpace(p)
 					if p != "" {
@@ -219,7 +219,7 @@ func (poc Processor) NotIn(builder *query.Builder, field, value string, values [
 	if len(values) > 0 {
 		ps := strings.Repeat("?,", len(values))
 		ps = strings.TrimRight(ps, ",")
-		args := make([]interface{}, 0, len(values))
+		args := make([]any, 0, len(values))
 		for _, v := range values {
 			args = append(args, v)
 		}
@@ -273,7 +273,7 @@ func (poc Processor) Range(builder *query.Builder, field, value string, values [
 	}
 	// 支持 JSON 数组字符串
 	if value != "" {
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
 			if len(arr) == 2 {
 				return poc.appendWhere(builder, fmt.Sprintf("%s BETWEEN ? AND ?", col), arr[0], arr[1])

@@ -33,12 +33,12 @@ func (p *TokenPaginator) BuildClause(builder *query.Builder, token string, pageS
 	}
 
 	if off > 0 && builder != nil {
-		if s, ok := interface{}(builder).(interface{ SetSkip(int64) }); ok {
+		if s, ok := any(builder).(interface{ SetSkip(int64) }); ok {
 			s.SetSkip(int64(off))
 		}
 	}
 	if builder != nil {
-		if l, ok := interface{}(builder).(interface{ SetLimit(int64) }); ok {
+		if l, ok := any(builder).(interface{ SetLimit(int64) }); ok {
 			l.SetLimit(int64(lim))
 		}
 	}

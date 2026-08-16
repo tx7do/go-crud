@@ -40,7 +40,7 @@ func (qb *Builder) Select(fields []string) *Builder {
 
 // Where 接受任意类型的条件并分发处理：
 // - string / []string -> WhereFromRaw
-// - map[string]interface{} / map[string]any -> WhereFromMaps (operators=nil)
+// - map[string]any / map[string]any -> WhereFromMaps (operators=nil)
 // 其它类型忽略返回原 qb
 func (qb *Builder) Where(cond any) *Builder {
 	switch v := cond.(type) {
@@ -49,8 +49,8 @@ func (qb *Builder) Where(cond any) *Builder {
 	case []string:
 		return qb.WhereFromRaw(v...)
 	case map[string]any:
-		// 将 map[string]any 转为 map[string]interface{}
-		m := make(map[string]interface{}, len(v))
+		// 将 map[string]any 转为 map[string]any
+		m := make(map[string]any, len(v))
 		for k, val := range v {
 			m[k] = val
 		}
@@ -63,7 +63,7 @@ func (qb *Builder) Where(cond any) *Builder {
 // WhereFromMaps 根据 filters 和 operators 构造 WHERE 子句
 // filters: map[field]value
 // operators: map[field]operator (operator 支持: =, !=, >, >=, <, <=, in, regex)
-func (qb *Builder) WhereFromMaps(filters map[string]interface{}, operators map[string]string) *Builder {
+func (qb *Builder) WhereFromMaps(filters map[string]any, operators map[string]string) *Builder {
 	if len(filters) == 0 {
 		return qb
 	}
@@ -114,7 +114,7 @@ func (qb *Builder) WhereFromMaps(filters map[string]interface{}, operators map[s
 }
 
 // WhereFromAny 接受任意类型的 filters 并分发到相应处理：
-// - map[string]interface{} / map[string]any -> WhereFromMaps
+// - map[string]any / map[string]any -> WhereFromMaps
 // - string -> WhereFromRaw
 // - struct / *struct -> 提取导出字段 (优先使用 json tag) 并调用 WhereFromMaps
 // - 其它 -> 尝试 fmt.Sprintf 转为字符串并当作 raw 条件
@@ -125,7 +125,7 @@ func (qb *Builder) WhereFromAny(filters any, operators map[string]string) *Build
 
 	switch v := filters.(type) {
 	case map[string]any:
-		m := make(map[string]interface{}, len(v))
+		m := make(map[string]any, len(v))
 		for k, val := range v {
 			m[k] = val
 		}
@@ -144,7 +144,7 @@ func (qb *Builder) WhereFromAny(filters any, operators map[string]string) *Build
 	}
 	if rv.IsValid() && rv.Kind() == reflect.Struct {
 		rt := rv.Type()
-		m := make(map[string]interface{})
+		m := make(map[string]any)
 		for i := 0; i < rt.NumField(); i++ {
 			f := rt.Field(i)
 			// 只处理导出字段
@@ -178,7 +178,7 @@ func (qb *Builder) WhereFromAny(filters any, operators map[string]string) *Build
 // WhereFromAnys 接收混合类型的条件并分发处理：
 // - string / []string -> WhereFromRaw
 // - []any -> 递归处理每个元素
-// - map[string]interface{} / map[string]any -> WhereFromMaps (operators=nil)
+// - map[string]any / map[string]any -> WhereFromMaps (operators=nil)
 // - fmt.Stringer -> 使用 String()
 // 其它类型尝试用 fmt.Sprintf("%v") 转为字符串并当作 raw 片段（若非空）
 func (qb *Builder) WhereFromAnys(raws ...any) *Builder {
@@ -200,7 +200,7 @@ func (qb *Builder) WhereFromAnys(raws ...any) *Builder {
 				qb.WhereFromAnys(item)
 			}
 		case map[string]any:
-			m := make(map[string]interface{}, len(v))
+			m := make(map[string]any, len(v))
 			for k, val := range v {
 				m[k] = val
 			}
@@ -322,7 +322,7 @@ func (qb *Builder) Build() string {
 // BuildQueryWithParams 兼容现有 client.go 的调用签名
 func BuildQueryWithParams(
 	table string,
-	filters map[string]interface{},
+	filters map[string]any,
 	operators map[string]string,
 	fields []string,
 ) string {

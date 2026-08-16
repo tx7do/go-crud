@@ -1,13 +1,15 @@
 package opensearch
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-wind-plugins/encoding"
 	_ "github.com/tx7do/go-wind-plugins/encoding/json"
+	"github.com/tx7do/go-wind/log"
 )
 
 // ParseErrorMessage 解析 Elasticsearch 错误消息
@@ -26,12 +28,12 @@ func ParseErrorMessage(body io.ReadCloser) (*ErrorResponse, error) {
 func MergeOptions(mapping, settings string) (string, error) {
 	codec := encoding.GetCodec("json")
 
-	body := make(map[string]interface{})
+	body := make(map[string]any)
 
 	if mapping != "" {
-		var mappingObj map[string]interface{}
+		var mappingObj map[string]any
 		if err := codec.Unmarshal([]byte(mapping), &mappingObj); err != nil {
-			log.Errorf("failed to unmarshal mapping: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to unmarshal mapping: %v", err))
 			return "", err
 		}
 		if existingMappings, ok := mappingObj["mappings"]; ok {
@@ -42,9 +44,9 @@ func MergeOptions(mapping, settings string) (string, error) {
 	}
 
 	if settings != "" {
-		var settingsObj map[string]interface{}
+		var settingsObj map[string]any
 		if err := codec.Unmarshal([]byte(settings), &settingsObj); err != nil {
-			log.Errorf("failed to unmarshal settings: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to unmarshal settings: %v", err))
 			return "", err
 		}
 		// 检查 settings 是否包含 settings 字段
@@ -57,7 +59,7 @@ func MergeOptions(mapping, settings string) (string, error) {
 
 	bodyBytes, err := codec.Marshal(body)
 	if err != nil {
-		log.Errorf("failed to marshal request body: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to marshal request body: %v", err))
 		return "", err
 	}
 

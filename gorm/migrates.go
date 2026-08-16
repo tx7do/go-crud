@@ -4,11 +4,11 @@ import "sync"
 
 var (
 	registeredMigrateModelsMu sync.RWMutex
-	registeredMigrateModels   []interface{}
+	registeredMigrateModels   []any
 )
 
 // RegisterMigrateModel 注册用于数据库迁移的数据库模型
-func RegisterMigrateModel(model interface{}) {
+func RegisterMigrateModel(model any) {
 	if model == nil {
 		return
 	}
@@ -18,7 +18,7 @@ func RegisterMigrateModel(model interface{}) {
 }
 
 // RegisterMigrateModels 注册用于数据库迁移的数据库模型
-func RegisterMigrateModels(models ...interface{}) {
+func RegisterMigrateModels(models ...any) {
 	if len(models) == 0 {
 		return
 	}
@@ -28,13 +28,13 @@ func RegisterMigrateModels(models ...interface{}) {
 }
 
 // getRegisteredMigrateModels 返回已注册的包级模型副本（线程安全）
-func getRegisteredMigrateModels() []interface{} {
+func getRegisteredMigrateModels() []any {
 	registeredMigrateModelsMu.RLock()
 	defer registeredMigrateModelsMu.RUnlock()
 	if len(registeredMigrateModels) == 0 {
 		return nil
 	}
-	dup := make([]interface{}, len(registeredMigrateModels))
+	dup := make([]any, len(registeredMigrateModels))
 	copy(dup, registeredMigrateModels)
 	return dup
 }

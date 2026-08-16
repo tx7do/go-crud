@@ -10,13 +10,11 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/log v0.0.0-00010101000000-000000000000
 	github.com/tx7do/go-crud/pagination v0.0.14
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/mapper v0.0.3
-	github.com/tx7do/go-wind v0.0.2-0.20260708091728-5a3f4bd7b906
+	github.com/tx7do/go-wind v0.0.2
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
-	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
 	google.golang.org/protobuf v1.36.12
 )
 
@@ -37,6 +35,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1 // indirect
 	go.einride.tech/aip v0.86.3 // indirect
 	go.opentelemetry.io/otel v1.45.0 // indirect
 	go.opentelemetry.io/otel/trace v1.45.0 // indirect
@@ -48,4 +47,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/tx7do/go-crud/log => ../log
+replace github.com/tx7do/go-crud => ../

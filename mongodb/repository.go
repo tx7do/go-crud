@@ -3,9 +3,10 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"fmt"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-utils/mapper"
+	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
@@ -38,17 +39,14 @@ type Repository[DTO any, ENTITY any] struct {
 
 	client     *Client
 	collection string
-	log        *log.Helper
 }
 
-func NewRepository[DTO any, ENTITY any](client *Client, collection string, mapper *mapper.CopierMapper[DTO, ENTITY], logger *log.Helper) *Repository[DTO, ENTITY] {
+func NewRepository[DTO any, ENTITY any](client *Client, collection string, mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[DTO, ENTITY] {
 	return &Repository[DTO, ENTITY]{
 		client:     client,
 		collection: collection,
 
-		mapper: mapper,
-		log:    logger,
-
+		mapper:            mapper,
 		structuredSorting: sorting.NewStructuredSorting(),
 
 		offsetPaginator: paging.NewOffsetPaginator(),
@@ -80,7 +78,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, 0, err
 	}
 	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
@@ -92,7 +90,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		if _, err = r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
-			r.log.Errorf("field selector build error: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("field selector build error: %v", err))
 		}
 	}
 
@@ -101,7 +99,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, 0, err
 		}
 		_ = r.structuredSorting.BuildOrderClause(qb, sortings)
@@ -137,7 +135,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 
 	var results []*ENTITY
 	if err = r.client.Find(ctx, r.collection, filterDoc, &results); err != nil {
-		r.log.Errorf("find failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("find failed: %v", err))
 		return nil, 0, err
 	}
 
@@ -166,7 +164,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPaginationRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, 0, err
 	}
 	req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
@@ -178,7 +176,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		if _, err = r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
-			r.log.Errorf("field selector build error: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("field selector build error: %v", err))
 		}
 	}
 
@@ -187,7 +185,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, 0, err
 		}
 		_ = r.structuredSorting.BuildOrderClause(qb, sortings)
@@ -222,7 +220,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 
 	var results []*ENTITY
 	if err = r.client.Find(ctx, r.collection, filterDoc, &results); err != nil {
-		r.log.Errorf("find failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("find failed: %v", err))
 		return nil, 0, err
 	}
 
@@ -250,7 +248,7 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 	// 如果提供了 viewMask，则构建 select 子句（日志记录错误但继续）
 	if viewMask != nil && len(viewMask.Paths) > 0 {
 		if _, err := r.fieldSelector.BuildSelector(qb, viewMask.GetPaths()); err != nil {
-			r.log.Errorf("build field select selector failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("build field select selector failed: %s", err.Error()))
 		}
 	}
 
@@ -264,7 +262,7 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 
 	var ent ENTITY
 	if err = r.client.FindOne(ctx, r.collection, filterDoc, &ent); err != nil {
-		r.log.Errorf("find one failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("find one failed: %v", err))
 		return nil, err
 	}
 
@@ -287,7 +285,7 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO) (*DTO, e
 	ent := r.mapper.ToEntity(dto)
 
 	if _, err := r.client.InsertOne(ctx, r.collection, ent); err != nil {
-		r.log.Errorf("insert failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("insert failed: %v", err))
 		return nil, err
 	}
 
@@ -306,7 +304,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 		return nil, nil
 	}
 
-	docs := make([]interface{}, 0, len(dtos))
+	docs := make([]any, 0, len(dtos))
 	ents := make([]*ENTITY, 0, len(dtos))
 	for _, d := range dtos {
 		e := r.mapper.ToEntity(d)
@@ -315,7 +313,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 	}
 
 	if _, err := r.client.InsertMany(ctx, r.collection, docs); err != nil {
-		r.log.Errorf("insert many failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("insert many failed: %v", err))
 		return nil, err
 	}
 
@@ -327,7 +325,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 }
 
 // Update 根据 filter 在 qb 中定位并更新（qb 应包含 where/selector info）
-func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, qb *query.Builder, updateDoc interface{}) (*DTO, error) {
+func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, qb *query.Builder, updateDoc any) (*DTO, error) {
 	if r.client == nil {
 		return nil, errors.New("mongodb database is nil")
 	}
@@ -353,7 +351,7 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, qb *query.Builder,
 		optionsV2.FindOneAndUpdate().SetReturnDocument(optionsV2.After),
 	)
 	if err != nil {
-		r.log.Errorf("update one failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("update one failed: %v", err))
 		return nil, err
 	}
 
@@ -382,7 +380,7 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, qb *query.Builder)
 
 	res, err := r.client.DeleteMany(ctx, r.collection, filterDoc)
 	if err != nil {
-		r.log.Errorf("delete documents failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("delete documents failed: %v", err))
 		return 0, err
 	}
 
@@ -408,7 +406,7 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, qb *query.Builder) 
 
 	count, err := r.client.Count(ctx, r.collection, filterDoc)
 	if err != nil {
-		r.log.Errorf("count documents failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("count documents failed: %v", err))
 		return 0, err
 	}
 
@@ -434,7 +432,7 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, qb *query.Builder)
 
 	exist, err := r.client.Exist(ctx, r.collection, filterDoc)
 	if err != nil {
-		r.log.Errorf("exist documents failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("exist documents failed: %v", err))
 		return false, err
 	}
 

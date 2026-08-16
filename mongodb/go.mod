@@ -9,10 +9,10 @@ replace github.com/tx7do/go-crud/pagination => ../pagination
 require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/log v0.0.0-00010101000000-000000000000
 	github.com/tx7do/go-crud/pagination v0.0.14
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/mapper v0.0.3
+	github.com/tx7do/go-wind v0.0.2
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
 	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
 	go.mongodb.org/mongo-driver/v2 v2.8.0
@@ -28,7 +28,6 @@ require (
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/tx7do/go-wind v0.0.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.2.0 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
@@ -43,4 +42,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/tx7do/go-crud/log => ../log
+replace github.com/tx7do/go-crud => ../

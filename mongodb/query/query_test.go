@@ -125,8 +125,8 @@ func TestQueryBuilderMethods(t *testing.T) {
 	assert.Equal(t, expectedRegexDoc, qb.filter["name"])
 
 	// SetIn
-	qb.SetIn("tags", []interface{}{"tag1", "tag2"})
-	assert.Equal(t, bsonV2.M{OperatorIn: []interface{}{"tag1", "tag2"}}, qb.filter["tags"])
+	qb.SetIn("tags", []any{"tag1", "tag2"})
+	assert.Equal(t, bsonV2.M{OperatorIn: []any{"tag1", "tag2"}}, qb.filter["tags"])
 
 	// Build
 	finalFilter, finalOpts := qb.Build()
@@ -138,8 +138,8 @@ func TestSetGeoWithin(t *testing.T) {
 	qb := NewQueryBuilder()
 
 	field := "location"
-	geometry := bsonV2.M{"type": "Polygon", "coordinates": []interface{}{
-		[]interface{}{
+	geometry := bsonV2.M{"type": "Polygon", "coordinates": []any{
+		[]any{
 			[]float64{40.0, -70.0},
 			[]float64{41.0, -70.0},
 			[]float64{41.0, -71.0},
@@ -240,8 +240,8 @@ func TestOtherOperators(t *testing.T) {
 	qb := NewQueryBuilder()
 
 	// SetAll
-	qb.SetAll("arr", []interface{}{1, 2, 3})
-	assert.Equal(t, bsonV2.M{OperatorAll: []interface{}{1, 2, 3}}, qb.filter["arr"])
+	qb.SetAll("arr", []any{1, 2, 3})
+	assert.Equal(t, bsonV2.M{OperatorAll: []any{1, 2, 3}}, qb.filter["arr"])
 
 	// SetElemMatch
 	qb.SetElemMatch("arr2", bsonV2.M{"score": bsonV2.M{OperatorGt: 10}})
@@ -264,8 +264,8 @@ func TestOtherOperators(t *testing.T) {
 	assert.Equal(t, bsonV2.M{OperatorMod: bsonV2.A{3, 1}}, qb.filter["count"])
 
 	// SetNotIn
-	qb.SetNotIn("exclude", []interface{}{"a", "b"})
-	assert.Equal(t, bsonV2.M{OperatorNin: []interface{}{"a", "b"}}, qb.filter["exclude"])
+	qb.SetNotIn("exclude", []any{"a", "b"})
+	assert.Equal(t, bsonV2.M{OperatorNin: []any{"a", "b"}}, qb.filter["exclude"])
 }
 
 func TestBuildImmutability(t *testing.T) {

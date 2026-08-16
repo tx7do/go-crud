@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
-
 	// register mysql driver for doris (doris uses MySQL protocol)
 	_ "github.com/go-sql-driver/mysql"
 
@@ -18,7 +16,6 @@ import (
 )
 
 type Client struct {
-	log *log.Helper
 	// sqlx DB
 	db  *sqlx.DB
 	dsn string
@@ -41,11 +38,6 @@ func NewClient(opts ...Option) (*Client, error) {
 	// apply options
 	for _, o := range opts {
 		o(c)
-	}
-
-	// ensure logger
-	if c.log == nil {
-		c.log = log.NewHelper(log.DefaultLogger)
 	}
 
 	// if db not injected, open using MySQL driver (Doris supports MySQL protocol)

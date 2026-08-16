@@ -148,7 +148,7 @@ func (poc Processor) In(builder *query.Builder, field string, value any, values 
 			goto tryValues
 		}
 		// try json array
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal([]byte(s), &arr); err == nil {
 			if len(arr) == 0 {
 				return poc.appendFilter(builder, falseExpr)
@@ -158,7 +158,7 @@ func (poc Processor) In(builder *query.Builder, field string, value any, values 
 		// comma separated
 		if strings.Contains(s, ",") {
 			parts := strings.Split(s, ",")
-			args := make([]interface{}, 0, len(parts))
+			args := make([]any, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
 				if p != "" {
@@ -171,7 +171,7 @@ func (poc Processor) In(builder *query.Builder, field string, value any, values 
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": args}})
 		}
 		// single string value
-		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []interface{}{s}}})
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []any{s}}})
 	}
 
 	// try []byte
@@ -179,7 +179,7 @@ func (poc Processor) In(builder *query.Builder, field string, value any, values 
 		if len(b) == 0 {
 			goto tryValues
 		}
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal(b, &arr); err == nil {
 			if len(arr) == 0 {
 				return poc.appendFilter(builder, falseExpr)
@@ -193,7 +193,7 @@ func (poc Processor) In(builder *query.Builder, field string, value any, values 
 		}
 		if strings.Contains(s, ",") {
 			parts := strings.Split(s, ",")
-			args := make([]interface{}, 0, len(parts))
+			args := make([]any, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
 				if p != "" {
@@ -205,11 +205,11 @@ func (poc Processor) In(builder *query.Builder, field string, value any, values 
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": args}})
 		}
-		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []interface{}{s}}})
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []any{s}}})
 	}
 
-	// try []interface{}
-	if arrI, ok := value.([]interface{}); ok {
+	// try []any
+	if arrI, ok := value.([]any); ok {
 		if len(arrI) == 0 {
 			return poc.appendFilter(builder, falseExpr)
 		}
@@ -219,7 +219,7 @@ func (poc Processor) In(builder *query.Builder, field string, value any, values 
 tryValues:
 	// fallback to values param when provided
 	if len(values) > 0 {
-		args := make([]interface{}, 0, len(values))
+		args := make([]any, 0, len(values))
 		for _, v := range values {
 			args = append(args, v)
 		}
@@ -231,7 +231,7 @@ tryValues:
 
 	// last fallback: single non-nil value
 	if value != nil {
-		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []interface{}{value}}})
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$in": []any{value}}})
 	}
 
 	return builder
@@ -250,7 +250,7 @@ func (poc Processor) NotIn(builder *query.Builder, field string, value any, valu
 		if s == "" {
 			goto tryValues
 		}
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal([]byte(s), &arr); err == nil {
 			if len(arr) == 0 {
 				return builder
@@ -259,7 +259,7 @@ func (poc Processor) NotIn(builder *query.Builder, field string, value any, valu
 		}
 		if strings.Contains(s, ",") {
 			parts := strings.Split(s, ",")
-			args := make([]interface{}, 0, len(parts))
+			args := make([]any, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
 				if p != "" {
@@ -271,7 +271,7 @@ func (poc Processor) NotIn(builder *query.Builder, field string, value any, valu
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": args}})
 		}
-		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []interface{}{s}}})
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []any{s}}})
 	}
 
 	// try []byte
@@ -279,7 +279,7 @@ func (poc Processor) NotIn(builder *query.Builder, field string, value any, valu
 		if len(b) == 0 {
 			goto tryValues
 		}
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal(b, &arr); err == nil {
 			if len(arr) == 0 {
 				return builder
@@ -292,7 +292,7 @@ func (poc Processor) NotIn(builder *query.Builder, field string, value any, valu
 		}
 		if strings.Contains(s, ",") {
 			parts := strings.Split(s, ",")
-			args := make([]interface{}, 0, len(parts))
+			args := make([]any, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
 				if p != "" {
@@ -304,11 +304,11 @@ func (poc Processor) NotIn(builder *query.Builder, field string, value any, valu
 			}
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": args}})
 		}
-		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []interface{}{s}}})
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []any{s}}})
 	}
 
-	// try []interface{}
-	if arrI, ok := value.([]interface{}); ok {
+	// try []any
+	if arrI, ok := value.([]any); ok {
 		if len(arrI) == 0 {
 			return builder
 		}
@@ -318,7 +318,7 @@ func (poc Processor) NotIn(builder *query.Builder, field string, value any, valu
 tryValues:
 	// fallback to values param when provided
 	if len(values) > 0 {
-		args := make([]interface{}, 0, len(values))
+		args := make([]any, 0, len(values))
 		for _, v := range values {
 			args = append(args, v)
 		}
@@ -330,7 +330,7 @@ tryValues:
 
 	// last fallback: single non-nil value
 	if value != nil {
-		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []interface{}{value}}})
+		return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$nin": []any{value}}})
 	}
 
 	return builder
@@ -386,7 +386,7 @@ func (poc Processor) Range(builder *query.Builder, field string, value any, valu
 			goto tryValues
 		}
 		// try JSON array
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal([]byte(s), &arr); err == nil {
 			if len(arr) == 2 {
 				return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": arr[0], "$lte": arr[1]}})
@@ -410,7 +410,7 @@ func (poc Processor) Range(builder *query.Builder, field string, value any, valu
 		if len(b) == 0 {
 			goto tryValues
 		}
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal(b, &arr); err == nil {
 			if len(arr) == 2 {
 				return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": arr[0], "$lte": arr[1]}})
@@ -431,8 +431,8 @@ func (poc Processor) Range(builder *query.Builder, field string, value any, valu
 		return poc.appendFilter(builder, bsonV2.M{key: s})
 	}
 
-	// try []interface{}
-	if arrI, ok := value.([]interface{}); ok {
+	// try []any
+	if arrI, ok := value.([]any); ok {
 		if len(arrI) == 2 {
 			return poc.appendFilter(builder, bsonV2.M{key: bsonV2.M{"$gte": arrI[0], "$lte": arrI[1]}})
 		}

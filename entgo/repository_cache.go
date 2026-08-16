@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/redis/go-redis/v9"
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/cache"
 	"github.com/tx7do/go-crud/viewer"
+	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
@@ -258,7 +258,7 @@ func (r *Repository[
 
 	cacheKey, err := r.generateListCacheKey(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
-		log.Warnf("generate list cache key failed: %v, fallback to db", err)
+		log.Warn(context.Background(), fmt.Sprintf("generate list cache key failed: %v, fallback to db", err))
 		return r.ListWithPaging(ctx, builder, countBuilder, req)
 	}
 
@@ -298,7 +298,7 @@ func (r *Repository[
 	// 生成缓存键（复用 PagingRequest 的逻辑，需要转换）
 	cacheKey, err := r.generateListCacheKeyFromPagination(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
-		log.Warnf("generate list cache key failed: %v, fallback to db", err)
+		log.Warn(context.Background(), fmt.Sprintf("generate list cache key failed: %v, fallback to db", err))
 		return r.ListWithPagination(ctx, builder, countBuilder, req)
 	}
 
@@ -336,7 +336,7 @@ func (r *Repository[
 
 	cacheKey, err := r.generateListCacheKey(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
-		log.Warnf("generate list cache key failed: %v, fallback to db", err)
+		log.Warn(context.Background(), fmt.Sprintf("generate list cache key failed: %v, fallback to db", err))
 		return r.ListTreeWithPaging(ctx, builder, countBuilder, req)
 	}
 
@@ -374,7 +374,7 @@ func (r *Repository[
 
 	cacheKey, err := r.generateListCacheKeyFromPagination(viewer.MustFromContext(ctx).TenantID(), req)
 	if err != nil {
-		log.Warnf("generate list cache key failed: %v, fallback to db", err)
+		log.Warn(context.Background(), fmt.Sprintf("generate list cache key failed: %v, fallback to db", err))
 		return r.ListTreeWithPagination(ctx, builder, countBuilder, req)
 	}
 

@@ -565,7 +565,7 @@ type UserDocument struct {
 
 ```go
 // ✅ 好的做法：批量插入
-documents := make([]interface{}, 0, 1000)
+documents := make([]any, 0, 1000)
 for _, user := range users {
     documents = append(documents, user)
 }

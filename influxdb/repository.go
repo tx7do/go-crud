@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 
@@ -34,16 +34,12 @@ type Repository[DTO any, ENTITY any] struct {
 
 	client     *Client
 	collection string
-	log        *log.Helper
 }
 
-func NewRepository[DTO any, ENTITY any](client *Client, collection string, logger *log.Helper) *Repository[DTO, ENTITY] {
+func NewRepository[DTO any, ENTITY any](client *Client, collection string) *Repository[DTO, ENTITY] {
 	return &Repository[DTO, ENTITY]{
-		client:     client,
-		collection: collection,
-
-		log: logger,
-
+		client:            client,
+		collection:        collection,
 		structuredSorting: sorting.NewStructuredSorting(),
 
 		offsetPaginator: paging.NewOffsetPaginator(),
@@ -75,7 +71,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, 0, err
 	}
 	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
@@ -87,7 +83,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		if _, err := r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
-			r.log.Errorf("field selector build error: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("field selector build error: %v", err))
 		}
 	}
 
@@ -98,7 +94,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, 0, err
 		}
 		_ = r.structuredSorting.BuildOrderClause(qb, sortings)
@@ -141,7 +137,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPaginationRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, 0, err
 	}
 	req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
@@ -153,7 +149,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		if _, err := r.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
-			r.log.Errorf("field selector build error: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("field selector build error: %v", err))
 		}
 	}
 
@@ -164,7 +160,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, 0, err
 		}
 		_ = r.structuredSorting.BuildOrderClause(qb, sortings)

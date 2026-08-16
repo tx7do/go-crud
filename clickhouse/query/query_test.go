@@ -3,12 +3,12 @@ package query
 import (
 	"testing"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/tx7do/go-wind/log"
 )
 
 func TestQueryBuilder(t *testing.T) {
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	qb := NewQueryBuilder("test_table", logger)
 
 	// 测试 Select 方法
@@ -25,7 +25,7 @@ func TestQueryBuilder(t *testing.T) {
 	qb.Where("id > ?", 10).Where("name = ?", "example")
 	query, params = qb.Build()
 	assert.Contains(t, query, "WHERE id > ? AND name = ?")
-	assert.Equal(t, []interface{}{10, "example"}, params)
+	assert.Equal(t, []any{10, "example"}, params)
 
 	// 测试 OrderBy 方法
 	qb.OrderBy("name", false)
@@ -41,7 +41,7 @@ func TestQueryBuilder(t *testing.T) {
 	qb.Having("COUNT(id) > ?", 5)
 	query, params = qb.Build()
 	assert.Contains(t, query, "HAVING COUNT(id) > ?")
-	assert.Equal(t, []interface{}{10, "example", 5}, params)
+	assert.Equal(t, []any{10, "example", 5}, params)
 
 	// Limit 和 Offset
 	qb.Limit(10).Offset(20)
@@ -89,7 +89,7 @@ func TestQueryBuilder(t *testing.T) {
 }
 
 func TestBuilder_BasicAndAdvanced(t *testing.T) {
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	qb := NewQueryBuilder("test_table", logger)
 
 	// Select / Build basic
@@ -107,7 +107,7 @@ func TestBuilder_BasicAndAdvanced(t *testing.T) {
 	qb.Where("id > ?", 10).Where("name = ?", "example")
 	query, params = qb.Build()
 	assert.Contains(t, query, "WHERE id > ? AND name = ?")
-	assert.Equal(t, []interface{}{10, "example"}, params)
+	assert.Equal(t, []any{10, "example"}, params)
 
 	// OrderBy / GroupBy / Having (having adds param)
 	qb.OrderBy("name", false)
@@ -121,7 +121,7 @@ func TestBuilder_BasicAndAdvanced(t *testing.T) {
 	qb.Having("COUNT(id) > ?", 5)
 	query, params = qb.Build()
 	assert.Contains(t, query, "HAVING COUNT(id) > ?")
-	assert.Equal(t, []interface{}{10, "example", 5}, params)
+	assert.Equal(t, []any{10, "example", 5}, params)
 
 	// Limit / Offset
 	qb.Limit(10).Offset(20)
@@ -161,7 +161,7 @@ func TestBuilder_BasicAndAdvanced(t *testing.T) {
 }
 
 func TestBuilder_InvalidInputs_Panic(t *testing.T) {
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	qb := NewQueryBuilder("test_table", logger)
 
 	// invalid column name should panic

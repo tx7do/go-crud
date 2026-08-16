@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -18,11 +17,6 @@ func WithDSN(dsn string) Option {
 // WithDB injects an existing *sqlx.DB into the client (skips Open).
 func WithDB(db *sqlx.DB) Option {
 	return func(o *Client) { o.db = db }
-}
-
-// WithLogger attaches a log helper to the client.
-func WithLogger(l *log.Helper) Option {
-	return func(o *Client) { o.log = l }
 }
 
 // WithMaxOpenConns sets maximum open connections.

@@ -6,7 +6,6 @@ import (
 
 	"github.com/elastic/elastic-transport-go/v8/elastictransport"
 	elasticsearchV9 "github.com/elastic/go-elasticsearch/v9"
-	"github.com/tx7do/go-crud/log"
 )
 
 type Option func(o *Client)
@@ -131,12 +130,6 @@ func WithServiceToken(serviceToken string) Option {
 func WithCertificateFingerprint(fingerprint string) Option {
 	return func(o *Client) {
 		o.addOpts(elasticsearchV9.WithCertificateFingerprint(fingerprint))
-	}
-}
-
-func WithLogger(logger log.Logger) Option {
-	return func(o *Client) {
-		o.log = log.NewHelper(log.With(logger, "module", "elasticsearch-client"))
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -25,12 +24,6 @@ func WithDatabase(database string) Option {
 func WithTLSConfig(tlsConfig *tls.Config) Option {
 	return func(o *Client) {
 		o.options = append(o.options, optionsV2.Client().SetTLSConfig(tlsConfig))
-	}
-}
-
-func WithLogger(logger log.Logger) Option {
-	return func(o *Client) {
-		o.log = log.NewHelper(log.With(logger, "module", "mongodb-client"))
 	}
 }
 

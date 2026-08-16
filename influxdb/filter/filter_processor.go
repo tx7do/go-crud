@@ -103,18 +103,18 @@ func (poc Processor) makeKey(field string) string {
 	return stringcase.ToSnakeCase(field)
 }
 
-// helper: 尝试从 value 或 values 中解析为 slice of interface{}
-func (poc Processor) parseArray(value string, values []string) ([]interface{}, bool) {
+// helper: 尝试从 value 或 values 中解析为 slice of any
+func (poc Processor) parseArray(value string, values []string) ([]any, bool) {
 	// 优先尝试 JSON 数组字符串
 	if strings.TrimSpace(value) != "" {
-		var arr []interface{}
+		var arr []any
 		if err := poc.codec.Unmarshal([]byte(value), &arr); err == nil {
 			return arr, true
 		}
 		// 其次尝试逗号分割
 		if strings.Contains(value, ",") {
 			parts := strings.Split(value, ",")
-			out := make([]interface{}, 0, len(parts))
+			out := make([]any, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
 				if p != "" {
@@ -126,7 +126,7 @@ func (poc Processor) parseArray(value string, values []string) ([]interface{}, b
 	}
 	// 最后使用传入的 values 切片
 	if len(values) > 0 {
-		out := make([]interface{}, 0, len(values))
+		out := make([]any, 0, len(values))
 		for _, v := range values {
 			out = append(out, v)
 		}
@@ -141,7 +141,7 @@ func (poc Processor) Equal(builder *query.Builder, field, value string) *query.B
 	if key == "" {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: "="})
+	return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: "="})
 }
 
 // NotEqual 不等于
@@ -150,7 +150,7 @@ func (poc Processor) NotEqual(builder *query.Builder, field, value string) *quer
 	if key == "" {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: "!="})
+	return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: "!="})
 }
 
 // In 包含
@@ -163,7 +163,7 @@ func (poc Processor) In(builder *query.Builder, field, value string, values []st
 	if !ok || len(arr) == 0 {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: arr}, map[string]string{key: "in"})
+	return builder.WhereFromMaps(map[string]any{key: arr}, map[string]string{key: "in"})
 }
 
 // NotIn 不包含 —— 通过多个 != 条件构造等价的 AND 表达式
@@ -178,7 +178,7 @@ func (poc Processor) NotIn(builder *query.Builder, field, value string, values [
 	}
 	for _, v := range arr {
 		// 每次追加一个 != 条件，最终会由 Builder 用 AND 连接
-		builder = builder.WhereFromMaps(map[string]interface{}{key: v}, map[string]string{key: "!="})
+		builder = builder.WhereFromMaps(map[string]any{key: v}, map[string]string{key: "!="})
 	}
 	return builder
 }
@@ -189,7 +189,7 @@ func (poc Processor) GTE(builder *query.Builder, field, value string) *query.Bui
 	if key == "" {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: ">="})
+	return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: ">="})
 }
 
 // GT 大于
@@ -198,7 +198,7 @@ func (poc Processor) GT(builder *query.Builder, field, value string) *query.Buil
 	if key == "" {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: ">"})
+	return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: ">"})
 }
 
 // LTE 小于等于
@@ -207,7 +207,7 @@ func (poc Processor) LTE(builder *query.Builder, field, value string) *query.Bui
 	if key == "" {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: "<="})
+	return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: "<="})
 }
 
 // LT 小于
@@ -216,7 +216,7 @@ func (poc Processor) LT(builder *query.Builder, field, value string) *query.Buil
 	if key == "" {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: "<"})
+	return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: "<"})
 }
 
 // Range BETWEEN 范围查询 — 尝试解析为两个值
@@ -227,11 +227,11 @@ func (poc Processor) Range(builder *query.Builder, field, value string, values [
 	}
 	// 先尝试 JSON 数组或逗号分割
 	if strings.TrimSpace(value) != "" {
-		var arr []interface{}
+		var arr []any
 		if err := json.Unmarshal([]byte(value), &arr); err == nil {
 			if len(arr) == 2 {
-				builder = builder.WhereFromMaps(map[string]interface{}{key: arr[0]}, map[string]string{key: ">="})
-				builder = builder.WhereFromMaps(map[string]interface{}{key: arr[1]}, map[string]string{key: "<="})
+				builder = builder.WhereFromMaps(map[string]any{key: arr[0]}, map[string]string{key: ">="})
+				builder = builder.WhereFromMaps(map[string]any{key: arr[1]}, map[string]string{key: "<="})
 				return builder
 			}
 		}
@@ -240,15 +240,15 @@ func (poc Processor) Range(builder *query.Builder, field, value string, values [
 			if len(parts) == 2 {
 				a := strings.TrimSpace(parts[0])
 				b := strings.TrimSpace(parts[1])
-				builder = builder.WhereFromMaps(map[string]interface{}{key: a}, map[string]string{key: ">="})
-				builder = builder.WhereFromMaps(map[string]interface{}{key: b}, map[string]string{key: "<="})
+				builder = builder.WhereFromMaps(map[string]any{key: a}, map[string]string{key: ">="})
+				builder = builder.WhereFromMaps(map[string]any{key: b}, map[string]string{key: "<="})
 				return builder
 			}
 		}
 	}
 	if len(values) == 2 {
-		builder = builder.WhereFromMaps(map[string]interface{}{key: values[0]}, map[string]string{key: ">="})
-		builder = builder.WhereFromMaps(map[string]interface{}{key: values[1]}, map[string]string{key: "<="})
+		builder = builder.WhereFromMaps(map[string]any{key: values[0]}, map[string]string{key: ">="})
+		builder = builder.WhereFromMaps(map[string]any{key: values[1]}, map[string]string{key: "<="})
 		return builder
 	}
 	// fallback to equality when single
@@ -265,7 +265,7 @@ func (poc Processor) Contains(builder *query.Builder, field, value string) *quer
 		return builder
 	}
 	pat := ".*" + regexpEscape(value) + ".*"
-	return builder.WhereFromMaps(map[string]interface{}{key: pat}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: pat}, map[string]string{key: "=~"})
 }
 
 // InsensitiveContains 不区分大小写
@@ -275,7 +275,7 @@ func (poc Processor) InsensitiveContains(builder *query.Builder, field, value st
 		return builder
 	}
 	pat := "(?i).*" + regexpEscape(value) + ".*"
-	return builder.WhereFromMaps(map[string]interface{}{key: pat}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: pat}, map[string]string{key: "=~"})
 }
 
 // StartsWith 开始于
@@ -285,7 +285,7 @@ func (poc Processor) StartsWith(builder *query.Builder, field, value string) *qu
 		return builder
 	}
 	pat := "^" + regexpEscape(value) + ".*"
-	return builder.WhereFromMaps(map[string]interface{}{key: pat}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: pat}, map[string]string{key: "=~"})
 }
 
 // InsensitiveStartsWith 不区分大小写
@@ -295,7 +295,7 @@ func (poc Processor) InsensitiveStartsWith(builder *query.Builder, field, value 
 		return builder
 	}
 	pat := "(?i)^" + regexpEscape(value) + ".*"
-	return builder.WhereFromMaps(map[string]interface{}{key: pat}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: pat}, map[string]string{key: "=~"})
 }
 
 // EndsWith 结束于
@@ -305,7 +305,7 @@ func (poc Processor) EndsWith(builder *query.Builder, field, value string) *quer
 		return builder
 	}
 	pat := ".*" + regexpEscape(value) + "$"
-	return builder.WhereFromMaps(map[string]interface{}{key: pat}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: pat}, map[string]string{key: "=~"})
 }
 
 // InsensitiveEndsWith 不区分大小写
@@ -315,7 +315,7 @@ func (poc Processor) InsensitiveEndsWith(builder *query.Builder, field, value st
 		return builder
 	}
 	pat := "(?i).*" + regexpEscape(value) + "$"
-	return builder.WhereFromMaps(map[string]interface{}{key: pat}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: pat}, map[string]string{key: "=~"})
 }
 
 // Exact 等值比较
@@ -330,7 +330,7 @@ func (poc Processor) InsensitiveExact(builder *query.Builder, field, value strin
 		return builder
 	}
 	pat := "(?i)^" + regexpEscape(value) + "$"
-	return builder.WhereFromMaps(map[string]interface{}{key: pat}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: pat}, map[string]string{key: "=~"})
 }
 
 // Regex 直接使用用户提供的正则
@@ -339,7 +339,7 @@ func (poc Processor) Regex(builder *query.Builder, field, value string) *query.B
 	if key == "" || strings.TrimSpace(value) == "" {
 		return builder
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: "=~"})
 }
 
 // InsensitiveRegex 不区分大小写的正则
@@ -351,9 +351,9 @@ func (poc Processor) InsensitiveRegex(builder *query.Builder, field, value strin
 	// 如果用户已包含 (?i) 则不重复添加
 	prefix := "(?i)"
 	if strings.HasPrefix(value, "(?i)") {
-		return builder.WhereFromMaps(map[string]interface{}{key: value}, map[string]string{key: "=~"})
+		return builder.WhereFromMaps(map[string]any{key: value}, map[string]string{key: "=~"})
 	}
-	return builder.WhereFromMaps(map[string]interface{}{key: prefix + value}, map[string]string{key: "=~"})
+	return builder.WhereFromMaps(map[string]any{key: prefix + value}, map[string]string{key: "=~"})
 }
 
 // Search 简单全文搜索，fallback 为 contains（Regex %val%）

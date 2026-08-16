@@ -18,7 +18,7 @@ type BatchInserter struct {
 	tableName  string
 	columns    []string
 	batchSize  int
-	rows       []interface{}
+	rows       []any
 	insertStmt string
 	mu         sync.Mutex
 	ctx        context.Context
@@ -61,7 +61,7 @@ func NewBatchInserter(
 		tableName:  tableName,
 		columns:    columns,
 		batchSize:  batchSize,
-		rows:       make([]interface{}, 0, batchSize),
+		rows:       make([]any, 0, batchSize),
 		insertStmt: insertStmt,
 		ctx:        ctx,
 		cancel:     cancel,
@@ -69,7 +69,7 @@ func NewBatchInserter(
 }
 
 // Add 添加数据行
-func (bi *BatchInserter) Add(row interface{}) error {
+func (bi *BatchInserter) Add(row any) error {
 	bi.mu.Lock()
 	defer bi.mu.Unlock()
 
@@ -137,7 +137,7 @@ func (bi *BatchInserter) flush() error {
 }
 
 // appendStructToBatch 使用反射将结构体字段添加到批次
-func appendStructToBatch(batch driverV2.Batch, obj interface{}, columns []string) error {
+func appendStructToBatch(batch driverV2.Batch, obj any, columns []string) error {
 	v := reflect.ValueOf(obj)
 
 	// 如果是指针，获取指针指向的值
@@ -157,7 +157,7 @@ func appendStructToBatch(batch driverV2.Batch, obj interface{}, columns []string
 	t := v.Type()
 
 	// 准备参数值
-	values := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
 
 	// 映射列名到结构体字段
 	for i, col := range columns {

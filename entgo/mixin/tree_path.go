@@ -137,7 +137,7 @@ func ensureComputedPath(m ent.Mutation) {
 	rv := reflect.ValueOf(m)
 	if mf := rv.MethodByName("SetField"); mf.IsValid() {
 		if mf.Type().Kind() == reflect.Func && mf.Type().NumIn() == 2 {
-			// 检查第一个参数是否为 string（常见签名为 SetField(string, any/interface{})）
+			// 检查第一个参数是否为 string（常见签名为 SetField(string, any/any)）
 			if mf.Type().In(0).Kind() == reflect.String {
 				// 调用 SetField("path", computed)
 				mf.Call([]reflect.Value{reflect.ValueOf("path"), reflect.ValueOf(computed)})

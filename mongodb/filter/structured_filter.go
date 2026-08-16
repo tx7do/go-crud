@@ -125,19 +125,19 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) bsonV2.
 
 	values := cond.GetValues()
 
-	// helper: parse JSON array string into []interface{}
-	parseArray := func(s string) ([]interface{}, bool) {
+	// helper: parse JSON array string into []any
+	parseArray := func(s string) ([]any, bool) {
 		if strings.TrimSpace(s) == "" {
 			return nil, false
 		}
-		var arr []interface{}
+		var arr []any
 		if err := sf.codec.Unmarshal([]byte(s), &arr); err == nil {
 			return arr, true
 		}
 		// comma separated fallback
 		if strings.Contains(s, ",") {
 			parts := strings.Split(s, ",")
-			out := make([]interface{}, 0, len(parts))
+			out := make([]any, 0, len(parts))
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
 				if p != "" {
@@ -166,7 +166,7 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) bsonV2.
 			return bsonV2.M{key: bsonV2.M{"$in": arr}}
 		}
 		if len(values) > 0 {
-			args := make([]interface{}, 0, len(values))
+			args := make([]any, 0, len(values))
 			for _, v := range values {
 				args = append(args, v)
 			}
@@ -185,7 +185,7 @@ func (sf StructuredFilter) buildCond(cond *paginationV1.FilterCondition) bsonV2.
 			return bsonV2.M{key: bsonV2.M{"$nin": arr}}
 		}
 		if len(values) > 0 {
-			args := make([]interface{}, 0, len(values))
+			args := make([]any, 0, len(values))
 			for _, v := range values {
 				args = append(args, v)
 			}

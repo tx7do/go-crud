@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 
 	opensearchV4 "github.com/opensearch-project/opensearch-go/v4"
 	opensearchapiV4 "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
@@ -30,9 +30,7 @@ import (
 type Client struct {
 	*opensearchV4.Client
 	options *opensearchV4.Config
-
-	log   *log.Helper
-	codec encoding.Codec
+	codec   encoding.Codec
 
 	offsetPaginator *paging.OffsetPaginator
 	pagePaginator   *paging.PagePaginator
@@ -49,8 +47,8 @@ type Client struct {
 func NewOpenSearchClient(opts ...Option) (*Client, error) {
 	c := &Client{
 		options: &opensearchV4.Config{},
-		log:     log.NewHelper(log.DefaultLogger),
-		codec:   encoding.GetCodec("json"),
+
+		codec: encoding.GetCodec("json"),
 
 		structuredSorting: sorting.NewStructuredSorting(),
 
@@ -80,7 +78,7 @@ func NewOpenSearchClient(opts ...Option) (*Client, error) {
 func (c *Client) createOSClient(options *opensearchV4.Config) error {
 	cli, err := opensearchV4.NewClient(*options)
 	if err != nil {
-		c.log.Errorf("failed to create OpenSearch client: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create OpenSearch client: %v", err))
 		return err
 	}
 
@@ -100,17 +98,17 @@ func (c *Client) CheckConnectStatus(ctx context.Context) bool {
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &infoResp)
 	if err != nil {
-		c.log.Errorf("failed to connect to OpenSearch: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to connect to OpenSearch: %v", err))
 		return false
 	}
 
 	if resp.IsError() {
-		c.log.Errorf("Error: %s", resp.String())
+		log.Error(context.Background(), fmt.Sprintf("Error: %s", resp.String()))
 		return false
 	}
 
-	c.log.Infof("Client Version: %s", opensearchV4.Version)
-	c.log.Infof("Server Version: %s", infoResp.Version.Number)
+	log.Info(context.Background(), fmt.Sprintf("Client Version: %s", opensearchV4.Version))
+	log.Info(context.Background(), fmt.Sprintf("Server Version: %s", infoResp.Version.Number))
 
 	return true
 }
@@ -123,7 +121,7 @@ func (c *Client) IndexExists(ctx context.Context, indexName string) (bool, error
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodHead, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to check if index exists: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to check if index exists: %v", err))
 		return false, err
 	}
 
@@ -144,7 +142,7 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 
 	body, err := MergeOptions(mapping, settings)
 	if err != nil {
-		c.log.Errorf("failed to merge options: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to merge options: %v", err))
 		return err
 	}
 
@@ -157,18 +155,18 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, &createResp)
 	if err != nil {
-		c.log.Errorf("failed to create index: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create index: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
 
-		c.log.Errorf("create index failed: %s", errResp.Error)
+		log.Error(context.Background(), fmt.Sprintf("create index failed: %s", errResp.Error))
 
 		return ErrCreateIndex
 	}
@@ -180,7 +178,7 @@ func (c *Client) CreateIndex(ctx context.Context, indexName string, mapping, set
 func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 	exist, err := c.IndexExists(ctx, indexName)
 	if err != nil {
-		c.log.Errorf("failed to check if index exists: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to check if index exists: %v", err))
 		return err
 	}
 	if !exist {
@@ -193,18 +191,18 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string) error {
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to delete index: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete index: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
 
-		c.log.Errorf("delete index failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("delete index failed: %s", errResp.Error.Reason))
 
 		return ErrDeleteIndex
 	}
@@ -221,23 +219,23 @@ func (c *Client) DeleteDocument(ctx context.Context, indexName, id string) error
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to delete document: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete document: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
 
 		if resp.StatusCode == 404 {
-			c.log.Warnf("document not found: %s", errResp.Error.Reason)
+			log.Warn(context.Background(), fmt.Sprintf("document not found: %s", errResp.Error.Reason))
 			return ErrDocumentNotFound
 		}
 
-		c.log.Errorf("delete document failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("delete document failed: %s", errResp.Error.Reason))
 
 		return ErrDeleteDocument
 	}
@@ -252,7 +250,7 @@ func (c *Client) InsertDocument(ctx context.Context, indexName, documentId strin
 	var dataBytes []byte
 	dataBytes, err = c.codec.Marshal(data)
 	if err != nil {
-		c.log.Errorf("failed to marshal data: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to marshal data: %v", err))
 		return err
 	}
 
@@ -264,14 +262,14 @@ func (c *Client) InsertDocument(ctx context.Context, indexName, documentId strin
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to call Index API: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to call Index API: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		// 读取并解析错误（避免重复读取 Body）
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("insert document failed [%d]: %s", resp.StatusCode, string(bodyBytes))
+		log.Error(context.Background(), fmt.Sprintf("insert document failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
 
 		// 可选：区分 400/409 等不同错误类型
 		if resp.StatusCode == 409 {
@@ -297,7 +295,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 		}
 		metaBytes, err := c.codec.Marshal(meta)
 		if err != nil {
-			c.log.Errorf("failed to marshal meta: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to marshal meta: %v", err))
 			continue
 		}
 		buf.Write(metaBytes)
@@ -305,7 +303,7 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 
 		dataBytes, err := c.codec.Marshal(data)
 		if err != nil {
-			c.log.Errorf("failed to marshal data: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to marshal data: %v", err))
 			continue
 		}
 		buf.Write(dataBytes)
@@ -319,12 +317,12 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 	bulkResp := opensearchapiV4.BulkResp{}
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &bulkResp)
 	if err != nil {
-		c.log.Errorf("failed to perform bulk insert: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to perform bulk insert: %v", err))
 		return err
 	}
 	if resp.IsError() {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("bulk insert failed [%d]: %s", resp.StatusCode, string(bodyBytes))
+		log.Error(context.Background(), fmt.Sprintf("bulk insert failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
 		return ErrBatchInsertDocument
 	}
 	return nil
@@ -337,7 +335,7 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 	}
 	dataBytes, err := c.codec.Marshal(map[string]any{"doc": doc})
 	if err != nil {
-		c.log.Errorf("failed to marshal update doc: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to marshal update doc: %v", err))
 		return err
 	}
 	req := &opensearchapiV4.UpdateReq{
@@ -347,12 +345,12 @@ func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string
 	}
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to call Update API: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to call Update API: %v", err))
 		return err
 	}
 	if resp.IsError() {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("update document failed [%d]: %s", resp.StatusCode, string(bodyBytes))
+		log.Error(context.Background(), fmt.Sprintf("update document failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
 		if resp.StatusCode == 404 {
 			return ErrDocumentNotFound
 		}
@@ -381,29 +379,29 @@ func (c *Client) GetDocument(
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &getResp)
 	if err != nil {
-		c.log.Errorf("failed to get document: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to get document: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
 
 		if resp.StatusCode == 404 {
-			c.log.Warnf("document not found: %s", errResp.Error.Reason)
+			log.Warn(context.Background(), fmt.Sprintf("document not found: %s", errResp.Error.Reason))
 			return ErrDocumentNotFound
 		}
 
-		c.log.Errorf("get document failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("get document failed: %s", errResp.Error.Reason))
 
 		return ErrGetDocument
 	}
 
 	if err = c.codec.Unmarshal(getResp.Source, out); err != nil {
-		c.log.Errorf("failed to decode document: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to decode document: %v", err))
 		return err
 	}
 
@@ -419,14 +417,14 @@ func (c *Client) CreateIndexTemplate(ctx context.Context, templateName string, t
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to create index template: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create index template: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp map[string]any
 		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			c.log.Errorf("create index template failed: %v", errResp)
+			log.Error(context.Background(), fmt.Sprintf("create index template failed: %v", errResp))
 		}
 		return ErrCreateTemplate
 	}
@@ -442,7 +440,7 @@ func (c *Client) ExistsIndexTemplate(ctx context.Context, templateName string) (
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodHead, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to check if index template exists: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to check if index template exists: %v", err))
 		return false, err
 	}
 
@@ -457,14 +455,14 @@ func (c *Client) DeleteIndexTemplate(ctx context.Context, templateName string) e
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to delete index template: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete index template: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp map[string]any
 		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			c.log.Errorf("delete index template failed: %v", errResp)
+			log.Error(context.Background(), fmt.Sprintf("delete index template failed: %v", errResp))
 		}
 		return ErrDeleteTemplate
 	}
@@ -481,14 +479,14 @@ func (c *Client) CreateComponentTemplate(ctx context.Context, templateName strin
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to create component template: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create component template: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp map[string]any
 		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			c.log.Errorf("create component template failed: %v", errResp)
+			log.Error(context.Background(), fmt.Sprintf("create component template failed: %v", errResp))
 		}
 		return ErrCreateTemplate
 	}
@@ -504,14 +502,14 @@ func (c *Client) DeleteComponentTemplate(ctx context.Context, templateName strin
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to delete component template: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete component template: %v", err))
 		return err
 	}
 
 	if resp.IsError() {
 		var errResp map[string]any
 		if err = json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
-			c.log.Errorf("delete component template failed: %v", errResp)
+			log.Error(context.Background(), fmt.Sprintf("delete component template failed: %v", errResp))
 		}
 		return ErrDeleteTemplate
 	}
@@ -527,7 +525,7 @@ func (c *Client) ExistsComponentTemplate(ctx context.Context, templateName strin
 
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodHead, req, (*opensearchV4.NoBody)(nil))
 	if err != nil {
-		c.log.Errorf("failed to check if component template exists: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to check if component template exists: %v", err))
 		return false, err
 	}
 
@@ -542,14 +540,14 @@ func (c *Client) CreateISMPolicy(ctx context.Context, policyName string, policyB
 	endpoint := "/_plugins/_ism/policies/" + policyName
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint, bytes.NewReader([]byte(policyBody)))
 	if err != nil {
-		c.log.Errorf("failed to create ISM policy request: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create ISM policy request: %v", err))
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.Client.Stream(req)
 	if err != nil {
-		c.log.Errorf("failed to perform ISM policy request: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to perform ISM policy request: %v", err))
 		return err
 	}
 	defer resp.Body.Close()
@@ -557,10 +555,10 @@ func (c *Client) CreateISMPolicy(ctx context.Context, policyName string, policyB
 	if resp.StatusCode >= 400 {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
-		c.log.Errorf("create ISM policy failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("create ISM policy failed: %s", errResp.Error.Reason))
 		return ErrCreateISMPolicy
 	}
 
@@ -575,14 +573,14 @@ func (c *Client) DeleteISMPolicy(ctx context.Context, policyName string) error {
 	endpoint := "/_plugins/_ism/policies/" + policyName
 	req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
 	if err != nil {
-		c.log.Errorf("failed to create ISM policy delete request: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create ISM policy delete request: %v", err))
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.Client.Stream(req)
 	if err != nil {
-		c.log.Errorf("failed to perform ISM policy delete request: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to perform ISM policy delete request: %v", err))
 		return err
 	}
 	defer resp.Body.Close()
@@ -590,10 +588,10 @@ func (c *Client) DeleteISMPolicy(ctx context.Context, policyName string) error {
 	if resp.StatusCode >= 400 {
 		var errResp *ErrorResponse
 		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
-			c.log.Errorf("failed to parse error message: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
 			return err
 		}
-		c.log.Errorf("delete ISM policy failed: %s", errResp.Error.Reason)
+		log.Error(context.Background(), fmt.Sprintf("delete ISM policy failed: %s", errResp.Error.Reason))
 		return ErrDeleteISMPolicy
 	}
 
@@ -618,7 +616,7 @@ func (c *Client) Search(
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, ErrInvalidFilter
 	}
 	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
@@ -630,7 +628,7 @@ func (c *Client) Search(
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		if _, err = c.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
-			c.log.Errorf("field selector build error: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("field selector build error: %v", err))
 		}
 	}
 
@@ -639,7 +637,7 @@ func (c *Client) Search(
 		var sortings []*paginationV1.Sorting
 		sortings, err = c.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, err
 		}
 		_ = c.structuredSorting.BuildOrderClause(qb, sortings)
@@ -661,7 +659,7 @@ func (c *Client) Search(
 	body := qb.Build()
 	buf := &bytes.Buffer{}
 	if err = json.NewEncoder(buf).Encode(body); err != nil {
-		c.log.Errorf("failed to encode search body: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to encode search body: %v", err))
 		return nil, err
 	}
 
@@ -672,12 +670,12 @@ func (c *Client) Search(
 	var searchResult opensearchapiV4.SearchResp
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, searchReq, &searchResult)
 	if err != nil {
-		c.log.Errorf("failed to search documents: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to search documents: %v", err))
 		return nil, err
 	}
 	if resp.IsError() {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("search document failed [%d]: %s", resp.StatusCode, string(bodyBytes))
+		log.Error(context.Background(), fmt.Sprintf("search document failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
 		return nil, ErrSearchDocument
 	}
 
@@ -720,7 +718,7 @@ func (c *Client) SearchWithHighlight(
 
 	buf := &bytes.Buffer{}
 	if err := json.NewEncoder(buf).Encode(body); err != nil {
-		c.log.Errorf("failed to encode search body: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to encode search body: %v", err))
 		return nil, err
 	}
 
@@ -731,12 +729,12 @@ func (c *Client) SearchWithHighlight(
 	var searchResult opensearchapiV4.SearchResp
 	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &searchResult)
 	if err != nil {
-		c.log.Errorf("failed to search documents: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to search documents: %v", err))
 		return nil, err
 	}
 	if resp.IsError() {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("search document failed [%d]: %s", resp.StatusCode, string(bodyBytes))
+		log.Error(context.Background(), fmt.Sprintf("search document failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
 		return nil, ErrSearchDocument
 	}
 	return &searchResult, nil
@@ -765,20 +763,20 @@ func (c *Client) SearchBySQL(ctx context.Context, sql string) (*SQLResult, error
 
 	resp, err := c.Client.Stream(req)
 	if err != nil {
-		c.log.Errorf("opensearch sql query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("opensearch sql query failed: %v", err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		c.log.Errorf("opensearch sql error response: %s", string(body))
+		log.Error(context.Background(), fmt.Sprintf("opensearch sql error response: %s", string(body)))
 		return nil, ErrSearchDocument
 	}
 
 	var result SQLResult
 	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		c.log.Errorf("decode sql result error: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("decode sql result error: %v", err))
 		return nil, err
 	}
 
@@ -926,7 +924,7 @@ func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, r
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, ErrInvalidFilter
 	}
 	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
@@ -938,7 +936,7 @@ func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, r
 	// select fields
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		if _, err = c.fieldSelector.BuildSelector(qb, req.GetFieldMask().GetPaths()); err != nil {
-			c.log.Errorf("field selector build error: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("field selector build error: %v", err))
 		}
 	}
 
@@ -947,7 +945,7 @@ func (c *Client) QueryWithSQLPagination(ctx context.Context, indexName string, r
 		var sortings []*paginationV1.Sorting
 		sortings, err = c.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, err
 		}
 		_ = c.structuredSorting.BuildOrderClause(qb, sortings)

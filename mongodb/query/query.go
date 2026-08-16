@@ -58,19 +58,19 @@ func (qb *Builder) SetAnd(conditions []bsonV2.M) *Builder {
 }
 
 // SetNotEqual 设置字段的不等于条件
-func (qb *Builder) SetNotEqual(field string, value interface{}) *Builder {
+func (qb *Builder) SetNotEqual(field string, value any) *Builder {
 	qb.filter[field] = bsonV2.M{OperatorNe: value}
 	return qb
 }
 
 // SetGreaterThan 设置字段的大于条件
-func (qb *Builder) SetGreaterThan(field string, value interface{}) *Builder {
+func (qb *Builder) SetGreaterThan(field string, value any) *Builder {
 	qb.filter[field] = bsonV2.M{OperatorGt: value}
 	return qb
 }
 
 // SetLessThan 设置字段的小于条件
-func (qb *Builder) SetLessThan(field string, value interface{}) *Builder {
+func (qb *Builder) SetLessThan(field string, value any) *Builder {
 	qb.filter[field] = bsonV2.M{OperatorLt: value}
 	return qb
 }
@@ -82,13 +82,13 @@ func (qb *Builder) SetExists(field string, exists bool) *Builder {
 }
 
 // SetType 设置字段的类型条件
-func (qb *Builder) SetType(field string, typeValue interface{}) *Builder {
+func (qb *Builder) SetType(field string, typeValue any) *Builder {
 	qb.filter[field] = bsonV2.M{OperatorType: typeValue}
 	return qb
 }
 
 // SetBetween 设置字段的范围查询条件
-func (qb *Builder) SetBetween(field string, start, end interface{}) *Builder {
+func (qb *Builder) SetBetween(field string, start, end any) *Builder {
 	qb.filter[field] = bsonV2.M{
 		OperatorGte: start,
 		OperatorLte: end,
@@ -97,13 +97,13 @@ func (qb *Builder) SetBetween(field string, start, end interface{}) *Builder {
 }
 
 // SetIn 设置字段的包含条件
-func (qb *Builder) SetIn(field string, values []interface{}) *Builder {
+func (qb *Builder) SetIn(field string, values []any) *Builder {
 	qb.filter[field] = bsonV2.M{OperatorIn: values}
 	return qb
 }
 
 // SetNotIn 设置字段的排除条件
-func (qb *Builder) SetNotIn(field string, values []interface{}) *Builder {
+func (qb *Builder) SetNotIn(field string, values []any) *Builder {
 	qb.filter[field] = bsonV2.M{OperatorNin: values}
 	return qb
 }
@@ -115,7 +115,7 @@ func (qb *Builder) SetElemMatch(field string, match bsonV2.M) *Builder {
 }
 
 // SetAll 设置字段必须包含所有指定值的条件
-func (qb *Builder) SetAll(field string, values []interface{}) *Builder {
+func (qb *Builder) SetAll(field string, values []any) *Builder {
 	qb.filter[field] = bsonV2.M{OperatorAll: values}
 	return qb
 }
@@ -321,8 +321,8 @@ func (qb *Builder) Build() (bsonV2.M, *optionsV2.FindOptions) {
 }
 
 // BuildFind 构建用于 Find 的 filter 与 options
-// 返回值：filter interface{} (可为 bson.M/bson.D/...), options.Lister[options.FindOptions], error
-func (qb *Builder) BuildFind() (interface{}, optionsV2.Lister[optionsV2.FindOptions], error) {
+// 返回值：filter any (可为 bson.M/bson.D/...), options.Lister[options.FindOptions], error
+func (qb *Builder) BuildFind() (any, optionsV2.Lister[optionsV2.FindOptions], error) {
 	// 如果 findOpts 为空，初始化
 	if qb.findOpts == nil {
 		qb.findOpts = &optionsV2.FindOptions{}
@@ -343,8 +343,8 @@ func (qb *Builder) BuildFind() (interface{}, optionsV2.Lister[optionsV2.FindOpti
 }
 
 // BuildFindOne 构建用于 FindOne 的 filter 与 options
-// 返回值：filter interface{} (可为 bson.M/bson.D/...), options.Lister[options.FindOneOptions], error
-func (qb *Builder) BuildFindOne() (interface{}, optionsV2.Lister[optionsV2.FindOneOptions], error) {
+// 返回值：filter any (可为 bson.M/bson.D/...), options.Lister[options.FindOneOptions], error
+func (qb *Builder) BuildFindOne() (any, optionsV2.Lister[optionsV2.FindOneOptions], error) {
 	if qb.findOneOpts == nil {
 		qb.findOneOpts = &optionsV2.FindOneOptions{}
 	}

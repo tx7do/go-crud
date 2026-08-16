@@ -2,18 +2,16 @@ package mongodb
 
 import (
 	"context"
-	"os"
+	"fmt"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
+	"github.com/tx7do/go-wind/log"
 
 	mongoV2 "go.mongodb.org/mongo-driver/v2/mongo"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type Client struct {
-	log *log.Helper
-
 	cli     *mongoV2.Client
 	options []*optionsV2.ClientOptions
 
@@ -30,11 +28,6 @@ func NewClient(opts ...Option) (*Client, error) {
 	for _, o := range opts {
 		o(c)
 	}
-
-	if c.log == nil {
-		c.log = log.NewHelper(log.NewStdLogger(os.Stderr))
-	}
-
 	if err := c.createMongodbClient(c.options); err != nil {
 		return nil, err
 	}
@@ -46,7 +39,7 @@ func NewClient(opts ...Option) (*Client, error) {
 func (c *Client) createMongodbClient(options []*optionsV2.ClientOptions) error {
 	cli, err := mongoV2.Connect(options...)
 	if err != nil {
-		c.log.Errorf("failed to create mongodb client: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to create mongodb client: %v", err))
 		return err
 	}
 
@@ -58,14 +51,14 @@ func (c *Client) createMongodbClient(options []*optionsV2.ClientOptions) error {
 // Close 关闭MongoDB客户端
 func (c *Client) Close() {
 	if c.cli == nil {
-		c.log.Warn("mongodb client is already closed or not initialized")
+		log.Warn(context.Background(), "mongodb client is already closed or not initialized")
 		return
 	}
 
 	if err := c.cli.Disconnect(context.Background()); err != nil {
-		c.log.Errorf("failed to disconnect mongodb client: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to disconnect mongodb client: %v", err))
 	} else {
-		c.log.Info("mongodb client disconnected successfully")
+		log.Info(context.Background(), "mongodb client disconnected successfully")
 	}
 	c.cli = nil
 }
@@ -73,7 +66,7 @@ func (c *Client) Close() {
 // CheckConnect 检查MongoDB连接状态
 func (c *Client) CheckConnect() bool {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return false
 	}
 
@@ -81,18 +74,18 @@ func (c *Client) CheckConnect() bool {
 	defer cancel()
 
 	if err := c.cli.Ping(ctx, nil); err != nil {
-		c.log.Errorf("failed to ping mongodb: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("failed to ping mongodb: %v", err))
 		return false
 	}
 
-	c.log.Info("mongodb client is connected")
+	log.Info(context.Background(), "mongodb client is connected")
 	return true
 }
 
 // FindOne 查询单个文档
-func (c *Client) FindOne(ctx context.Context, collection string, filter interface{}, result interface{}) error {
+func (c *Client) FindOne(ctx context.Context, collection string, filter any, result any) error {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return mongoV2.ErrClientDisconnected
 	}
 
@@ -103,9 +96,9 @@ func (c *Client) FindOne(ctx context.Context, collection string, filter interfac
 }
 
 // Find 查询多个文档
-func (c *Client) Find(ctx context.Context, collection string, filter interface{}, results interface{}) error {
+func (c *Client) Find(ctx context.Context, collection string, filter any, results any) error {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return mongoV2.ErrClientDisconnected
 	}
 
@@ -114,12 +107,12 @@ func (c *Client) Find(ctx context.Context, collection string, filter interface{}
 
 	cursor, err := c.cli.Database(c.database).Collection(collection).Find(ctx, filter)
 	if err != nil {
-		c.log.Errorf("failed to find documents in collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to find documents in collection %s: %v", collection, err))
 		return err
 	}
 	defer func(cursor *mongoV2.Cursor, ctx context.Context) {
 		if err = cursor.Close(ctx); err != nil {
-			c.log.Errorf("failed to close cursor: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("failed to close cursor: %v", err))
 		}
 	}(cursor, ctx)
 
@@ -127,9 +120,9 @@ func (c *Client) Find(ctx context.Context, collection string, filter interface{}
 }
 
 // InsertOne 插入单个文档
-func (c *Client) InsertOne(ctx context.Context, collection string, document interface{}) (*mongoV2.InsertOneResult, error) {
+func (c *Client) InsertOne(ctx context.Context, collection string, document any) (*mongoV2.InsertOneResult, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return nil, mongoV2.ErrClientDisconnected
 	}
 
@@ -140,9 +133,9 @@ func (c *Client) InsertOne(ctx context.Context, collection string, document inte
 }
 
 // InsertMany 插入多个文档
-func (c *Client) InsertMany(ctx context.Context, collection string, documents []interface{}) (*mongoV2.InsertManyResult, error) {
+func (c *Client) InsertMany(ctx context.Context, collection string, documents []any) (*mongoV2.InsertManyResult, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return nil, mongoV2.ErrClientDisconnected
 	}
 
@@ -151,7 +144,7 @@ func (c *Client) InsertMany(ctx context.Context, collection string, documents []
 
 	res, err := c.cli.Database(c.database).Collection(collection).InsertMany(ctx, documents)
 	if err != nil {
-		c.log.Errorf("failed to insert documents into collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to insert documents into collection %s: %v", collection, err))
 		return nil, err
 	}
 
@@ -159,9 +152,9 @@ func (c *Client) InsertMany(ctx context.Context, collection string, documents []
 }
 
 // UpdateOne 更新单个文档
-func (c *Client) UpdateOne(ctx context.Context, collection string, filter, update interface{}) (*mongoV2.UpdateResult, error) {
+func (c *Client) UpdateOne(ctx context.Context, collection string, filter, update any) (*mongoV2.UpdateResult, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return nil, mongoV2.ErrClientDisconnected
 	}
 
@@ -170,7 +163,7 @@ func (c *Client) UpdateOne(ctx context.Context, collection string, filter, updat
 
 	res, err := c.cli.Database(c.database).Collection(collection).UpdateOne(ctx, filter, update)
 	if err != nil {
-		c.log.Errorf("failed to update document in collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to update document in collection %s: %v", collection, err))
 		return nil, err
 	}
 
@@ -178,9 +171,9 @@ func (c *Client) UpdateOne(ctx context.Context, collection string, filter, updat
 }
 
 // UpdateMany 更新多个文档
-func (c *Client) UpdateMany(ctx context.Context, collection string, filter, update interface{}) (*mongoV2.UpdateResult, error) {
+func (c *Client) UpdateMany(ctx context.Context, collection string, filter, update any) (*mongoV2.UpdateResult, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return nil, mongoV2.ErrClientDisconnected
 	}
 
@@ -189,7 +182,7 @@ func (c *Client) UpdateMany(ctx context.Context, collection string, filter, upda
 
 	res, err := c.cli.Database(c.database).Collection(collection).UpdateMany(ctx, filter, update)
 	if err != nil {
-		c.log.Errorf("failed to update documents in collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to update documents in collection %s: %v", collection, err))
 		return nil, err
 	}
 
@@ -198,9 +191,9 @@ func (c *Client) UpdateMany(ctx context.Context, collection string, filter, upda
 
 // FindOneAndUpdate 在集合中查找并更新单个文档，结果 Decode 到 result 参数。
 // 可传入可选的 *optionsV2.FindOneAndUpdateOptions。
-func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter, update interface{}, result interface{}, opts ...optionsV2.Lister[optionsV2.FindOneAndUpdateOptions]) error {
+func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter, update any, result any, opts ...optionsV2.Lister[optionsV2.FindOneAndUpdateOptions]) error {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return mongoV2.ErrClientDisconnected
 	}
 
@@ -209,7 +202,7 @@ func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter
 
 	sr := c.cli.Database(c.database).Collection(collection).FindOneAndUpdate(ctx, filter, update, opts...)
 	if err := sr.Decode(result); err != nil {
-		c.log.Errorf("failed to FindOneAndUpdate in collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to FindOneAndUpdate in collection %s: %v", collection, err))
 		return err
 	}
 
@@ -217,9 +210,9 @@ func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter
 }
 
 // DeleteOne 删除单个文档
-func (c *Client) DeleteOne(ctx context.Context, collection string, filter interface{}) (*mongoV2.DeleteResult, error) {
+func (c *Client) DeleteOne(ctx context.Context, collection string, filter any) (*mongoV2.DeleteResult, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return nil, mongoV2.ErrClientDisconnected
 	}
 
@@ -230,9 +223,9 @@ func (c *Client) DeleteOne(ctx context.Context, collection string, filter interf
 }
 
 // DeleteMany 删除多个文档
-func (c *Client) DeleteMany(ctx context.Context, collection string, filter interface{}) (*mongoV2.DeleteResult, error) {
+func (c *Client) DeleteMany(ctx context.Context, collection string, filter any) (*mongoV2.DeleteResult, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return nil, mongoV2.ErrClientDisconnected
 	}
 
@@ -241,7 +234,7 @@ func (c *Client) DeleteMany(ctx context.Context, collection string, filter inter
 
 	res, err := c.cli.Database(c.database).Collection(collection).DeleteMany(ctx, filter)
 	if err != nil {
-		c.log.Errorf("failed to delete documents in collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to delete documents in collection %s: %v", collection, err))
 		return nil, err
 	}
 
@@ -249,9 +242,9 @@ func (c *Client) DeleteMany(ctx context.Context, collection string, filter inter
 }
 
 // Count 统计集合中文档数量，使用 Client 配置的超时和日志方式
-func (c *Client) Count(ctx context.Context, collection string, filter interface{}) (int64, error) {
+func (c *Client) Count(ctx context.Context, collection string, filter any) (int64, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return 0, mongoV2.ErrClientDisconnected
 	}
 
@@ -260,7 +253,7 @@ func (c *Client) Count(ctx context.Context, collection string, filter interface{
 
 	count, err := c.cli.Database(c.database).Collection(collection).CountDocuments(ctx, filter)
 	if err != nil {
-		c.log.Errorf("failed to count documents in collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to count documents in collection %s: %v", collection, err))
 		return 0, err
 	}
 
@@ -269,9 +262,9 @@ func (c *Client) Count(ctx context.Context, collection string, filter interface{
 
 // Exist 检查集合中是否存在满足 filter 的文档，返回布尔值和可能的错误。
 // 使用 Client 的超时配置，客户端未初始化时返回 mongoV2.ErrClientDisconnected。
-func (c *Client) Exist(ctx context.Context, collection string, filter interface{}) (bool, error) {
+func (c *Client) Exist(ctx context.Context, collection string, filter any) (bool, error) {
 	if c.cli == nil {
-		c.log.Errorf("mongodb client is not initialized")
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
 		return false, mongoV2.ErrClientDisconnected
 	}
 
@@ -282,7 +275,7 @@ func (c *Client) Exist(ctx context.Context, collection string, filter interface{
 	countOpts := optionsV2.Count().SetLimit(lim)
 	count, err := c.cli.Database(c.database).Collection(collection).CountDocuments(ctx, filter, countOpts)
 	if err != nil {
-		c.log.Errorf("failed to count documents for existence check in collection %s: %v", collection, err)
+		log.Error(context.Background(), fmt.Sprintf("failed to count documents for existence check in collection %s: %v", collection, err))
 		return false, err
 	}
 

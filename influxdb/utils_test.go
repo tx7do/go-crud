@@ -10,60 +10,60 @@ func TestBuildQuery(t *testing.T) {
 	tests := []struct {
 		name          string
 		table         string
-		filters       map[string]interface{}
+		filters       map[string]any
 		operators     map[string]string
 		fields        []string
 		expectedQuery string
-		expectedArgs  []interface{}
+		expectedArgs  []any
 	}{
 		{
 			name:          "Basic query with filters and fields",
 			table:         "candles",
-			filters:       map[string]interface{}{"s": "AAPL", "o": 150.0},
+			filters:       map[string]any{"s": "AAPL", "o": 150.0},
 			fields:        []string{"s", "o", "h", "l", "c", "v"},
 			expectedQuery: "SELECT s, o, h, l, c, v FROM candles WHERE s = ? AND o = ?",
-			expectedArgs:  []interface{}{"AAPL", 150.0},
+			expectedArgs:  []any{"AAPL", 150.0},
 		},
 		{
 			name:          "Query with no filters",
 			table:         "candles",
-			filters:       map[string]interface{}{},
+			filters:       map[string]any{},
 			fields:        []string{"s", "o", "h"},
 			expectedQuery: "SELECT s, o, h FROM candles",
-			expectedArgs:  []interface{}{},
+			expectedArgs:  []any{},
 		},
 		{
 			name:          "Query with no fields",
 			table:         "candles",
-			filters:       map[string]interface{}{"s": "AAPL"},
+			filters:       map[string]any{"s": "AAPL"},
 			fields:        []string{},
 			expectedQuery: "SELECT * FROM candles WHERE s = ?",
-			expectedArgs:  []interface{}{"AAPL"},
+			expectedArgs:  []any{"AAPL"},
 		},
 		{
 			name:          "Empty table name",
 			table:         "",
-			filters:       map[string]interface{}{"s": "AAPL"},
+			filters:       map[string]any{"s": "AAPL"},
 			fields:        []string{"s", "o"},
 			expectedQuery: "SELECT s, o FROM  WHERE s = ?",
-			expectedArgs:  []interface{}{"AAPL"},
+			expectedArgs:  []any{"AAPL"},
 		},
 		{
 			name:          "Special characters in filters",
 			table:         "candles",
-			filters:       map[string]interface{}{"name": "O'Reilly"},
+			filters:       map[string]any{"name": "O'Reilly"},
 			fields:        []string{"name"},
 			expectedQuery: "SELECT name FROM candles WHERE name = ?",
-			expectedArgs:  []interface{}{"O'Reilly"},
+			expectedArgs:  []any{"O'Reilly"},
 		},
 		{
 			name:          "Query with interval filters",
 			table:         "candles",
-			filters:       map[string]interface{}{"time": "now() - interval '15 minutes'"},
+			filters:       map[string]any{"time": "now() - interval '15 minutes'"},
 			fields:        []string{"*"},
 			operators:     map[string]string{"time": ">="},
 			expectedQuery: "SELECT * FROM candles WHERE time >= ?",
-			expectedArgs:  []interface{}{"now() - interval '15 minutes'"},
+			expectedArgs:  []any{"now() - interval '15 minutes'"},
 		},
 	}
 
@@ -86,7 +86,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 	tests := []struct {
 		name          string
 		table         string
-		filters       map[string]interface{}
+		filters       map[string]any
 		operators     map[string]string
 		fields        []string
 		expectedQuery string
@@ -94,7 +94,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 		{
 			name:          "Basic query with filters and fields",
 			table:         "candles",
-			filters:       map[string]interface{}{"s": "'AAPL'", "o": 150.0},
+			filters:       map[string]any{"s": "'AAPL'", "o": 150.0},
 			operators:     map[string]string{"o": ">"},
 			fields:        []string{"s", "o", "h", "l", "c", "v"},
 			expectedQuery: "SELECT s, o, h, l, c, v FROM candles WHERE s = 'AAPL' AND o > 150",
@@ -102,7 +102,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 		{
 			name:          "Query with no filters",
 			table:         "candles",
-			filters:       map[string]interface{}{},
+			filters:       map[string]any{},
 			operators:     map[string]string{},
 			fields:        []string{"s", "o", "h"},
 			expectedQuery: "SELECT s, o, h FROM candles",
@@ -110,7 +110,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 		{
 			name:          "Query with no fields",
 			table:         "candles",
-			filters:       map[string]interface{}{"s": "'AAPL'"},
+			filters:       map[string]any{"s": "'AAPL'"},
 			operators:     map[string]string{},
 			fields:        []string{},
 			expectedQuery: "SELECT * FROM candles WHERE s = 'AAPL'",
@@ -118,7 +118,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 		{
 			name:          "Empty table name",
 			table:         "",
-			filters:       map[string]interface{}{"s": "'AAPL'"},
+			filters:       map[string]any{"s": "'AAPL'"},
 			operators:     map[string]string{},
 			fields:        []string{"s", "o"},
 			expectedQuery: "SELECT s, o FROM  WHERE s = 'AAPL'",
@@ -126,7 +126,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 		{
 			name:          "Special characters in filters",
 			table:         "candles",
-			filters:       map[string]interface{}{"name": "'O'Reilly'"},
+			filters:       map[string]any{"name": "'O'Reilly'"},
 			operators:     map[string]string{},
 			fields:        []string{"name"},
 			expectedQuery: "SELECT name FROM candles WHERE name = 'O'Reilly'",
@@ -134,7 +134,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 		{
 			name:          "Query with interval filters",
 			table:         "candles",
-			filters:       map[string]interface{}{"time": "now() - interval '15 minutes'"},
+			filters:       map[string]any{"time": "now() - interval '15 minutes'"},
 			operators:     map[string]string{"time": ">="},
 			fields:        []string{"*"},
 			expectedQuery: "SELECT * FROM candles WHERE time >= now() - interval '15 minutes'",

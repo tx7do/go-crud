@@ -5,15 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/tx7do/go-utils/trans"
+	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
-
 
 // requireService skips the test when running in -short mode to keep hermetic runs green.
 func requireService(t *testing.T) {
@@ -22,6 +21,7 @@ func requireService(t *testing.T) {
 		t.Skip("skipping integration test in -short mode")
 	}
 }
+
 type Candle struct {
 	Symbol    *string                `json:"s"`
 	Open      *float64               `json:"o"`
@@ -36,7 +36,7 @@ type Candle struct {
 func createTestClient(t *testing.T) *Client {
 	requireService(t)
 	cli, _ := NewClient(
-		WithLogger(log.DefaultLogger),
+		WithLogger(log.GetLogger()),
 		WithURI("mongodb://root:123456@127.0.0.1:27017/?compressors=snappy,zlib,zstd"),
 		WithDatabase("finances"),
 	)
@@ -155,7 +155,7 @@ func TestClient_InsertManyAndOptions(t *testing.T) {
 	}()
 
 	// InsertMany
-	docs := []interface{}{
+	docs := []any{
 		bson.M{"s": "SYM1", "v": 1},
 		bson.M{"s": "SYM2", "v": 2},
 	}

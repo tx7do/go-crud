@@ -3,8 +3,6 @@ package cassandra
 import (
 	"crypto/tls"
 	"time"
-
-	"github.com/tx7do/go-crud/log"
 )
 
 type options struct {
@@ -16,7 +14,6 @@ type options struct {
 	Keyspace string
 
 	TLSConfig *tls.Config
-	Logger    *log.Helper
 
 	ConnectTimeout time.Duration
 	Timeout        time.Duration
@@ -28,12 +25,6 @@ type options struct {
 }
 
 type Option func(o *options)
-
-func WithLogger(logger log.Logger) Option {
-	return func(o *options) {
-		o.Logger = log.NewHelper(log.With(logger, "module", "cassandra-client"))
-	}
-}
 
 func WithHosts(hosts ...string) Option {
 	return func(o *options) {

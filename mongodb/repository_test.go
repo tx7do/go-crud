@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/tx7do/go-crud/mongodb/query"
 	"github.com/tx7do/go-utils/mapper"
 	"github.com/tx7do/go-utils/trans"
+	"github.com/tx7do/go-wind/log"
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
@@ -22,7 +22,7 @@ type NoDeleted struct {
 
 func TestRepository_ErrorBranches(t *testing.T) {
 	ctx := context.Background()
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
 	client := createTestClient(t)
@@ -51,7 +51,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 	assert.Nil(t, out)
 
 	// 5. Update: qb 为 nil -> 错误（在参数校验处返回）
-	_, err = repo.Update(ctx, nil, map[string]interface{}{"a": 1})
+	_, err = repo.Update(ctx, nil, map[string]any{"a": 1})
 	assert.Error(t, err)
 	assert.Equal(t, "query builder is nil for update", err.Error())
 
@@ -64,7 +64,7 @@ func TestRepository_ErrorBranches(t *testing.T) {
 // TestRepository_UpdateSuccess 测试 Update 成功更新记录
 func TestRepository_UpdateSuccess(t *testing.T) {
 	ctx := context.Background()
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
 	client := createTestClient(t)
@@ -90,7 +90,7 @@ func TestRepository_UpdateSuccess(t *testing.T) {
 
 func TestRepository_CRUDAndList(t *testing.T) {
 	ctx := context.Background()
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
 	client := createTestClient(t)
@@ -154,7 +154,7 @@ func TestRepository_CRUDAndList(t *testing.T) {
 
 func TestRepository_ListWithPaging_ConditionQuery(t *testing.T) {
 	ctx := context.Background()
-	logger := log.NewHelper(log.DefaultLogger)
+	logger := log.GetLogger()
 	noDelMapper := mapper.NewCopierMapper[NoDeleted, NoDeleted]()
 
 	client := createTestClient(t)

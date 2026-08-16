@@ -23,7 +23,7 @@ func (m *Version) BeforeCreate(tx *gorm.DB) (err error) {
 // OptimisticUpdate 是一个简单的辅助函数示例：在单个事务内
 // 使用 WHERE version = oldVersion 执行更新并检查 RowsAffected，
 // 若为 0 则表示版本冲突（需要重试或返回错误）。
-func OptimisticUpdate(tx *gorm.DB, model interface{}, oldVersion uint32, updates map[string]interface{}) error {
+func OptimisticUpdate(tx *gorm.DB, model any, oldVersion uint32, updates map[string]any) error {
 	res := tx.Model(model).Where("version = ?", oldVersion).Updates(updates)
 	if res.Error != nil {
 		return res.Error

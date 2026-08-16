@@ -156,7 +156,7 @@ point := influxdb3.NewPoint(
     map[string]string{
         "sensor_id": "sensor-001",
     },
-    map[string]interface{}{
+    map[string]any{
         "temperature": 25.5,
         "humidity":    60.2,
     },
@@ -305,7 +305,7 @@ for iterator.Next() {
 #### 参数化查询
 
 ```go
-filters := map[string]interface{}{
+filters := map[string]any{
     "sensor_id": "sensor-001",
     "temperature": 25.0,
 }
@@ -458,7 +458,7 @@ tags := map[string]string{
 实际的数据值，不被索引。
 
 ```go
-fields := map[string]interface{}{
+fields := map[string]any{
     "temperature": 25.5,
     "humidity":    60.2,
     "pressure":    1013.25,
@@ -483,7 +483,7 @@ tags := map[string]string{
     "sensor_id": "sensor-001",    // 经常用于过滤
     "location":  "building-a",    // 经常用于分组
 }
-fields := map[string]interface{}{
+fields := map[string]any{
     "temperature": 25.5,          // 数值数据
     "humidity":    60.2,
 }
@@ -566,7 +566,7 @@ fieldMask := &fieldmaskpb.FieldMask{
 pageSize := uint32(100)  // 根据实际需求调整
 
 // 使用索引友好的查询
-filters := map[string]interface{}{
+filters := map[string]any{
     "sensor_id": "sensor-001",  // Tag 字段，有索引
 }
 ```

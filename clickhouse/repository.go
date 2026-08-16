@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/tx7do/go-crud/log"
 	"github.com/tx7do/go-utils/mapper"
+	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
@@ -44,19 +44,15 @@ type Repository[DTO any, ENTITY any] struct {
 	fieldSelector *field.Selector
 
 	client *Client
-	log    *log.Helper
-
-	table string
+	table  string
 }
 
-func NewRepository[DTO any, ENTITY any](client *Client, mapper *mapper.CopierMapper[DTO, ENTITY], table string, log *log.Helper) *Repository[DTO, ENTITY] {
+func NewRepository[DTO any, ENTITY any](client *Client, mapper *mapper.CopierMapper[DTO, ENTITY], table string) *Repository[DTO, ENTITY] {
 	return &Repository[DTO, ENTITY]{
 		client: client,
 		mapper: mapper,
 
-		table: table,
-		log:   log,
-
+		table:           table,
 		offsetPaginator: paging.NewOffsetPaginator(),
 		pagePaginator:   paging.NewPagePaginator(),
 		tokenPaginator:  paging.NewTokenPaginator(),
@@ -108,26 +104,26 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, w
 	// 使用底层连接执行查询
 	rows, err := r.client.conn.Query(ctx, aSql, whereArgs...)
 	if err != nil {
-		r.log.Errorf("clickhouse count query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("clickhouse count query failed: %v", err))
 		return 0, errors.New("count query failed")
 	}
 	defer func() {
 		if cerr := rows.Close(); cerr != nil {
-			r.log.Errorf("failed to close rows: %v", cerr)
+			log.Error(context.Background(), fmt.Sprintf("failed to close rows: %v", cerr))
 		}
 	}()
 
 	var cnt uint64
 	if rows.Next() {
 		if scanErr := rows.Scan(&cnt); scanErr != nil {
-			r.log.Errorf("scan count failed: %v", scanErr)
+			log.Error(context.Background(), fmt.Sprintf("scan count failed: %v", scanErr))
 			return 0, errors.New("scan count failed")
 		}
 		return cnt, nil
 	}
 
 	if iterErr := rows.Err(); iterErr != nil {
-		r.log.Errorf("rows iteration error: %v", iterErr)
+		log.Error(context.Background(), fmt.Sprintf("rows iteration error: %v", iterErr))
 		return 0, errors.New("rows iteration error")
 	}
 
@@ -144,7 +140,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 		return nil, errors.New("table is empty")
 	}
 
-	queryBuilder := query.NewQueryBuilder(r.table, r.log)
+	queryBuilder := query.NewQueryBuilder(r.table, log.GetLogger())
 
 	var err error
 
@@ -152,21 +148,21 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPagingRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, err
 	}
 	req.FilteringType = &paginationV1.PagingRequest_FilterExpr{FilterExpr: filterExpr}
 
 	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
 	if err != nil {
-		log.Errorf("build structured filter selectors failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
 	}
 
 	// 计数
 	aSql, args := queryBuilder.BuildWhereParam()
 	total, err := r.Count(ctx, aSql, args...)
 	if err != nil {
-		r.log.Errorf("count query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("count query failed: %v", err))
 		return nil, err
 	}
 
@@ -174,7 +170,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		_, err = r.fieldSelector.BuildSelector(queryBuilder, req.GetFieldMask().GetPaths())
 		if err != nil {
-			log.Errorf("build field select selector failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("build field select selector failed: %s", err.Error()))
 		}
 	}
 
@@ -185,7 +181,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, err
 		}
 		_ = r.structuredSorting.BuildOrderClause(queryBuilder, sortings)
@@ -210,7 +206,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	}
 	aSql, args = queryBuilder.Build()
 	if err = r.client.Query(ctx, creator, &rawResults, aSql, args...); err != nil {
-		r.log.Errorf("list query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("list query failed: %v", err))
 		return nil, errors.New("list query failed")
 	}
 
@@ -238,7 +234,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		return nil, errors.New("table is empty")
 	}
 
-	queryBuilder := query.NewQueryBuilder(r.table, r.log)
+	queryBuilder := query.NewQueryBuilder(r.table, log.GetLogger())
 
 	var err error
 
@@ -246,21 +242,21 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	var filterExpr *paginationV1.FilterExpr
 	filterExpr, err = paginationFilter.ConvertFilterByPaginationRequest(req)
 	if err != nil {
-		log.Errorf("convert filter string to filter expr failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("convert filter string to filter expr failed: %s", err.Error()))
 		return nil, err
 	}
 	req.FilteringType = &paginationV1.PaginationRequest_FilterExpr{FilterExpr: filterExpr}
 
 	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
 	if err != nil {
-		log.Errorf("build structured filter selectors failed: %s", err.Error())
+		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
 	}
 
 	// 计数
 	aSql, args := queryBuilder.BuildWhereParam()
 	total, err := r.Count(ctx, aSql, args...)
 	if err != nil {
-		r.log.Errorf("count query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("count query failed: %v", err))
 		return nil, err
 	}
 
@@ -268,7 +264,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	if req.FieldMask != nil && len(req.GetFieldMask().Paths) > 0 {
 		_, err = r.fieldSelector.BuildSelector(queryBuilder, req.GetFieldMask().GetPaths())
 		if err != nil {
-			log.Errorf("build field select selector failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("build field select selector failed: %s", err.Error()))
 		}
 	}
 
@@ -279,7 +275,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		var sortings []*paginationV1.Sorting
 		sortings, err = r.orderByStringConverter.Convert(req.GetOrderBy())
 		if err != nil {
-			log.Errorf("convert order by string to sorting failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("convert order by string to sorting failed: %s", err.Error()))
 			return nil, err
 		}
 		_ = r.structuredSorting.BuildOrderClause(queryBuilder, sortings)
@@ -303,7 +299,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	}
 	aSql, args = queryBuilder.Build()
 	if err = r.client.Query(ctx, creator, &rawResults, aSql, args...); err != nil {
-		r.log.Errorf("list query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("list query failed: %v", err))
 		return nil, errors.New("list query failed")
 	}
 
@@ -336,15 +332,15 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 
 	// 构建查询
 	if qb == nil {
-		qb = query.NewQueryBuilder(r.table, r.log)
+		qb = query.NewQueryBuilder(r.table, log.GetLogger())
 	} else {
-		qb.WithTableName(r.table).WithLogger(r.log)
+		qb.WithTableName(r.table).WithLogger(log.GetLogger())
 	}
 
 	// 如果提供了 viewMask，则构建 select 子句（日志记录错误但继续）
 	if viewMask != nil && len(viewMask.Paths) > 0 {
 		if _, err := r.fieldSelector.BuildSelector(qb, viewMask.GetPaths()); err != nil {
-			r.log.Errorf("build field select selector failed: %s", err.Error())
+			log.Error(context.Background(), fmt.Sprintf("build field select selector failed: %s", err.Error()))
 		}
 	}
 
@@ -363,7 +359,7 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 		return &e
 	}
 	if err := r.client.Query(ctx, creator, &rawResults, sqlStr, args...); err != nil {
-		r.log.Errorf("get query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("get query failed: %v", err))
 		return nil, errors.New("get query failed")
 	}
 
@@ -375,7 +371,7 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 		return r.mapper.ToDTO(ptr), nil
 	}
 
-	r.log.Errorf("unexpected result type")
+	log.Error(context.Background(), fmt.Sprintf("unexpected result type"))
 	return nil, errors.New("unexpected result type")
 }
 
@@ -462,7 +458,7 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO, viewMask
 	aSql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", r.table, strings.Join(cols, ","), placeholders)
 
 	if err := r.client.conn.Exec(ctx, aSql, vals...); err != nil {
-		r.log.Errorf("create failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("create failed: %v", err))
 		return nil, errors.New("create failed")
 	}
 
@@ -549,7 +545,7 @@ func (r *Repository[DTO, ENTITY]) CreateX(ctx context.Context, dto *DTO, viewMas
 
 	// 执行插入（底层 Exec 通常只返回 error）
 	if err := r.client.conn.Exec(ctx, aSql, vals...); err != nil {
-		r.log.Errorf("create failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("create failed: %v", err))
 		return 0, errors.New("create failed")
 	}
 
@@ -663,7 +659,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 
 	// 执行插入
 	if err := r.client.conn.Exec(ctx, aSql, vals...); err != nil {
-		r.log.Errorf("batch create failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("batch create failed: %v", err))
 		return nil, errors.New("batch create failed")
 	}
 
@@ -810,7 +806,7 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 	// 执行更新
 	args := append(setVals, pkVal)
 	if err := r.client.conn.Exec(ctx, aSql, args...); err != nil {
-		r.log.Errorf("update failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("update failed: %v", err))
 		return nil, errors.New("update failed")
 	}
 
@@ -822,7 +818,7 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 	}
 	selectSQL := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1", r.table, whereClause)
 	if err := r.client.Query(ctx, creator, &rawResults, selectSQL, pkVal); err != nil {
-		r.log.Errorf("read updated record failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("read updated record failed: %v", err))
 		return nil, errors.New("read updated record failed")
 	}
 	if len(rawResults) == 0 {
@@ -831,7 +827,7 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 	if ptr, ok := rawResults[0].(*ENTITY); ok {
 		return r.mapper.ToDTO(ptr), nil
 	}
-	r.log.Errorf("unexpected result type after update")
+	log.Error(context.Background(), fmt.Sprintf("unexpected result type after update"))
 	return nil, errors.New("unexpected result type")
 }
 
@@ -963,7 +959,7 @@ func (r *Repository[DTO, ENTITY]) UpdateX(ctx context.Context, dto *DTO, updateM
 	// 执行更新
 	args := append(setVals, pkVal)
 	if err := r.client.conn.Exec(ctx, aSql, args...); err != nil {
-		r.log.Errorf("update failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("update failed: %v", err))
 		return 0, errors.New("update failed")
 	}
 
@@ -1083,7 +1079,7 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, dto *DTO, updateMa
 
 	// 插入失败：尝试按主键 UPDATE
 	if pkIdx == -1 || pkCol == "" {
-		r.log.Errorf("upsert insert failed and primary key not found")
+		log.Error(context.Background(), fmt.Sprintf("upsert insert failed and primary key not found"))
 		return nil, errors.New("upsert failed and primary key not found")
 	}
 
@@ -1127,7 +1123,7 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, dto *DTO, updateMa
 	}
 
 	if len(setExprs) == 0 {
-		r.log.Errorf("upsert: no columns to update after insert failure")
+		log.Error(context.Background(), fmt.Sprintf("upsert: no columns to update after insert failure"))
 		return nil, errors.New("no columns to update")
 	}
 
@@ -1137,7 +1133,7 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, dto *DTO, updateMa
 
 	args := append(setVals, pkVal)
 	if err := r.client.conn.Exec(ctx, updateSQL, args...); err != nil {
-		r.log.Errorf("upsert update failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("upsert update failed: %v", err))
 		return nil, errors.New("upsert update failed")
 	}
 
@@ -1149,7 +1145,7 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, dto *DTO, updateMa
 	}
 	selectSQL := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1", r.table, whereClause)
 	if err := r.client.Query(ctx, creator, &rawResults, selectSQL, pkVal); err != nil {
-		r.log.Errorf("read upserted record failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("read upserted record failed: %v", err))
 		return nil, errors.New("read upserted record failed")
 	}
 	if len(rawResults) == 0 {
@@ -1158,7 +1154,7 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, dto *DTO, updateMa
 	if ptr, ok := rawResults[0].(*ENTITY); ok {
 		return r.mapper.ToDTO(ptr), nil
 	}
-	r.log.Errorf("unexpected result type after upsert")
+	log.Error(context.Background(), fmt.Sprintf("unexpected result type after upsert"))
 	return nil, errors.New("unexpected result type after upsert")
 }
 
@@ -1272,7 +1268,7 @@ func (r *Repository[DTO, ENTITY]) UpsertX(ctx context.Context, dto *DTO, updateM
 
 	// INSERT 失败，转为 UPDATE（需要主键）
 	if pkIdx == -1 || pkCol == "" {
-		r.log.Errorf("upsert insert failed and primary key not found")
+		log.Error(context.Background(), fmt.Sprintf("upsert insert failed and primary key not found"))
 		return 0, errors.New("upsert failed and primary key not found")
 	}
 
@@ -1316,7 +1312,7 @@ func (r *Repository[DTO, ENTITY]) UpsertX(ctx context.Context, dto *DTO, updateM
 	}
 
 	if len(setExprs) == 0 {
-		r.log.Errorf("upsert: no columns to update after insert failure")
+		log.Error(context.Background(), fmt.Sprintf("upsert: no columns to update after insert failure"))
 		return 0, errors.New("no columns to update")
 	}
 
@@ -1326,7 +1322,7 @@ func (r *Repository[DTO, ENTITY]) UpsertX(ctx context.Context, dto *DTO, updateM
 
 	args := append(setVals, pkVal)
 	if err := r.client.conn.Exec(ctx, updateSQL, args...); err != nil {
-		r.log.Errorf("upsert update failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("upsert update failed: %v", err))
 		return 0, errors.New("upsert update failed")
 	}
 
@@ -1347,7 +1343,7 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool
 	if notSoftDelete {
 		aSql := fmt.Sprintf("TRUNCATE TABLE %s", r.table)
 		if err := r.client.conn.Exec(ctx, aSql); err != nil {
-			r.log.Errorf("TRUNCATE TABLE failed: %v", err)
+			log.Error(context.Background(), fmt.Sprintf("TRUNCATE TABLE failed: %v", err))
 			return 0, errors.New("delete failed")
 		}
 		// ClickHouse Exec 通常不提供 RowsAffected，成功则返回 1
@@ -1398,7 +1394,7 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool
 
 	aSql := fmt.Sprintf("ALTER TABLE %s UPDATE %s = now() WHERE 1", r.table, deletedCol)
 	if err := r.client.conn.Exec(ctx, aSql); err != nil {
-		r.log.Errorf("soft delete (update deleted_at) failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("soft delete (update deleted_at) failed: %v", err))
 		return 0, errors.New("delete failed")
 	}
 
@@ -1455,7 +1451,7 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, 
 		if strings.Contains(strings.ToLower(err.Error()), "no rows") || strings.Contains(strings.ToLower(err.Error()), "not found") {
 			return false, nil
 		}
-		r.log.Errorf("exists query failed: %v", err)
+		log.Error(context.Background(), fmt.Sprintf("exists query failed: %v", err))
 		return false, errors.New("exists query failed")
 	}
 	return true, nil

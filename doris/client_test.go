@@ -12,7 +12,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-
 // requireService skips the test when running in -short mode to keep hermetic runs green.
 func requireService(t *testing.T) {
 	t.Helper()
@@ -20,6 +19,7 @@ func requireService(t *testing.T) {
 		t.Skip("skipping integration test in -short mode")
 	}
 }
+
 type Candle struct {
 	Timestamp *time.Time `json:"timestamp" db:"timestamp"`
 	Symbol    *string    `json:"symbol" db:"symbol"`
@@ -168,8 +168,8 @@ func TestWithTxWithSession(t *testing.T) {
 	}
 }
 
-// flattenArgs 将 []interface{} 或 [][]interface{} 里的指针全部解引用为基础类型或 nil，返回 []driver.Value
-func flattenArgs(args ...interface{}) []driver.Value {
+// flattenArgs 将 []any 或 [][]any 里的指针全部解引用为基础类型或 nil，返回 []driver.Value
+func flattenArgs(args ...any) []driver.Value {
 	var flat []driver.Value
 	for _, v := range args {
 		switch vv := v.(type) {
@@ -236,7 +236,7 @@ func TestBatchInsert(t *testing.T) {
 		},
 	}
 	cols := []string{"timestamp", "symbol", "open", "high", "low", "close", "volume"}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{candles[0].Timestamp, candles[0].Symbol, candles[0].Open, candles[0].High, candles[0].Low, candles[0].Close, candles[0].Volume},
 		{candles[1].Timestamp, candles[1].Symbol, candles[1].Open, candles[1].High, candles[1].Low, candles[1].Close, candles[1].Volume},
 	}

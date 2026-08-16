@@ -11,8 +11,7 @@ require (
 	github.com/elastic/go-elasticsearch/v9 v9.5.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/log v0.0.0-00010101000000-000000000000
-	github.com/tx7do/go-wind v0.0.2-0.20260708091728-5a3f4bd7b906
+	github.com/tx7do/go-wind v0.0.2
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
 	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1
 )
@@ -36,4 +35,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/tx7do/go-crud/log => ../log
+replace github.com/tx7do/go-crud => ../
