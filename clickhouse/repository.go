@@ -21,6 +21,7 @@ import (
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 	"github.com/tx7do/go-crud/pagination/paginator"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
+	"github.com/tx7do/go-crud/viewer"
 )
 
 // PagingResult 是通用的分页返回结构，包含 items 和 total 字段
@@ -94,6 +95,13 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, w
 		}
 	}
 
+	// 租户行级强制：tenant-scoped 实体追加 tenant_id 谓词。
+	var err2 error
+	baseWhere, whereArgs, err2 = InjectTenantFilterIntoBaseWhere[ENTITY](ctx, baseWhere, whereArgs)
+	if err2 != nil {
+		return 0, err2
+	}
+
 	aSql := "SELECT COUNT(1) FROM " + r.table
 	bw := strings.TrimSpace(baseWhere)
 	if bw != "" {
@@ -160,6 +168,11 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
 	if err != nil {
 		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
+		return nil, err
+	}
+
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, queryBuilder); err != nil {
 		return nil, err
 	}
 
@@ -263,6 +276,11 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		return nil, err
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, queryBuilder); err != nil {
+		return nil, err
+	}
+
 	// 计数
 	aSql, args := queryBuilder.BuildWhereParam()
 	total, err := r.Count(ctx, aSql, args...)
@@ -360,6 +378,11 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 		}
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return nil, err
+	}
+
 	// 获取 SQL 与参数，并确保只取一条记录
 	sqlStr, args := qb.Build()
 	sqlStr = strings.TrimSpace(sqlStr)
@@ -414,6 +437,11 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO, viewMask
 
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)
+
+	// 租户强制：tenant-scoped 实体在租户业务视图下强制覆盖 tenant_id。
+	if err := viewer.EnforceOnScopedInstance(ctx, ent); err != nil {
+		return nil, err
+	}
 
 	// 通过反射收集列名与值（优先使用 struct tag: db -> ch -> json，否则使用小写字段名）
 	v := reflect.ValueOf(ent)
@@ -495,6 +523,11 @@ func (r *Repository[DTO, ENTITY]) CreateX(ctx context.Context, dto *DTO, viewMas
 
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)
+
+	// 租户强制：tenant-scoped 实体在租户业务视图下强制覆盖 tenant_id。
+	if err := viewer.EnforceOnScopedInstance(ctx, ent); err != nil {
+		return 0, err
+	}
 
 	// 通过反射收集列名与值（优先使用 struct tag: db -> ch -> json，否则使用小写字段名）
 	v := reflect.ValueOf(ent)
@@ -582,6 +615,10 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 			continue
 		}
 		ent := r.mapper.ToEntity(dto)
+		// 租户强制：每个实体在租户业务视图下强制覆盖 tenant_id。
+		if err := viewer.EnforceOnScopedInstance(ctx, ent); err != nil {
+			return nil, err
+		}
 		ents = append(ents, ent)
 	}
 	if len(ents) == 0 {
@@ -798,10 +835,31 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 
 	// 构造 ALTER TABLE ... UPDATE ... WHERE ... （ClickHouse mutation）
 	whereClause := fmt.Sprintf("%s = ?", pkCol)
+
+	// 租户行级强制：tenant-scoped 实体追加 tenant_id 谓词到 UPDATE 的 WHERE，
+	// 防止跨租户更新（语义同 entgo EvalMutation + R-1 注入）。
+	var tenantArg any
+	if viewer.IsTenantScopedType[ENTITY]() {
+		dec, err := viewer.EnforceTenant(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if dec.Enforce {
+			whereClause += " AND tenant_id = ?"
+			tenantArg = dec.TenantID
+		}
+	}
+
+	// 构造 ALTER TABLE ... UPDATE ... WHERE ...
 	aSql := fmt.Sprintf("ALTER TABLE %s UPDATE %s WHERE %s", r.table, strings.Join(setExprs, ", "), whereClause)
 
 	// 执行更新
-	args := append(setVals, pkVal)
+	var args []any
+	args = append(args, setVals...)
+	args = append(args, pkVal)
+	if tenantArg != nil {
+		args = append(args, tenantArg)
+	}
 	if err := r.client.conn.Exec(ctx, aSql, args...); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("update failed: %v", err))
 		return nil, errors.New("update failed")
@@ -814,7 +872,12 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 		return &e
 	}
 	selectSQL := fmt.Sprintf("SELECT * FROM %s WHERE %s LIMIT 1", r.table, whereClause)
-	if err := r.client.Query(ctx, creator, &rawResults, selectSQL, pkVal); err != nil {
+	var readArgs []any
+	readArgs = append(readArgs, pkVal)
+	if tenantArg != nil {
+		readArgs = append(readArgs, tenantArg)
+	}
+	if err := r.client.Query(ctx, creator, &rawResults, selectSQL, readArgs...); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("read updated record failed: %v", err))
 		return nil, errors.New("read updated record failed")
 	}
@@ -1323,6 +1386,16 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool
 
 	// 硬删除：清空表
 	if notSoftDelete {
+		// 租户业务视图下不能 TRUNCATE 整张共享表（会误删他租户数据）。
+		if viewer.IsTenantScopedType[ENTITY]() {
+			dec, err := viewer.EnforceTenant(ctx)
+			if err != nil {
+				return 0, err
+			}
+			if dec.Enforce {
+				return 0, errors.New("hard delete (truncate) not allowed in tenant context on tenant-scoped table")
+			}
+		}
 		aSql := fmt.Sprintf("TRUNCATE TABLE %s", r.table)
 		if err := r.client.conn.Exec(ctx, aSql); err != nil {
 			log.Error(context.Background(), fmt.Sprintf("TRUNCATE TABLE failed: %v", err))
@@ -1374,10 +1447,34 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, notSoftDelete bool
 		return 0, errors.New("soft delete not supported: deleted_at field not found on entity")
 	}
 
-	aSql := fmt.Sprintf("ALTER TABLE %s UPDATE %s = now() WHERE 1", r.table, deletedCol)
-	if err := r.client.conn.Exec(ctx, aSql); err != nil {
-		log.Error(context.Background(), fmt.Sprintf("soft delete (update deleted_at) failed: %v", err))
-		return 0, errors.New("delete failed")
+	// 租户行级强制：tenant-scoped 实体在租户业务视图下限定 UPDATE 到当前租户行。
+	// 平台/系统视图放行 WHERE 1（全表软删除）。
+	var tenantClause string
+	var tenantArg any
+	if viewer.IsTenantScopedType[ENTITY]() {
+		dec, err := viewer.EnforceTenant(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if dec.Enforce {
+			tenantClause = " AND tenant_id = ?"
+			tenantArg = dec.TenantID
+		}
+	}
+
+	var aSql string
+	if tenantArg != nil {
+		aSql = fmt.Sprintf("ALTER TABLE %s UPDATE %s = now() WHERE 1%s", r.table, deletedCol, tenantClause)
+		if err := r.client.conn.Exec(ctx, aSql, tenantArg); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("soft delete (update deleted_at) failed: %v", err))
+			return 0, errors.New("delete failed")
+		}
+	} else {
+		aSql = fmt.Sprintf("ALTER TABLE %s UPDATE %s = now() WHERE 1", r.table, deletedCol)
+		if err := r.client.conn.Exec(ctx, aSql); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("soft delete (update deleted_at) failed: %v", err))
+			return 0, errors.New("delete failed")
+		}
 	}
 
 	// ClickHouse Exec 通常不提供 RowsAffected，成功则返回 1
@@ -1409,6 +1506,13 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, 
 			}
 			whereArgs = expanded
 		}
+	}
+
+	// 租户行级强制：tenant-scoped 实体追加 tenant_id 谓词（仅 tenant 实体）。
+	var err2 error
+	baseWhere, whereArgs, err2 = InjectTenantFilterIntoBaseWhere[ENTITY](ctx, baseWhere, whereArgs)
+	if err2 != nil {
+		return false, err2
 	}
 
 	sqlStr := fmt.Sprintf("SELECT 1 FROM %s", r.table)
