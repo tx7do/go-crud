@@ -18,6 +18,7 @@ func NewOffsetPaginator(offset, limit int) pagination.Paginator {
 	if limit < 1 {
 		limit = DefaultLimit
 	}
+	limit = clampLimit(limit)
 	return &offsetPaginator{
 		offset: offset,
 		limit:  limit,
@@ -111,7 +112,7 @@ func (p *offsetPaginator) WithLimit(limit int) pagination.Paginator {
 	if limit < 1 {
 		limit = 1
 	}
-	p.limit = limit
+	p.limit = clampLimit(limit)
 	return p
 }
 func (p *offsetPaginator) WithToken(string) pagination.Paginator { return p }

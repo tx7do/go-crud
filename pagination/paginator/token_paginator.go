@@ -14,6 +14,7 @@ func NewTokenPaginator(token string, limit int) pagination.Paginator {
 	if limit < 1 {
 		limit = DefaultLimit
 	}
+	limit = clampLimit(limit)
 	return &tokenPaginator{
 		token: token,
 		limit: limit,
@@ -83,7 +84,7 @@ func (p *tokenPaginator) WithSize(size int) pagination.Paginator {
 	if size < 1 {
 		size = 1
 	}
-	p.limit = size
+	p.limit = clampLimit(size)
 	return p
 }
 func (p *tokenPaginator) WithOffset(int) pagination.Paginator      { return p } // token 模式下无效

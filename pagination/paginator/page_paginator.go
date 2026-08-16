@@ -18,6 +18,7 @@ func NewPagePaginator(page, size int) pagination.Paginator {
 	if size < 1 {
 		size = DefaultPageSize
 	}
+	size = clampLimit(size)
 	return &pagePaginator{
 		page: page,
 		size: size,
@@ -96,7 +97,7 @@ func (p *pagePaginator) WithSize(size int) pagination.Paginator {
 	if size < 1 {
 		size = 1
 	}
-	p.size = size
+	p.size = clampLimit(size)
 	return p
 }
 func (p *pagePaginator) WithOffset(offset int) pagination.Paginator {
