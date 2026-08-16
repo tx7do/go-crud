@@ -80,3 +80,27 @@ func EnforceOnScopedInstance[T any](ctx context.Context, instance *T) error {
 	sm.SetTenantID(uint32(dec.TenantID))
 	return nil
 }
+
+// EnforceOnScopedInstanceAny 是 EnforceOnScopedInstance 的非泛型版本，接收
+// any 实例。用于通过反射获取的指针（如批量插入中 slice 元素的地址），这些
+// 场景无法在编译期确定 *T 类型，故无法使用泛型版。
+// 语义完全一致：ScopedModel 断言 → EnforceTenant 决策 → SetTenantID。
+// 非 scoped 实例（断言失败）直接返回 nil。
+func EnforceOnScopedInstanceAny(ctx context.Context, instance any) error {
+	if instance == nil {
+		return nil
+	}
+	sm, ok := instance.(ScopedModel)
+	if !ok {
+		return nil
+	}
+	dec, err := EnforceTenant(ctx)
+	if err != nil {
+		return err
+	}
+	if !dec.Enforce {
+		return nil
+	}
+	sm.SetTenantID(uint32(dec.TenantID))
+	return nil
+}

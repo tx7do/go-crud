@@ -8,6 +8,7 @@ import (
 
 	clickhouseV2 "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/tx7do/go-wind/log"
+	"github.com/tx7do/go-crud/viewer"
 )
 
 type Client struct {
@@ -476,6 +477,9 @@ func (c *Client) BatchInsert(ctx context.Context, tableName string, data []any) 
 	var values [][]any
 
 	for _, item := range data {
+		if err := viewer.EnforceOnScopedInstanceAny(ctx, item); err != nil {
+			return err
+		}
 		itemColumns, _, itemValues, err := c.prepareInsertData(item)
 		if err != nil {
 			log.Error(context.Background(), fmt.Sprintf("prepare insert data failed: %v", err))

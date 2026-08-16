@@ -2,6 +2,7 @@ package doris
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -95,5 +96,50 @@ func TestInjectTenantFilter_NonScopedSkips(t *testing.T) {
 	}
 	if len(args) != 0 {
 		t.Errorf("non-scoped entity must not produce args, got %d", len(args))
+	}
+}
+
+// TestEnforceTenantOnBatchItem_StructForcesTenantID 验证 B.12 修复：批量插入
+// 中 struct 路径（可取址）在租户业务视图下强制覆盖 tenant_id。
+func TestEnforceTenantOnBatchItem_StructForcesTenantID(t *testing.T) {
+	ctx := viewer.WithContext(context.Background(), testEnforceViewer{tid: 42})
+	s := []scopedEntity{{Name: "x"}}
+	rv := reflect.ValueOf(s)
+	if err := enforceTenantOnBatchItem[scopedEntity](ctx, rv, 0); err != nil {
+		t.Fatalf("enforce: %v", err)
+	}
+	if s[0].TenantID.TenantID == nil || *s[0].TenantID.TenantID != 42 {
+		t.Errorf("struct path must force-set tenant_id to 42, got %v", s[0].TenantID.TenantID)
+	}
+}
+
+// TestEnforceTenantOnBatchItem_MapForcesTenantID 验证 B.12 修复：批量插入中
+// map 路径在租户业务视图下强制覆盖 map["tenant_id"]，防止调用方传不含
+// tenant_id 的 map 导致 NULL 落库。
+func TestEnforceTenantOnBatchItem_MapForcesTenantID(t *testing.T) {
+	ctx := viewer.WithContext(context.Background(), testEnforceViewer{tid: 42})
+	m := []map[string]any{{"name": "x"}}
+	rv := reflect.ValueOf(m)
+	if err := enforceTenantOnBatchItem[scopedEntity](ctx, rv, 0); err != nil {
+		t.Fatalf("enforce: %v", err)
+	}
+	v, ok := m[0]["tenant_id"]
+	if !ok {
+		t.Fatalf("map path must force-set tenant_id")
+	}
+	tid, ok := v.(uint32)
+	if !ok || tid != 42 {
+		t.Errorf("map path must force-set tenant_id to 42, got %v", v)
+	}
+}
+
+// TestEnforceTenantOnBatchItem_MissingViewerFailClosed 缺身份时批量路径
+// fail-closed 报错。
+func TestEnforceTenantOnBatchItem_MissingViewerFailClosed(t *testing.T) {
+	s := []scopedEntity{{Name: "x"}}
+	rv := reflect.ValueOf(s)
+	err := enforceTenantOnBatchItem[scopedEntity](context.Background(), rv, 0)
+	if err == nil {
+		t.Fatalf("missing viewer must fail-closed")
 	}
 }

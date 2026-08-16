@@ -97,3 +97,36 @@ func TestInjectTenantFilter_NonScopedSkips(t *testing.T) {
 		t.Errorf("non-scoped entity must not produce args, got %d", len(args))
 	}
 }
+
+// TestEnforceOnScopedInstanceAny_StructForcesTenantID 验证 B.12 修复：
+// Client.BatchInsert 现在通过 EnforceOnScopedInstanceAny 对每个指针元素
+// 在租户业务视图下强制覆盖 tenant_id。
+func TestEnforceOnScopedInstanceAny_StructForcesTenantID(t *testing.T) {
+	ctx := viewer.WithContext(context.Background(), testEnforceViewer{tid: 42})
+	ent := &scopedEntity{Name: "x"}
+	if err := viewer.EnforceOnScopedInstanceAny(ctx, ent); err != nil {
+		t.Fatalf("enforce: %v", err)
+	}
+	if ent.TenantID.TenantID == nil || *ent.TenantID.TenantID != 42 {
+		t.Errorf("must force-set tenant_id to 42, got %v", ent.TenantID.TenantID)
+	}
+}
+
+// TestEnforceOnScopedInstanceAny_NonScopedPassesThrough 非租户实体放行，
+// 无 force-set。
+func TestEnforceOnScopedInstanceAny_NonScopedPassesThrough(t *testing.T) {
+	ctx := viewer.WithContext(context.Background(), testEnforceViewer{tid: 42})
+	ent := &nonScopedEntity{Name: "x"}
+	if err := viewer.EnforceOnScopedInstanceAny(ctx, ent); err != nil {
+		t.Fatalf("non-scoped must pass through, got %v", err)
+	}
+}
+
+// TestEnforceOnScopedInstanceAny_MissingViewerFailClosed 缺身份报错。
+func TestEnforceOnScopedInstanceAny_MissingViewerFailClosed(t *testing.T) {
+	ent := &scopedEntity{Name: "x"}
+	err := viewer.EnforceOnScopedInstanceAny(context.Background(), ent)
+	if err == nil {
+		t.Fatalf("missing viewer must fail-closed")
+	}
+}

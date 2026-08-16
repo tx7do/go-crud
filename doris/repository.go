@@ -1347,19 +1347,18 @@ func (r *Repository[DTO, ENTITY]) BatchInsert(ctx context.Context, data any) err
 	if r.table == "" {
 		return errors.New("table is empty")
 	}
-	// 租户强制：tenant-scoped 实体在缺身份时 fail-closed。此 map 路径
-	// 绕过类型化 mapper，调用方须在 map 中自填 tenant_id；平台/系统视图放行。
-	if viewer.IsTenantScopedType[ENTITY]() {
-		if _, err := viewer.EnforceTenant(ctx); err != nil {
-			return err
-		}
-	}
 	rv := reflect.ValueOf(data)
 	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
 		return errors.New("input must be slice or array")
 	}
 	if rv.Len() == 0 {
 		return nil
+	}
+	// B.12：对每个元素做租户强制（map 路径强制覆盖 tenant_id，struct 路径
+	// 强制 SetTenantID），与 Create 的 force-set 语义对齐。此前 map 路径仅
+	// 校验 viewer 存在但不强制写入，导致 NULL tenant_id 落库。
+	if err := enforceTenantOnBatchItem[ENTITY](ctx, rv, 0); err != nil {
+		return err
 	}
 	// 取第一个元素确定列
 	first := rv.Index(0).Interface()
@@ -1386,6 +1385,9 @@ func (r *Repository[DTO, ENTITY]) BatchInsert(ctx context.Context, data any) err
 	}
 	vals := make([]any, 0, rv.Len()*len(cols))
 	for i := 0; i < rv.Len(); i++ {
+		if err := enforceTenantOnBatchItem[ENTITY](ctx, rv, i); err != nil {
+			return err
+		}
 		item := rv.Index(i).Interface()
 		if m, ok := item.(map[string]any); ok {
 			_, vvals, err := mapToColumnsAndValues(m)
