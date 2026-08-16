@@ -20,7 +20,6 @@ func NewOffsetPaginator() *OffsetPaginator {
 // BuildClause 根据传入的 offset/limit 更新内部状态并将 skip/limit 设置到 query.Builder。
 // 若 limit <= 0（未设置或无效），返回原 builder。
 // 当 offset 为 0 时仅设置 limit，否则同时设置 skip 和 limit。
-// 通过类型断言在运行时调用可选的 SetSkip/SetLimit 方法，避免在编译期依赖它们。
 func (p *OffsetPaginator) BuildClause(builder *query.Builder, offset, limit int) *query.Builder {
 	p.impl.
 		WithOffset(offset).
@@ -33,18 +32,14 @@ func (p *OffsetPaginator) BuildClause(builder *query.Builder, offset, limit int)
 		return builder
 	}
 
-	// 如果 builder 实现了 SetSkip，则设置 skip
-	if off > 0 && builder != nil {
-		if s, ok := any(builder).(interface{ SetSkip(int64) }); ok {
-			s.SetSkip(int64(off))
-		}
-	}
-
-	// 如果 builder 实现了 SetLimit，则设置 limit
+	// builder 为具体类型，直接调用其 Offset/Limit。
+	// 此前用运行时断言探测 SetSkip(int64)/SetLimit(int64)，而 Builder 只有
+	// Offset(int)/Limit(int)，断言永不命中——LIMIT/OFFSET 从未生效。
 	if builder != nil {
-		if l, ok := any(builder).(interface{ SetLimit(int64) }); ok {
-			l.SetLimit(int64(lim))
+		if off > 0 {
+			builder.Offset(off)
 		}
+		builder.Limit(lim)
 	}
 
 	return builder
