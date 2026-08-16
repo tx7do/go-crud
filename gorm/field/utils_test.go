@@ -4,17 +4,20 @@ import (
 	"testing"
 )
 
-// TestNormalizePaths_EscapesBackticks 验证 FieldMask 路径中的反引号会被转义，
-// `a`,(select version()),`b` 这类注入载荷成为单个无害的带引号标识符。
-func TestNormalizePaths_EscapesBackticks(t *testing.T) {
-	out := NormalizePaths([]string{"a`,(select version()),`b"})
-	want := "`a``,(select version()),``b`"
-	if out[0] != want {
-		t.Errorf("NormalizePaths() = %q, want %q", out[0], want)
+// TestNormalizePaths_RejectsMetacharPaths 验证含元字符的 FieldMask 路径
+// 被白名单整条置空（F-2：与 entgo/mongodb/opensearch/influxdb/clickhouse/
+// doris 六模块对齐）。此前 gorm 仅靠反引号转义，现补 identifierPattern。
+func TestNormalizePaths_RejectsMetacharPaths(t *testing.T) {
+	out := NormalizePaths([]string{"a`,(select version()),`b", "id) OR (1=1", "col; DROP", "1abc", "a-b"})
+	for i, v := range out {
+		if v != "" {
+			t.Errorf("metachar path %d must be dropped, got %q", i, v)
+		}
 	}
 }
 
-// TestNormalizePaths_ValidPathsUnchanged 验证正常路径行为不变。
+// TestNormalizePaths_ValidPathsUnchanged 验证正常路径行为不变（合法标识符
+// 段仍反引号包裹，* 保留）。
 func TestNormalizePaths_ValidPathsUnchanged(t *testing.T) {
 	out := NormalizePaths([]string{"name", "user.name", "*"})
 	if out[0] != "`name`" {
