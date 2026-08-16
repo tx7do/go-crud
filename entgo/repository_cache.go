@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -69,18 +70,37 @@ func (r *Repository[
 	return r.WithCache(redisClient, prefix, ttl, ttl/3)
 }
 
+// viewMaskFingerprint 生成 FieldMask 的稳定指纹（排序后哈希），用于单条缓存 key。
+// 不同 viewMask 的返回字段不同，共享缓存会把全字段的返回泄露给受限掩码的调用方。
+func viewMaskFingerprint(viewMask *fieldmaskpb.FieldMask) string {
+	if viewMask == nil || len(viewMask.GetPaths()) == 0 {
+		return "all"
+	}
+	paths := append([]string(nil), viewMask.GetPaths()...)
+	sort.Strings(paths)
+	sum := md5.Sum([]byte(strings.Join(paths, "|")))
+	return hex.EncodeToString(sum[:8])
+}
+
+// escapeScanPattern 转义 Redis MATCH 模式中的通配符，防止字符串主键携带
+// * ? [ 时超范围匹配、误删其他记录的缓存。
+func escapeScanPattern(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `*`, `\*`, `?`, `\?`, `[`, `\[`, `]`, `\]`).Replace(s)
+}
+
 // generateCacheKey 生成单条记录的缓存 key
-// tenantID/userID 作为 key 的维度，确保不同租户、同租户内不同访问者的单条缓存互不串扰
-// （不同 viewer 的隐私规则可能对同一行返回不同结果）。
-// 示例: "user:t:42:u:7:id:123"
+// tenantID/userID/viewMask 作为 key 的维度，确保不同租户、同租户内不同访问者
+// （隐私规则可能对同一行返回不同结果）、不同字段掩码的缓存互不串扰。
+// 示例: "user:t:42:u:7:m:hash123:id:123"
 func (r *Repository[
 	ENT_QUERY, ENT_SELECT,
 	ENT_CREATE, ENT_CREATE_BULK,
 	ENT_UPDATE, ENT_UPDATE_ONE,
 	ENT_DELETE,
 	PREDICATE, DTO, ENTITY,
-]) generateCacheKey(vc viewer.Context, id any) string {
-	return fmt.Sprintf("%st:%d:u:%d:id:%v", r.cacheKeyPrefix, vc.TenantID(), vc.UserID(), id)
+]) generateCacheKey(vc viewer.Context, id any, viewMask *fieldmaskpb.FieldMask) string {
+	return fmt.Sprintf("%st:%d:u:%d:m:%s:id:%v",
+		r.cacheKeyPrefix, vc.TenantID(), vc.UserID(), viewMaskFingerprint(viewMask), id)
 }
 
 // generateListCacheKey 生成列表查询的缓存 key（基于 viewer 身份 + filter + sort + page 的 hash）
@@ -118,6 +138,15 @@ func (r *Repository[
 	}
 	if req.Limit != nil {
 		sig.WriteString(fmt.Sprintf("l%d:", *req.Limit))
+	}
+	// token 先校验解码为 lastID 再入 key（同 PaginationRequest 变体）：
+	// 防刷缓存基数 + 等价游标同 key；非法 token 拒绝（fail-closed，不落缓存）。
+	if req.GetToken() != "" {
+		lastID, ok := pagination.VerifyAndDecode(req.GetToken(), pagination.TokenSecret())
+		if !ok {
+			return "", errors.New("invalid pagination token")
+		}
+		sig.WriteString(fmt.Sprintf("tlast:%d:", lastID))
 	}
 
 	// 2. Filter 表达式（使用 protobuf Marshal）
@@ -238,7 +267,7 @@ func (r *Repository[
 		return r.Get(ctx, builder, viewMask)
 	}
 
-	cacheKey := r.generateCacheKey(viewer.MustFromContext(ctx), id)
+	cacheKey := r.generateCacheKey(viewer.MustFromContext(ctx), id, viewMask)
 
 	dto, err := r.cacheSupportSingle.GetOrLoad(
 		ctx,
@@ -529,7 +558,7 @@ func (r *Repository[
 	// 删除单条缓存。key 含 userID 维度（不同访问者的隐私过滤结果可能不同），
 	// 因此按模式清除该记录在所有用户下的副本： <prefix>t:<tid>:u:<uid>:id:<id>
 	if r.cacheRedisClient != nil {
-		pattern := r.cacheKeyPrefix + "t:*:id:" + fmt.Sprintf("%v", id)
+		pattern := r.cacheKeyPrefix + "t:*:u:*:m:*:id:" + escapeScanPattern(fmt.Sprintf("%v", id))
 		var keys []string
 		iter := r.cacheRedisClient.Scan(ctx, 0, pattern, 100).Iterator()
 		for iter.Next(ctx) {
@@ -541,7 +570,7 @@ func (r *Repository[
 	} else {
 		// 无原始 client 时退化为删除当前访问者的副本
 		vc := viewer.MustFromContext(ctx)
-		_ = r.cacheSupportSingle.Cache.Del(ctx, r.generateCacheKey(vc, id))
+		_ = r.cacheSupportSingle.Cache.Del(ctx, r.generateCacheKey(vc, id, nil))
 	}
 	// 注意：列表缓存的 key 生成依赖于查询参数，无法直接删除
 	// 生产环境建议使用 Redis 的 key pattern 删除（如 "user:list:*"），但要谨慎使用以避免误删

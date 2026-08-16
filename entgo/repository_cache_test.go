@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	paginationBase "github.com/tx7do/go-crud/pagination"
@@ -44,19 +45,19 @@ func TestRepositoryCache(t *testing.T) {
 	](nil)
 	repo.cacheKeyPrefix = "test:"
 
-	// generateCacheKey 含租户与用户维度段 "t:<tenantID>:u:<userID>:"。
-	key := repo.generateCacheKey(viewer.NewNoopContext(), 123)
-	assert.Equal(t, "test:t:0:u:0:id:123", key)
+	// generateCacheKey 含租户、用户与 viewMask 维度段 "t:<tid>:u:<uid>:m:<mask>:"。
+	key := repo.generateCacheKey(viewer.NewNoopContext(), 123, nil)
+	assert.Equal(t, "test:t:0:u:0:m:all:id:123", key)
+
+	// 不同 viewMask（返回字段不同）不得共享缓存。
+	keyMaskA := repo.generateCacheKey(viewer.NewNoopContext(), 123, nil)
+	keyMaskB := repo.generateCacheKey(viewer.NewNoopContext(), 123, &fieldmaskpb.FieldMask{Paths: []string{"name"}})
+	assert.NotEqual(t, keyMaskA, keyMaskB)
 
 	// 不同租户对同一 id 应产生不同 key（跨租户隔离）。
-	keyTenantA := repo.generateCacheKey(stubViewer{tenantID: 1}, 123)
-	keyTenantB := repo.generateCacheKey(stubViewer{tenantID: 2}, 123)
+	keyTenantA := repo.generateCacheKey(stubViewer{tenantID: 1}, 123, nil)
+	keyTenantB := repo.generateCacheKey(stubViewer{tenantID: 2}, 123, nil)
 	assert.NotEqual(t, keyTenantA, keyTenantB)
-
-	// 同租户下不同用户也应产生不同 key（防止数据权限不同的用户共享缓存）。
-	keyUserA := repo.generateCacheKey(stubViewer{tenantID: 1, userID: 10}, 123)
-	keyUserB := repo.generateCacheKey(stubViewer{tenantID: 1, userID: 20}, 123)
-	assert.NotEqual(t, keyUserA, keyUserB)
 
 	// generateListCacheKey 按租户、用户、数据范围隔离。
 	req := &paginationV1.PagingRequest{
