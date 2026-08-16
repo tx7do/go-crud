@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -78,8 +79,17 @@ func TestConvert_SimpleFieldAndOperator(t *testing.T) {
 		},
 	}
 
+	// JSON 对象的 key 遍历顺序不定，比较前按字段名排序消除顺序抖动
+	sortConditions := func(fe *paginationV1.FilterExpr) {
+		sort.Slice(fe.Conditions, func(i, j int) bool {
+			return fe.Conditions[i].GetField() < fe.Conditions[j].GetField()
+		})
+	}
+	sortConditions(want)
+	sortConditions(got)
+
 	if !proto.Equal(want, got) {
-		t.Fatalf("Convert simple -> mismatch:\n%s", cmp.Diff(want, got))
+		t.Fatalf("Convert simple -> mismatch:\n%s", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 
@@ -106,7 +116,7 @@ func TestConvert_OperatorSuffixAndNumber(t *testing.T) {
 	}
 
 	if !proto.Equal(want, got) {
-		t.Fatalf("Convert operator suffix -> mismatch:\n%s", cmp.Diff(want, got))
+		t.Fatalf("Convert operator suffix -> mismatch:\n%s", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 
@@ -132,7 +142,7 @@ func TestConvert_DatePart(t *testing.T) {
 	}
 
 	if !proto.Equal(want, got) {
-		t.Fatalf("Convert date part -> mismatch:\n%s", cmp.Diff(want, got))
+		t.Fatalf("Convert date part -> mismatch:\n%s", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 
@@ -163,7 +173,7 @@ func TestConvert_JsonFieldPath(t *testing.T) {
 	}
 
 	if !proto.Equal(want, got) {
-		t.Fatalf("Convert json path -> mismatch:\n%s", cmp.Diff(want, got))
+		t.Fatalf("Convert json path -> mismatch:\n%s", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 
@@ -248,7 +258,7 @@ func TestParseQuery_ArrayTopLevel(t *testing.T) {
 	}
 
 	if !proto.Equal(want, got) {
-		t.Fatalf("ParseQuery array -> mismatch:\n%s", cmp.Diff(want, got))
+		t.Fatalf("ParseQuery array -> mismatch:\n%s", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 
@@ -281,7 +291,7 @@ func TestParseQuery_ObjectWithAndOr(t *testing.T) {
 		},
 	}
 	if !proto.Equal(wantAnd, gotAnd) {
-		t.Fatalf("ParseQuery $and -> mismatch:\n%s", cmp.Diff(wantAnd, gotAnd))
+		t.Fatalf("ParseQuery $and -> mismatch:\n%s", cmp.Diff(wantAnd, gotAnd, protocmp.Transform()))
 	}
 
 	orJS := `{"$or":[{"status":"active"}]}`
@@ -305,7 +315,7 @@ func TestParseQuery_ObjectWithAndOr(t *testing.T) {
 		},
 	}
 	if !proto.Equal(wantOr, gotOr) {
-		t.Fatalf("ParseQuery $or -> mismatch:\n%s", cmp.Diff(wantOr, gotOr))
+		t.Fatalf("ParseQuery $or -> mismatch:\n%s", cmp.Diff(wantOr, gotOr, protocmp.Transform()))
 	}
 }
 
@@ -461,7 +471,7 @@ func TestParseQuery_In(t *testing.T) {
 	}
 
 	if !proto.Equal(want, got) {
-		t.Fatalf("Convert IN operator -> mismatch:\n%s", cmp.Diff(want, got))
+		t.Fatalf("Convert IN operator -> mismatch:\n%s", cmp.Diff(want, got, protocmp.Transform()))
 	}
 
 	js = `{"user_id__not_in":[1,2,3]}`

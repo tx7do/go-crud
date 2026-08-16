@@ -142,13 +142,23 @@ func TestBuildTreeConstraint_StringID_ThreeLevels(t *testing.T) {
 		t.Errorf("root structure incorrect")
 	}
 
-	child1 := root.Children[0]
-	if child1.ID != "child1" || len(child1.Children) != 2 {
+	// 子节点构建顺序不确定，按 ID 定位后再断言结构
+	findString := func(children []*TreeNodeString, id string) *TreeNodeString {
+		for _, c := range children {
+			if c.ID == id {
+				return c
+			}
+		}
+		return nil
+	}
+
+	child1 := findString(root.Children, "child1")
+	if child1 == nil || len(child1.Children) != 2 {
 		t.Errorf("child1 structure incorrect")
 	}
 
-	child2 := root.Children[1]
-	if child2.ID != "child2" || len(child2.Children) != 1 {
+	child2 := findString(root.Children, "child2")
+	if child2 == nil || len(child2.Children) != 1 {
 		t.Errorf("child2 structure incorrect")
 	}
 }
@@ -355,13 +365,23 @@ func TestBuildTree_ThreeLevels(t *testing.T) {
 		t.Errorf("root structure incorrect")
 	}
 
-	child1 := root.Children[0]
-	if *child1.ID != child1ID || len(child1.Children) != 2 {
+	// 子节点构建顺序不确定，按 ID 定位后再断言结构
+	findUint32 := func(children []*TreeNodeUint32, id uint32) *TreeNodeUint32 {
+		for _, c := range children {
+			if c != nil && c.ID != nil && *c.ID == id {
+				return c
+			}
+		}
+		return nil
+	}
+
+	child1 := findUint32(root.Children, child1ID)
+	if child1 == nil || len(child1.Children) != 2 {
 		t.Errorf("child1 structure incorrect")
 	}
 
-	child2 := root.Children[1]
-	if *child2.ID != child2ID || len(child2.Children) != 1 {
+	child2 := findUint32(root.Children, child2ID)
+	if child2 == nil || len(child2.Children) != 1 {
 		t.Errorf("child2 structure incorrect")
 	}
 }
