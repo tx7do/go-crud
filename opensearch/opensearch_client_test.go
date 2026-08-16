@@ -115,19 +115,34 @@ func createTestClient(t *testing.T) *Client {
 		WithEnableDebugLogger(true),
 		WithLogger(log.GetLogger()),
 	)
+	if cli == nil {
+		return nil
+	}
+	// opensearch-go opens lazily: NewOpenSearchClient returns a non-nil client
+	// even when no server is reachable. Probe via CheckConnectStatus (a real
+	// Info HTTP round-trip) so integration tests skip cleanly instead of
+	// proceeding against a dead client.
+	if !cli.CheckConnectStatus(t.Context()) {
+		cli.Close()
+		return nil
+	}
 	return cli
 }
 
 func TestNewClient(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	client.CheckConnectStatus(t.Context())
 }
 
 func TestCreateIndex(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	{
 		_ = client.DeleteIndex(t.Context(), userIndex)
@@ -150,7 +165,9 @@ func TestCreateIndex(t *testing.T) {
 
 func TestDeleteIndex(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	err := client.DeleteIndex(t.Context(), userIndex)
 	assert.Nil(t, err)
@@ -164,7 +181,9 @@ func TestDeleteIndex(t *testing.T) {
 
 func TestInsertDocument(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	{
 		// http://localhost:9200/user/_search?q=*&pretty
@@ -193,7 +212,9 @@ func TestInsertDocument(t *testing.T) {
 
 func TestBatchInsertDocument(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	{
 		loc, _ := time.LoadLocation("Local")
@@ -235,7 +256,9 @@ func TestBatchInsertDocument(t *testing.T) {
 
 func TestGetDocument(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	var user User
 	const id = "N_1fm5cBE8GqVkmNBLNC"
@@ -320,7 +343,9 @@ func TestMakeQueryString(t *testing.T) {
 
 func TestSearchBySQLTo(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	// 确保索引存在并插入测试数据
 	_ = client.DeleteIndex(t.Context(), userIndex)
@@ -353,7 +378,9 @@ func TestSearchBySQLTo(t *testing.T) {
 
 func TestQueryWithSQLPagination(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	_ = client.DeleteIndex(t.Context(), userIndex)
 	_ = client.CreateIndex(t.Context(), userIndex, UserMapping, "")
@@ -401,7 +428,9 @@ func TestQueryWithSQLPagination(t *testing.T) {
 
 func TestQueryWithSQLPaginationTo(t *testing.T) {
 	client := createTestClient(t)
-	assert.NotNil(t, client)
+	if client == nil {
+		t.Skip("opensearch service unreachable")
+	}
 
 	_ = client.DeleteIndex(t.Context(), userIndex)
 	_ = client.CreateIndex(t.Context(), userIndex, UserMapping, "")
