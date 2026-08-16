@@ -10,10 +10,16 @@ import (
 
 // filterColumns 仅保留属于当前表（s.TableName()）真实列的字段，丢弃未知列名
 // 以防止跨列访问。返回的切片长度可能为 0。
-// 表未在白名单映射中时 fail-open（保留全部字段），保持旧行为。
+// 表未在白名单映射中时 fail-open（保留全部字段），保持旧行为；但无论表是否注册，
+// 路径的每一段都必须通过硬性标识符校验（ent.IsValidFieldPath）——ent 的 Builder.Ident
+// 会把含括号/引号的字符串原样写入 SELECT 列表，此前仅校验第一个点之后的部分，
+// 前缀可携带注入载荷。
 func filterColumns(s *sql.Selector, fields []string) []string {
 	allowed := make([]string, 0, len(fields))
 	for _, f := range fields {
+		if !ent.IsValidFieldPath(f) {
+			continue
+		}
 		// 仅校验不带表前缀的列部分（形如 "table.col" 时取 col）。
 		col := f
 		if idx := strings.Index(col, "."); idx >= 0 {
