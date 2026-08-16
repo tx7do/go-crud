@@ -7,12 +7,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/cache"
+	"github.com/tx7do/go-crud/pagination"
 	"github.com/tx7do/go-crud/viewer"
 	"github.com/tx7do/go-wind/log"
 	"google.golang.org/protobuf/proto"
@@ -35,6 +37,7 @@ func (r *Repository[DTO, ENTITY]) WithCache(
 	r.cacheKeyPrefix = prefix
 	r.cacheTTL = singleTTL
 	r.cacheListTTL = listTTL
+	r.cacheRedisClient = redisClient
 
 	r.cacheSupportSingle = cache.NewCacheSupport[DTO](redisClient, singleTTL)
 	r.cacheSupportList = cache.NewCacheSupport[PagingResult[DTO]](redisClient, listTTL)
@@ -50,26 +53,48 @@ func (r *Repository[DTO, ENTITY]) WithCacheFromRedis(
 	return r.WithCache(redisClient, prefix, ttl, ttl/3)
 }
 
-// generateCacheKey 生成单条记录的缓存 key
-// tenantID 作为 key 的首要维度，确保不同租户的单条缓存互不串扰。
-// 示例: "user:t:42:id:123"
-func (r *Repository[DTO, ENTITY]) generateCacheKey(tenantID uint64, id any) string {
-	return fmt.Sprintf("%st:%d:id:%v", r.cacheKeyPrefix, tenantID, id)
+// viewMaskFingerprint 生成 FieldMask 的稳定指纹（排序后哈希），用于单条缓存 key。
+// 不同 viewMask 的返回字段不同，共享缓存会把全字段的返回泄露给受限掩码的调用方。
+func viewMaskFingerprint(viewMask *fieldmaskpb.FieldMask) string {
+	if viewMask == nil || len(viewMask.GetPaths()) == 0 {
+		return "all"
+	}
+	paths := append([]string(nil), viewMask.GetPaths()...)
+	sort.Strings(paths)
+	sum := md5.Sum([]byte(strings.Join(paths, "|")))
+	return hex.EncodeToString(sum[:8])
 }
 
-// generateListCacheKey 生成列表查询的缓存 key（基于 filter + sort + page 的 hash）
-// tenantID 作为签名的首要段，确保不同租户的列表缓存互不串扰。
+// escapeScanPattern 转义 Redis MATCH 模式中的通配符，防止字符串主键携带
+// * ? [ 时超范围匹配、误删其他记录的缓存。
+func escapeScanPattern(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `*`, `\*`, `?`, `\?`, `[`, `\[`, `]`, `\]`).Replace(s)
+}
+
+// generateCacheKey 生成单条记录的缓存 key
+// tenantID/userID/viewMask 作为 key 维度：不同租户、同租户内不同访问者
+// （隐私规则可能对同一行返回不同结果）、不同字段掩码的缓存互不串扰。
+// 示例: "user:t:42:u:7:m:hash123:id:123"
+func (r *Repository[DTO, ENTITY]) generateCacheKey(vc viewer.Context, id any, viewMask *fieldmaskpb.FieldMask) string {
+	return fmt.Sprintf("%st:%d:u:%d:m:%s:id:%v",
+		r.cacheKeyPrefix, vc.TenantID(), vc.UserID(), viewMaskFingerprint(viewMask), id)
+}
+
+// generateListCacheKey 生成列表查询的缓存 key（基于 viewer 身份 + filter + sort + page 的 hash）
+// 数据权限（SELF/UNIT/USER/ALL 等）作用于查询结果，缺少 viewer 维度会使
+// 同租户不同权限用户共享缓存，造成越权读到他人数据。
 // 示例: "user:list:hash_abc123"
-func (r *Repository[DTO, ENTITY]) generateListCacheKey(tenantID uint64, req *paginationV1.PagingRequest) (string, error) {
+func (r *Repository[DTO, ENTITY]) generateListCacheKey(vc viewer.Context, req *paginationV1.PagingRequest) (string, error) {
 	if req == nil {
 		return "", errors.New("paging request is nil")
 	}
 
 	var sig strings.Builder
 	sig.WriteString(r.cacheKeyPrefix)
-	// 租户维度：作为签名的首要段，使相同查询参数在不同租户下产生不同 key，
-	// 避免跨租户缓存泄漏。
-	sig.WriteString(fmt.Sprintf("t:%d:", tenantID))
+	sig.WriteString(fmt.Sprintf("t:%d:u:%d:ou:%d:", vc.TenantID(), vc.UserID(), vc.OrgUnitID()))
+	for _, ds := range vc.DataScope() {
+		sig.WriteString(fmt.Sprintf("ds:%s:%v:", ds.ScopeType, ds.TargetIDs))
+	}
 	sig.WriteString("list:")
 
 	// 1. 分页参数（指针字段必须判空）
@@ -84,6 +109,15 @@ func (r *Repository[DTO, ENTITY]) generateListCacheKey(tenantID uint64, req *pag
 	}
 	if req.Limit != nil {
 		sig.WriteString(fmt.Sprintf("l%d:", *req.Limit))
+	}
+	// token 先校验解码为 lastID 再入 key：既避免原始 token 直接进 key 被刷基数，
+	// 也保证等价游标命中同一缓存；非法 token 直接拒绝（fail-closed，不落缓存）。
+	if req.GetToken() != "" {
+		lastID, ok := pagination.VerifyAndDecode(req.GetToken(), pagination.TokenSecret())
+		if !ok {
+			return "", errors.New("invalid pagination token")
+		}
+		sig.WriteString(fmt.Sprintf("tlast:%d:", lastID))
 	}
 
 	// 2. Filter 表达式（使用 protobuf Marshal）
@@ -114,15 +148,29 @@ func (r *Repository[DTO, ENTITY]) generateListCacheKey(tenantID uint64, req *pag
 	return fmt.Sprintf("%slist:%s", r.cacheKeyPrefix, hex.EncodeToString(hash[:8])), nil
 }
 
-// invalidateCache 删除单条 + 列表缓存（写操作后调用）
+// invalidateCache 删除单条缓存（写操作后调用）
+// key 含 userID/viewMask 维度，需按模式清除该记录在所有用户下的副本；
+// id 中的 Redis 通配符被转义，防止字符串主键超范围误删。
 func (r *Repository[DTO, ENTITY]) invalidateCache(ctx context.Context, id any) {
 	if r.cacheSupportSingle == nil {
 		return
 	}
 
-	// 删除单条缓存（带租户维度）
-	tenantID := viewer.MustFromContext(ctx).TenantID()
-	_ = r.cacheSupportSingle.Cache.Del(ctx, r.generateCacheKey(tenantID, id))
+	if r.cacheRedisClient != nil {
+		pattern := r.cacheKeyPrefix + "t:*:u:*:m:*:id:" + escapeScanPattern(fmt.Sprintf("%v", id))
+		var keys []string
+		iter := r.cacheRedisClient.Scan(ctx, 0, pattern, 100).Iterator()
+		for iter.Next(ctx) {
+			keys = append(keys, iter.Val())
+		}
+		if err := iter.Err(); err == nil && len(keys) > 0 {
+			_ = r.cacheRedisClient.Del(ctx, keys...).Err()
+		}
+	} else {
+		// 无原始 client 时退化为删除当前访问者的副本
+		vc := viewer.MustFromContext(ctx)
+		_ = r.cacheSupportSingle.Cache.Del(ctx, r.generateCacheKey(vc, id, nil))
+	}
 	// 注意：列表缓存的 key 生成依赖于查询参数，无法直接删除
 	// 生产环境建议使用 Redis 的 key pattern 删除（如 "user:list:*"），但要谨慎使用以避免误删
 }
@@ -153,7 +201,7 @@ func (r *Repository[DTO, ENTITY]) GetWithCache(
 		return r.Get(ctx, db, viewMask)
 	}
 
-	cacheKey := r.generateCacheKey(viewer.MustFromContext(ctx).TenantID(), id)
+	cacheKey := r.generateCacheKey(viewer.MustFromContext(ctx), id, viewMask)
 
 	// 使用 CacheSupport.GetOrLoad
 	dto, err := r.cacheSupportSingle.GetOrLoad(
@@ -207,7 +255,7 @@ func (r *Repository[DTO, ENTITY]) GetByIDWithCache(
 		return r.Get(ctx, db.Where("id = ?", id), viewMask)
 	}
 
-	cacheKey := r.generateCacheKey(viewer.MustFromContext(ctx).TenantID(), id)
+	cacheKey := r.generateCacheKey(viewer.MustFromContext(ctx), id, viewMask)
 
 	dto, err := r.cacheSupportSingle.GetOrLoad(
 		ctx,
@@ -240,7 +288,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagingCache(
 		}, nil
 	}
 
-	cacheKey, err := r.generateListCacheKey(viewer.MustFromContext(ctx).TenantID(), req)
+	cacheKey, err := r.generateListCacheKey(viewer.MustFromContext(ctx), req)
 	if err != nil {
 		log.Warn(context.Background(), fmt.Sprintf("generate list cache key failed: %v, fallback to db", err))
 		return r.ListWithPaging(ctx, db, req)

@@ -8,6 +8,8 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	paginationBase "github.com/tx7do/go-crud/pagination"
+	"github.com/tx7do/go-crud/viewer"
 	"github.com/tx7do/go-utils/mapper"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"gorm.io/gorm"
@@ -73,23 +75,51 @@ func TestRepository_WithCache(t *testing.T) {
 	assert.Nil(t, repo2.cacheSupportList)
 }
 
+// gormStubViewer 用于缓存 key 测试的可配置 viewer
+type gormStubViewer struct {
+	userID   uint64
+	tenantID uint64
+	orgID    uint64
+	scopes   []viewer.DataScope
+}
+
+func (s gormStubViewer) UserID() uint64                 { return s.userID }
+func (s gormStubViewer) TenantID() uint64               { return s.tenantID }
+func (s gormStubViewer) OrgUnitID() uint64              { return s.orgID }
+func (s gormStubViewer) Permissions() []string          { return nil }
+func (s gormStubViewer) Roles() []string                { return nil }
+func (s gormStubViewer) DataScope() []viewer.DataScope  { return s.scopes }
+func (s gormStubViewer) TraceID() string                { return "" }
+func (s gormStubViewer) HasPermission(_, _ string) bool { return false }
+func (s gormStubViewer) IsPlatformContext() bool        { return s.tenantID == 0 }
+func (s gormStubViewer) IsTenantContext() bool          { return s.tenantID > 0 }
+func (s gormStubViewer) IsSystemContext() bool          { return false }
+func (s gormStubViewer) ShouldAudit() bool              { return false }
+
 // TestRepository_generateCacheKey 测试单条缓存键生成
 func TestRepository_generateCacheKey(t *testing.T) {
 	m := mapper.NewCopierMapper[CacheTestUser, testUserEntity]()
 	repo := NewRepository[CacheTestUser, testUserEntity](m)
 	repo.cacheKeyPrefix = "user:"
 
-	// 缓存 key 现含租户维度段 "t:<tenantID>:"。
-	key := repo.generateCacheKey(0, 123)
-	assert.Equal(t, "user:t:0:id:123", key)
+	// 缓存 key 含租户、用户与 viewMask 维度段。
+	key := repo.generateCacheKey(viewer.NewNoopContext(), 123, nil)
+	assert.Equal(t, "user:t:0:u:0:m:all:id:123", key)
 
-	key2 := repo.generateCacheKey(0, "abc")
-	assert.Equal(t, "user:t:0:id:abc", key2)
+	key2 := repo.generateCacheKey(viewer.NewNoopContext(), "abc", nil)
+	assert.Equal(t, "user:t:0:u:0:m:all:id:abc", key2)
 
 	// 不同租户对同一 id 应产生不同 key（跨租户隔离）
-	keyTenantA := repo.generateCacheKey(1, 123)
-	keyTenantB := repo.generateCacheKey(2, 123)
+	keyTenantA := repo.generateCacheKey(gormStubViewer{tenantID: 1}, 123, nil)
+	keyTenantB := repo.generateCacheKey(gormStubViewer{tenantID: 2}, 123, nil)
 	assert.NotEqual(t, keyTenantA, keyTenantB)
+
+	// 同租户不同用户、不同 viewMask 也不共享
+	keyUserA := repo.generateCacheKey(gormStubViewer{tenantID: 1, userID: 10}, 123, nil)
+	keyUserB := repo.generateCacheKey(gormStubViewer{tenantID: 1, userID: 20}, 123, nil)
+	assert.NotEqual(t, keyUserA, keyUserB)
+	keyMask := repo.generateCacheKey(gormStubViewer{tenantID: 1, userID: 10}, 123, &fieldmaskpb.FieldMask{Paths: []string{"name"}})
+	assert.NotEqual(t, keyUserA, keyMask)
 }
 
 // TestRepository_generateListCacheKey 测试列表缓存键生成
@@ -99,7 +129,7 @@ func TestRepository_generateListCacheKey(t *testing.T) {
 	repo.cacheKeyPrefix = "user:"
 
 	// 测试 nil 请求
-	_, err := repo.generateListCacheKey(0, nil)
+	_, err := repo.generateListCacheKey(viewer.NewNoopContext(), nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "paging request is nil")
 
@@ -111,13 +141,13 @@ func TestRepository_generateListCacheKey(t *testing.T) {
 		PageSize: &pageSize,
 	}
 
-	key, err := repo.generateListCacheKey(0, req)
+	key, err := repo.generateListCacheKey(viewer.NewNoopContext(), req)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, key)
 	assert.Contains(t, key, "user:list:")
 
 	// 相同参数应生成相同的 key
-	key2, err := repo.generateListCacheKey(0, req)
+	key2, err := repo.generateListCacheKey(viewer.NewNoopContext(), req)
 	assert.NoError(t, err)
 	assert.Equal(t, key, key2)
 
@@ -127,16 +157,65 @@ func TestRepository_generateListCacheKey(t *testing.T) {
 		Page:     &page2,
 		PageSize: &pageSize,
 	}
-	key3, err := repo.generateListCacheKey(0, req2)
+	key3, err := repo.generateListCacheKey(viewer.NewNoopContext(), req2)
 	assert.NoError(t, err)
 	assert.NotEqual(t, key, key3)
 
 	// 跨租户隔离：相同查询参数在不同租户下应产生不同 key
-	keyTenantA, err := repo.generateListCacheKey(1, req)
+	keyTenantA, err := repo.generateListCacheKey(gormStubViewer{tenantID: 1}, req)
 	assert.NoError(t, err)
-	keyTenantB, err := repo.generateListCacheKey(2, req)
+	keyTenantB, err := repo.generateListCacheKey(gormStubViewer{tenantID: 2}, req)
 	assert.NoError(t, err)
 	assert.NotEqual(t, keyTenantA, keyTenantB)
+
+	// 同租户下不同 DataScope（SELF vs ALL）不得共享缓存
+	keySelf, err := repo.generateListCacheKey(gormStubViewer{
+		tenantID: 1, userID: 10, scopes: []viewer.DataScope{{ScopeType: viewer.ScopeTypeSelf}},
+	}, req)
+	assert.NoError(t, err)
+	keyAll, err := repo.generateListCacheKey(gormStubViewer{
+		tenantID: 1, userID: 10, scopes: []viewer.DataScope{{ScopeType: viewer.ScopeTypeAll}},
+	}, req)
+	assert.NoError(t, err)
+	assert.NotEqual(t, keySelf, keyAll)
+}
+
+// TestRepository_generateListCacheKey_TokenVerifiedBeforeKeying
+// token 先验签解码为 lastID 再入 key；非法 token 直接报错不落缓存；
+// 密钥启用后旧式 token 被拒（迁移期策略）。
+func TestRepository_generateListCacheKey_TokenVerifiedBeforeKeying(t *testing.T) {
+	m := mapper.NewCopierMapper[CacheTestUser, testUserEntity]()
+	repo := NewRepository[CacheTestUser, testUserEntity](m)
+	repo.cacheKeyPrefix = "user:"
+	vc := gormStubViewer{tenantID: 1, userID: 10}
+
+	mkReq := func(token string) *paginationV1.PagingRequest {
+		tok := token
+		return &paginationV1.PagingRequest{Token: &tok}
+	}
+
+	legacy := paginationBase.EncodeAndSign(5, nil)
+	key1, err := repo.generateListCacheKey(vc, mkReq(legacy))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, key1)
+
+	_, err = repo.generateListCacheKey(vc, mkReq("!!!not-base64!!!"))
+	assert.Error(t, err)
+
+	paginationBase.SetTokenSecret([]byte("unit-test-secret"))
+	defer paginationBase.SetTokenSecret(nil)
+
+	signed := paginationBase.EncodeAndSign(5, paginationBase.TokenSecret())
+	key2, err := repo.generateListCacheKey(vc, mkReq(signed))
+	assert.NoError(t, err)
+
+	_, err = repo.generateListCacheKey(vc, mkReq(legacy))
+	assert.Error(t, err)
+
+	signed7 := paginationBase.EncodeAndSign(7, paginationBase.TokenSecret())
+	key3, err := repo.generateListCacheKey(vc, mkReq(signed7))
+	assert.NoError(t, err)
+	assert.NotEqual(t, key2, key3)
 }
 
 // TestRepository_extractIDFromDTO 测试从 DTO 提取 ID

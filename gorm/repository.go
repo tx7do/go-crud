@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -61,6 +62,9 @@ type Repository[DTO any, ENTITY any] struct {
 	cacheKeyPrefix     string        // 缓存 key 前缀，如 "user:"
 	cacheTTL           time.Duration // 单条缓存 TTL
 	cacheListTTL       time.Duration // 列表缓存 TTL（通常更短）
+
+	// cacheRedisClient 用于写操作后按模式失效缓存（单条 key 含 userID 维度，需跨用户清除）
+	cacheRedisClient *redis.Client
 }
 
 func NewRepository[DTO any, ENTITY any](mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[DTO, ENTITY] {
