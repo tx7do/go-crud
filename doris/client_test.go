@@ -52,7 +52,16 @@ func newDorisTestClient(t *testing.T) *Client {
 	if err != nil {
 		return nil
 	}
-
+	// The mysql driver opens lazily: NewClient returns a non-nil client even
+	// when no server is reachable. Probe the connection so integration tests
+	// skip cleanly instead of proceeding and panicking on a nil DB.
+	if cli == nil {
+		return nil
+	}
+	if err := cli.DB().PingContext(context.Background()); err != nil {
+		_ = cli.Close()
+		return nil
+	}
 	return cli
 }
 

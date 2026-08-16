@@ -146,6 +146,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
 	if err != nil {
 		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
+		return nil, err
 	}
 
 	// 计数
@@ -240,6 +241,7 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 	_, err = r.structuredFilter.BuildSelectors(queryBuilder, req.GetFilterExpr())
 	if err != nil {
 		log.Error(context.Background(), fmt.Sprintf("build structured filter selectors failed: %s", err.Error()))
+		return nil, err
 	}
 
 	// 计数

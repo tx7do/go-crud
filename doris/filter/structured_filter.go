@@ -68,9 +68,9 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 	}
 
 	// helper: 根据 condition 生成单个 SQL 片段和参数
-	buildCond := func(cond *paginationV1.FilterCondition) (string, []any) {
+	buildCond := func(cond *paginationV1.FilterCondition) (string, []any, error) {
 		if cond == nil {
-			return "", nil
+			return "", nil, nil
 		}
 		field := cond.GetField()
 		val := ""
@@ -83,34 +83,42 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 		values := cond.GetValues()
 
 		// 支持 JSON 字段 (e.g. preferences.daily_email) -> JSONExtractString(col, 'key')
+		// 字段名与 JSON key 均来自客户端可设的 FilterExpr，必须严格校验，防止引号逃逸注入。
 		isJSON := strings.Contains(field, ".")
 		var colExpr string
 		if isJSON {
 			parts := strings.SplitN(field, ".", 2)
 			col := stringcase.ToSnakeCase(parts[0])
 			jsonKey := parts[1]
+			if !isValidIdentifier(col) || !jsonKeyPattern.MatchString(jsonKey) {
+				return "", nil, fmt.Errorf("invalid filter field %q", field)
+			}
 			colExpr = fmt.Sprintf("JSONExtractString(%s, '%s')", col, jsonKey)
 		} else {
-			colExpr = stringcase.ToSnakeCase(field)
+			col := stringcase.ToSnakeCase(field)
+			if !isValidIdentifier(col) {
+				return "", nil, fmt.Errorf("invalid filter field %q", field)
+			}
+			colExpr = col
 		}
 
 		switch opName {
 		case "OP_EQ", "EQ", "EQUAL", "OP_EQUAL":
-			return fmt.Sprintf("%s = ?", colExpr), []any{val}
+			return fmt.Sprintf("%s = ?", colExpr), []any{val}, nil
 		case "OP_NEQ", "NE", "NEQ", "OP_NOT_EQUAL":
-			return fmt.Sprintf("%s != ?", colExpr), []any{val}
+			return fmt.Sprintf("%s != ?", colExpr), []any{val}, nil
 		case "OP_GT", "GT":
-			return fmt.Sprintf("%s > ?", colExpr), []any{val}
+			return fmt.Sprintf("%s > ?", colExpr), []any{val}, nil
 		case "OP_GTE", "GTE":
-			return fmt.Sprintf("%s >= ?", colExpr), []any{val}
+			return fmt.Sprintf("%s >= ?", colExpr), []any{val}, nil
 		case "OP_LT", "LT":
-			return fmt.Sprintf("%s < ?", colExpr), []any{val}
+			return fmt.Sprintf("%s < ?", colExpr), []any{val}, nil
 		case "OP_LTE", "LTE":
-			return fmt.Sprintf("%s <= ?", colExpr), []any{val}
+			return fmt.Sprintf("%s <= ?", colExpr), []any{val}, nil
 		case "OP_IS_NULL", "IS_NULL":
-			return fmt.Sprintf("%s IS NULL", colExpr), nil
+			return fmt.Sprintf("%s IS NULL", colExpr), nil, nil
 		case "OP_IS_NOT_NULL", "IS_NOT_NULL":
-			return fmt.Sprintf("%s IS NOT NULL", colExpr), nil
+			return fmt.Sprintf("%s IS NOT NULL", colExpr), nil, nil
 		case "OP_IN", "IN":
 			// 支持 values 列表，否则如果只有 Value 则解析逗号分隔
 			var args []any
@@ -125,34 +133,34 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 				}
 			}
 			if len(args) == 0 {
-				return "1 = 0", nil
+				return "1 = 0", nil, nil
 			}
 			ps := strings.Repeat("?,", len(args))
 			ps = strings.TrimRight(ps, ",")
-			return fmt.Sprintf("%s IN (%s)", colExpr, ps), args
+			return fmt.Sprintf("%s IN (%s)", colExpr, ps), args, nil
 		case "OP_BETWEEN", "BETWEEN":
 			if len(values) >= 2 {
-				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []any{values[0], values[1]}
+				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []any{values[0], values[1]}, nil
 			}
 			parts := strings.Split(val, ",")
 			if len(parts) >= 2 {
-				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []any{strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])}
+				return fmt.Sprintf("%s BETWEEN ? AND ?", colExpr), []any{strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])}, nil
 			}
-			return fmt.Sprintf("%s = ?", colExpr), []any{val}
+			return fmt.Sprintf("%s = ?", colExpr), []any{val}, nil
 		case "OP_CONTAINS", "CONTAINS", "OP_LIKE", "LIKE":
 			p := "%" + val + "%"
-			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}
+			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}, nil
 		case "OP_STARTS_WITH", "STARTS_WITH":
 			p := val + "%"
-			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}
+			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}, nil
 		case "OP_ENDS_WITH", "ENDS_WITH":
 			p := "%" + val
-			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}
+			return fmt.Sprintf("%s LIKE ?", colExpr), []any{p}, nil
 		default:
 			if val != "" {
-				return fmt.Sprintf("%s = ?", colExpr), []any{val}
+				return fmt.Sprintf("%s = ?", colExpr), []any{val}, nil
 			}
-			return "", nil
+			return "", nil, nil
 		}
 	}
 
@@ -173,7 +181,10 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 	case paginationV1.ExprType_AND:
 		// 条件集合
 		for _, cond := range expr.GetConditions() {
-			clause, args := buildCond(cond)
+			clause, args, err := buildCond(cond)
+			if err != nil {
+				return nil, nil, err
+			}
 			if clause == "" {
 				continue
 			}
@@ -201,7 +212,10 @@ func (sf StructuredFilter) buildParts(expr *paginationV1.FilterExpr) ([]string, 
 		var orArgs [][]any
 		// 条件集合作为 OR 的子项
 		for _, cond := range expr.GetConditions() {
-			clause, args := buildCond(cond)
+			clause, args, err := buildCond(cond)
+			if err != nil {
+				return nil, nil, err
+			}
 			if clause == "" {
 				continue
 			}
