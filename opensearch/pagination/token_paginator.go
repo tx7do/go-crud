@@ -23,7 +23,7 @@ func NewTokenPaginator() *TokenPaginator {
 func (p *TokenPaginator) BuildClause(builder *query.Builder, token string, pageSize int) *query.Builder {
 	p.impl.
 		WithToken(token).
-		WithPage(pageSize)
+		WithSize(pageSize)
 
 	size := p.impl.Size()
 	if size <= 0 {
@@ -36,7 +36,7 @@ func (p *TokenPaginator) BuildClause(builder *query.Builder, token string, pageS
 		return builder
 	}
 
-	lastID, ok := pagination.VerifyAndDecode(token, nil)
+	lastID, ok := pagination.VerifyAndDecode(token, pagination.TokenSecret())
 	if !ok {
 		builder.SetFromSize(0, size)
 		return builder
