@@ -417,12 +417,7 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO, viewMask
 	}
 	t := v.Type()
 
-	mask := map[string]bool{}
-	if viewMask != nil {
-		for _, p := range viewMask.Paths {
-			mask[p] = true
-		}
-	}
+	mask := field.MaskSet(viewMask)
 
 	cols := make([]string, 0)
 	vals := make([]any, 0)
@@ -503,12 +498,7 @@ func (r *Repository[DTO, ENTITY]) CreateX(ctx context.Context, dto *DTO, viewMas
 	}
 	t := v.Type()
 
-	mask := map[string]bool{}
-	if viewMask != nil {
-		for _, p := range viewMask.Paths {
-			mask[p] = true
-		}
-	}
+	mask := field.MaskSet(viewMask)
 
 	cols := make([]string, 0)
 	vals := make([]any, 0)
@@ -602,12 +592,7 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO, 
 	}
 	t := firstVal.Type()
 
-	mask := map[string]bool{}
-	if viewMask != nil {
-		for _, p := range viewMask.Paths {
-			mask[p] = true
-		}
-	}
+	mask := field.MaskSet(viewMask)
 
 	for i := 0; i < t.NumField(); i++ {
 		sf := t.Field(i)
@@ -696,12 +681,7 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, dto *DTO, updateMa
 
 	// 规范 updateMask 路径
 	field.NormalizeFieldMaskPaths(updateMask)
-	mask := map[string]bool{}
-	if updateMask != nil {
-		for _, p := range updateMask.Paths {
-			mask[p] = true
-		}
-	}
+	mask := field.MaskSet(updateMask)
 
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)
@@ -854,12 +834,7 @@ func (r *Repository[DTO, ENTITY]) UpdateX(ctx context.Context, dto *DTO, updateM
 
 	// 规范 updateMask 路径
 	field.NormalizeFieldMaskPaths(updateMask)
-	mask := map[string]bool{}
-	if updateMask != nil {
-		for _, p := range updateMask.Paths {
-			mask[p] = true
-		}
-	}
+	mask := field.MaskSet(updateMask)
 
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)
@@ -990,12 +965,7 @@ func (r *Repository[DTO, ENTITY]) Upsert(ctx context.Context, dto *DTO, updateMa
 
 	// 规范 updateMask 路径
 	field.NormalizeFieldMaskPaths(updateMask)
-	mask := map[string]bool{}
-	if updateMask != nil {
-		for _, p := range updateMask.Paths {
-			mask[p] = true
-		}
-	}
+	mask := field.MaskSet(updateMask)
 
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)
@@ -1181,12 +1151,7 @@ func (r *Repository[DTO, ENTITY]) UpsertX(ctx context.Context, dto *DTO, updateM
 
 	// 规范 updateMask 路径
 	field.NormalizeFieldMaskPaths(updateMask)
-	mask := map[string]bool{}
-	if updateMask != nil {
-		for _, p := range updateMask.Paths {
-			mask[p] = true
-		}
-	}
+	mask := field.MaskSet(updateMask)
 
 	// DTO -> ENTITY
 	ent := r.mapper.ToEntity(dto)

@@ -386,8 +386,10 @@ func (r *Repository[
 			pagingSelector = r.tokenPaginator.BuildSelector(req.GetToken(), int(req.GetOffset()))
 		}
 	} else if paginator.NoPagingMaxLimit > 0 {
-		// no_paging 为客户端可设置字段，仍施加宽松的行数兜底，防止无界查询构成 DoS。
-		pagingSelector = r.offsetPaginator.BuildSelector(0, paginator.NoPagingMaxLimit)
+		// no_paging 为客户端可设置字段，仍施加行数兜底，防止无界查询构成 DoS。
+		// NoPagingMaxLimit 是服务端策略而非客户端页长，直接对 builder 施加，
+		// 不经 WithLimit（会被面向客户端的 paginator.MaxLimit 截断到 100）。
+		pagingSelector = func(s *sql.Selector) { s.Limit(paginator.NoPagingMaxLimit) }
 	}
 	if pagingSelector != nil {
 		querySelectors = append(querySelectors, pagingSelector)
