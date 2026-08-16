@@ -31,6 +31,14 @@ type gormLogger struct {
 }
 
 func NewGormLogger(l log.Logger) logger.Interface {
+	// 默认 Warn：仅记录慢查询与错误。此前默认 Info 会把含插值参数的完整
+	// SQL（含 INSERT/UPDATE 的值）打进日志，模型携带敏感字段时构成泄露。
+	return NewGormLoggerWithLevel(l, logger.Warn)
+}
+
+// NewGormLoggerWithLevel 以指定等级创建 gorm logger。
+// logger.Info 会记录所有 SQL（含插值参数），仅应在低敏环境显式开启。
+func NewGormLoggerWithLevel(l log.Logger, level logger.LogLevel) logger.Interface {
 	if l != nil {
 		log.SetLogger(l.With("module", "gorm"))
 	}
@@ -38,7 +46,7 @@ func NewGormLogger(l log.Logger) logger.Interface {
 	return &gormLogger{
 		cfg: logger.Config{
 			SlowThreshold:             100 * time.Millisecond,
-			LogLevel:                  logger.Info,
+			LogLevel:                  level,
 			IgnoreRecordNotFoundError: true,
 			Colorful:                  false,
 		},
@@ -116,10 +124,10 @@ type Client struct {
 	migrateModels    []any
 	getMigrateModels GetMigrateModelsFunc
 
-	gormCfg   *gorm.Config
-	mixins    []Mixin
+	gormCfg *gorm.Config
+	mixins  []Mixin
 
-	ctx       context.Context
+	ctx context.Context
 
 	// 钩子
 	beforeOpen []func(*gorm.DB) error

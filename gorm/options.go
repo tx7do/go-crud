@@ -9,6 +9,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.30.0"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"gorm.io/plugin/opentelemetry/tracing"
 	"gorm.io/plugin/prometheus"
 )
@@ -107,6 +108,14 @@ func WithGetMigrateModels(fn GetMigrateModelsFunc) Option {
 func WithLogger(l log.Logger) Option {
 	return func(c *Client) {
 		c.gormCfg.Logger = NewGormLogger(l)
+	}
+}
+
+// WithLoggerLevel 以指定日志等级配置 gorm logger（默认 Warn）。
+// 开启 Info 会记录含插值参数的完整 SQL，请确认环境不敏感。
+func WithLoggerLevel(l log.Logger, level logger.LogLevel) Option {
+	return func(c *Client) {
+		c.gormCfg.Logger = NewGormLoggerWithLevel(l, level)
 	}
 }
 
