@@ -6,6 +6,8 @@ replace github.com/tx7do/go-crud/api => ../api
 
 replace github.com/tx7do/go-crud/pagination => ../pagination
 
+replace github.com/tx7do/go-crud/viewer => ../viewer
+
 require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tx7do/go-crud/api v0.0.7
@@ -28,6 +30,7 @@ require (
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/tx7do/go-crud/viewer v0.0.6 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.2.0 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect

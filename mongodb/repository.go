@@ -18,6 +18,7 @@ import (
 	paginationFilter "github.com/tx7do/go-crud/pagination/filter"
 	"github.com/tx7do/go-crud/pagination/paginator"
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
+	"github.com/tx7do/go-crud/viewer"
 
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -111,6 +112,12 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 		_ = r.structuredSorting.BuildOrderClause(qb, req.GetSorting())
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅对 tenant-scoped 实体生效；
+	// 缺身份 fail-closed / 平台放行 / 租户注入）。语义同 entgo EvalQuery。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return nil, 0, err
+	}
+
 	// pagination
 	if !req.GetNoPaging() {
 		if req.Page != nil && req.PageSize != nil {
@@ -201,6 +208,12 @@ func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *p
 		_ = r.structuredSorting.BuildOrderClause(qb, req.GetSorting())
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅对 tenant-scoped 实体生效；
+	// 缺身份 fail-closed / 平台放行 / 租户注入）。语义同 entgo EvalQuery。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return nil, 0, err
+	}
+
 	// pagination
 	switch req.GetPaginationType().(type) {
 	case *paginationV1.PaginationRequest_OffsetBased:
@@ -258,6 +271,11 @@ func (r *Repository[DTO, ENTITY]) Get(ctx context.Context, qb *query.Builder, vi
 		qb = query.NewQueryBuilder()
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return nil, err
+	}
+
 	// 如果提供了 viewMask，则构建 select 子句（日志记录错误但继续）
 	if viewMask != nil && len(viewMask.Paths) > 0 {
 		if _, err := r.fieldSelector.BuildSelector(qb, viewMask.GetPaths()); err != nil {
@@ -297,6 +315,12 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO) (*DTO, e
 
 	ent := r.mapper.ToEntity(dto)
 
+	// 租户强制：tenant-scoped 实体在租户业务视图下强制覆盖 tenant_id
+	// （语义同 entgo EvalMutation Create）。
+	if err := viewer.EnforceOnScopedInstance(ctx, ent); err != nil {
+		return nil, err
+	}
+
 	if _, err := r.client.InsertOne(ctx, r.collection, ent); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("insert failed: %v", err))
 		return nil, err
@@ -321,6 +345,10 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 	ents := make([]*ENTITY, 0, len(dtos))
 	for _, d := range dtos {
 		e := r.mapper.ToEntity(d)
+		// 租户强制：每个实体在租户业务视图下强制覆盖 tenant_id。
+		if err := viewer.EnforceOnScopedInstance(ctx, e); err != nil {
+			return nil, err
+		}
 		ents = append(ents, e)
 		docs = append(docs, e)
 	}
@@ -347,6 +375,11 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, qb *query.Builder,
 	}
 	if qb == nil {
 		return nil, errors.New("query builder is nil for update")
+	}
+
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return nil, err
 	}
 
 	filterDoc, _, err := qb.BuildFindOne()
@@ -383,6 +416,11 @@ func (r *Repository[DTO, ENTITY]) Delete(ctx context.Context, qb *query.Builder)
 		return 0, errors.New("query builder is nil for delete")
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return 0, err
+	}
+
 	filterDoc, _, err := qb.BuildFind()
 	if err != nil {
 		return 0, err
@@ -412,6 +450,11 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, qb *query.Builder) 
 		qb = query.NewQueryBuilder()
 	}
 
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return 0, err
+	}
+
 	filterDoc, _, err := qb.BuildFind()
 	if err != nil {
 		return 0, err
@@ -436,6 +479,11 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, qb *query.Builder)
 	}
 	if qb == nil {
 		qb = query.NewQueryBuilder()
+	}
+
+	// 租户行级强制：注入 tenant_id 谓词（仅 tenant-scoped 实体）。
+	if err := InjectTenantFilterIntoBuilder[ENTITY](ctx, qb); err != nil {
+		return false, err
 	}
 
 	filterDoc, _, err := qb.BuildFind()
