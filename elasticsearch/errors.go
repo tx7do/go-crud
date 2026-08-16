@@ -10,6 +10,8 @@ var (
 	// ErrRequestFailed is returned when a request to Elasticsearch fails.
 	ErrRequestFailed = errors.Internal("REQUEST_FAILED")
 
+	ErrInvalidRequest = errors.BadRequest("INVALID_REQUEST")
+
 	// ErrIndexNotFound is returned when the specified index does not exist.
 	ErrIndexNotFound = errors.Internal("INDEX_NOT_FOUND")
 
@@ -39,6 +41,10 @@ var (
 	ErrGetDocument = errors.Internal("GET_DOCUMENT_FAILED")
 
 	ErrSearchDocument = errors.Internal("SEARCH_DOCUMENT_FAILED")
+
+	ErrUpdateDocument = errors.Internal("UPDATE_DOCUMENT_FAILED")
+
+	ErrDeleteDocument = errors.Internal("DELETE_DOCUMENT_FAILED")
 
 	ErrCreateILMPolicy = errors.Internal("CREATE_ILM_POLICY_FAILED")
 
