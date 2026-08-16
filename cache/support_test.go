@@ -138,7 +138,18 @@ func TestCacheSupport_GetOrLoad_LoaderError(t *testing.T) {
 	assert.ErrorIs(t, err, errTest)
 	assert.Nil(t, result)
 
-	emptyVal, err := cache.Get(ctx, "k3")
+	// 加载错误不落缓存：瞬时 DB 错误不得被负缓存掩盖成"不存在"，
+	// 后续请求应重新回源（Get 返回 ErrCacheMiss）。
+	_, err = cache.Get(ctx, "k3")
+	assert.ErrorIs(t, err, ErrCacheMiss)
+
+	// 真正的空结果（loader 成功返回 nil）才做短 TTL 负缓存（防穿透）。
+	result, err = s.GetOrLoad(ctx, "k4", func(ctx context.Context) (*testType, error) {
+		return nil, nil
+	})
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+	emptyVal, err := cache.Get(ctx, "k4")
 	assert.NoError(t, err)
 	assert.Nil(t, emptyVal)
 }

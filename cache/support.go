@@ -73,21 +73,33 @@ func (c *CacheSupport[T]) GetOrLoad(
 	c.metrics.IncRequestsTotal(entityName, "miss")
 
 	result, err := c.SingleFlight.Do(key, func() (*T, error) {
+		// singleflight 闭包只执行一次但结果共享给所有并发等待者：
+		// 1) 使用脱离取消的 ctx——首个调用者取消时不能把所有等待者一起打断，
+		//    更不能让取消错误被当作加载结果传播；
+		// 2) 加载错误一律不落缓存——此前会把 (nil, err) 负缓存 5 秒，
+		//    瞬时 DB 错误被掩盖成"不存在"，影响存在性判断类调用方。
+		loadCtx := context.WithoutCancel(ctx)
+
 		var dbData *T
 		var dbErr error
 		if loader != nil {
-			dbData, dbErr = loader(ctx)
+			dbData, dbErr = loader(loadCtx)
 		}
 
 		if dbErr != nil {
-			if config.CacheEmpty {
-				_ = c.Cache.SetWithTTL(ctx, key, zero, 5*time.Second)
-			}
 			c.metrics.IncRequestsTotal(entityName, "error")
 			return zero, dbErr
 		}
 
-		_ = c.Cache.SetWithTTL(ctx, key, dbData, config.TTL)
+		if dbData == nil {
+			if config.CacheEmpty {
+				// 真正的空结果（loader 成功返回 nil）短 TTL 负缓存，防缓存穿透
+				_ = c.Cache.SetWithTTL(loadCtx, key, zero, 5*time.Second)
+			}
+			return zero, nil
+		}
+
+		_ = c.Cache.SetWithTTL(loadCtx, key, dbData, config.TTL)
 		return dbData, nil
 	})
 
