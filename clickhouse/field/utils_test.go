@@ -25,8 +25,8 @@ func TestNormalizePaths_InvalidPathDropped(t *testing.T) {
 	if out[2] != "`name`" {
 		t.Errorf("valid path: got %q, want %q", out[2], "`name`")
 	}
-	if out[3] != "*" {
-		t.Errorf("star: got %q", out[3])
+	if out[3] != "" {
+		t.Errorf("star path must be dropped (star would panic in Builder.Select), got %q", out[3])
 	}
 	if out[4] != "" {
 		t.Errorf("invalid-UTF-8 payload must be dropped, got %q", out[4])

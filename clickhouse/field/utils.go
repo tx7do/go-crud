@@ -44,9 +44,11 @@ func NormalizePaths(fields []string) []string {
 		}
 		for j, p := range parts {
 			p = strings.TrimSpace(p)
+			// "*"（全字段掩码）也置空：下游 Builder.Select 对 "*" 直接 panic，
+			// 而默认行为本就是 SELECT *，丢弃即表达"不限制字段"。
 			if p == "*" {
-				parts[j] = p
-				continue
+				valid = false
+				break
 			}
 			if !identifierPattern.MatchString(p) {
 				valid = false
