@@ -6,6 +6,7 @@ import (
 
 	"github.com/opensearch-project/opensearch-go/v4/opensearchtransport"
 	"github.com/opensearch-project/opensearch-go/v4/signer"
+	"github.com/tx7do/go-wind/log"
 )
 
 type Option func(o *Client)
@@ -121,5 +122,11 @@ func WithCACert(cert []byte) Option {
 func WithHeader(header http.Header) Option {
 	return func(o *Client) {
 		o.options.Header = header
+	}
+}
+
+func WithLogger(logger log.Logger) Option {
+	return func(o *Client) {
+		log.SetLogger(logger)
 	}
 }

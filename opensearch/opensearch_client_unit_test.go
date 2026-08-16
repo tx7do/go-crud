@@ -75,3 +75,46 @@ func TestPagingRequestDefaults(t *testing.T) {
 	assert.Empty(t, req.GetOrderBy())
 	assert.Empty(t, req.GetSorting())
 }
+
+// TestBatchUpdateDocument_EmptyDataSet verifies the empty-dataSet short-circuit
+// returns nil without performing any bulk work.
+func TestBatchUpdateDocument_EmptyDataSet(t *testing.T) {
+	c := newUnitClient(t)
+	err := c.BatchUpdateDocument(context.Background(), "any", nil, nil)
+	assert.Nil(t, err)
+	err = c.BatchUpdateDocument(context.Background(), "any", []any{}, nil)
+	assert.Nil(t, err)
+}
+
+// TestBatchDeleteDocument_EmptyIDs verifies the empty-ids short-circuit returns
+// nil without performing any bulk work.
+func TestBatchDeleteDocument_EmptyIDs(t *testing.T) {
+	c := newUnitClient(t)
+	err := c.BatchDeleteDocument(context.Background(), "any", nil)
+	assert.Nil(t, err)
+	err = c.BatchDeleteDocument(context.Background(), "any", []string{})
+	assert.Nil(t, err)
+}
+
+// TestCount_EmptyIndex verifies the empty-index guard returns ErrInvalidRequest.
+func TestCount_EmptyIndex(t *testing.T) {
+	c := newUnitClient(t)
+	_, err := c.Count(context.Background(), "", nil)
+	assert.True(t, errors.Is(err, ErrInvalidRequest))
+}
+
+// TestSearchScroll_EmptyScrollID verifies the empty-scrollID guard returns
+// ErrInvalidRequest before contacting the cluster.
+func TestSearchScroll_EmptyScrollID(t *testing.T) {
+	c := newUnitClient(t)
+	_, err := c.SearchScroll(context.Background(), "", "1m")
+	assert.True(t, errors.Is(err, ErrInvalidRequest))
+}
+
+// TestClearScroll_EmptyScrollID verifies the empty-scrollID guard returns
+// ErrInvalidRequest.
+func TestClearScroll_EmptyScrollID(t *testing.T) {
+	c := newUnitClient(t)
+	err := c.ClearScroll(context.Background(), "")
+	assert.True(t, errors.Is(err, ErrInvalidRequest))
+}

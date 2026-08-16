@@ -328,6 +328,237 @@ func (c *Client) BatchInsertDocument(ctx context.Context, indexName string, data
 	return nil
 }
 
+// MultiGet 批量获取文档。返回每个 id 对应文档的 _source 原始 JSON（json.RawMessage）；
+// 若该文档未找到或请求被拒绝，对应位置为 nil。sourceFields 为允许返回的字段白名单（可空）。
+func (c *Client) MultiGet(ctx context.Context, index string, ids []string, sourceFields []string) ([]json.RawMessage, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	type mgetDoc struct {
+		Index string `json:"_index"`
+		ID    string `json:"_id"`
+	}
+	type mgetBody struct {
+		Docs []mgetDoc `json:"docs"`
+	}
+	body := mgetBody{Docs: make([]mgetDoc, 0, len(ids))}
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		body.Docs = append(body.Docs, mgetDoc{Index: index, ID: id})
+	}
+	if len(body.Docs) == 0 {
+		return nil, nil
+	}
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to marshal mget body: %v", err))
+		return nil, err
+	}
+	// OpenSearch mget 不支持 per-request source field 白名单，sourceFields 在此忽略。
+	_ = sourceFields
+	req := opensearchapiV4.MGetReq{
+		Index: index,
+		Body:  bytes.NewReader(bodyBytes),
+	}
+	var parsed struct {
+		Docs []struct {
+			Found  bool            `json:"found"`
+			Source json.RawMessage `json:"_source"`
+		} `json:"docs"`
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &parsed)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to call mget: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("mget failed: %s", errResp.Error))
+		return nil, ErrGetDocument
+	}
+	results := make([]json.RawMessage, len(ids))
+	di := 0
+	for i, id := range ids {
+		if id == "" {
+			results[i] = nil
+			continue
+		}
+		if di < len(parsed.Docs) {
+			if parsed.Docs[di].Found {
+				results[i] = parsed.Docs[di].Source
+			} else {
+				results[i] = nil
+			}
+		} else {
+			results[i] = nil
+		}
+		di++
+	}
+	return results, nil
+}
+
+// BatchUpdateDocument 批量更新文档。采用 bulk update action（NDJSON）。
+// 空 dataSet 短路返回 nil。失败返回 ErrBatchInsertDocument。
+func (c *Client) BatchUpdateDocument(ctx context.Context, indexName string, dataSet []any, ids []string) error {
+	if len(dataSet) == 0 {
+		return nil
+	}
+	if len(ids) > 0 && len(ids) != len(dataSet) {
+		return fmt.Errorf("ids length (%d) must match dataSet length (%d) or be empty", len(ids), len(dataSet))
+	}
+
+	var buf bytes.Buffer
+	for i, data := range dataSet {
+		var id string
+		if ids != nil && i < len(ids) && ids[i] != "" {
+			id = ids[i]
+		}
+		if id == "" {
+			log.Error(context.Background(), fmt.Sprintf("batch update item %d missing _id, skipped", i))
+			continue
+		}
+		meta := map[string]any{
+			"update": map[string]any{
+				"_id":    id,
+				"_index": indexName,
+			},
+		}
+		metaBytes, err := c.codec.Marshal(meta)
+		if err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to marshal update meta: %v", err))
+			continue
+		}
+		buf.Write(metaBytes)
+		buf.WriteByte('\n')
+		docBytes, err := c.codec.Marshal(map[string]any{"doc": data})
+		if err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to marshal update data: %v", err))
+			continue
+		}
+		buf.Write(docBytes)
+		buf.WriteByte('\n')
+	}
+	if buf.Len() == 0 {
+		return fmt.Errorf("no valid documents to update")
+	}
+
+	req := &opensearchapiV4.BulkReq{
+		Index: indexName,
+		Body:  bytes.NewReader(buf.Bytes()),
+	}
+	bulkResp := opensearchapiV4.BulkResp{}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &bulkResp)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to perform bulk update: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		log.Error(context.Background(), fmt.Sprintf("bulk update failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
+		return ErrBatchInsertDocument
+	}
+	return nil
+}
+
+// BatchDeleteDocument 批量删除文档。空 ids 短路返回 nil。
+func (c *Client) BatchDeleteDocument(ctx context.Context, indexName string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var buf bytes.Buffer
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		meta := map[string]any{
+			"delete": map[string]any{
+				"_id":    id,
+				"_index": indexName,
+			},
+		}
+		metaBytes, err := c.codec.Marshal(meta)
+		if err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to marshal delete meta: %v", err))
+			continue
+		}
+		buf.Write(metaBytes)
+		buf.WriteByte('\n')
+	}
+	if buf.Len() == 0 {
+		return fmt.Errorf("no valid ids to delete")
+	}
+
+	req := &opensearchapiV4.BulkReq{
+		Index: indexName,
+		Body:  bytes.NewReader(buf.Bytes()),
+	}
+	bulkResp := opensearchapiV4.BulkResp{}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &bulkResp)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to perform bulk delete: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		log.Error(context.Background(), fmt.Sprintf("bulk delete failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
+		return ErrBatchInsertDocument
+	}
+	return nil
+}
+
+// UpdateByQuery 按查询更新文档。bodyJSON 为查询体（DSL）。
+func (c *Client) UpdateByQuery(ctx context.Context, index, bodyJSON string) error {
+	req := opensearchapiV4.UpdateByQueryReq{
+		Indices: []string{index},
+		Body:    bytes.NewReader([]byte(bodyJSON)),
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to update by query: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("update by query failed: %s", errResp.Error))
+		return ErrUpdateDocument
+	}
+	return nil
+}
+
+// DeleteByQuery 按查询删除文档。bodyJSON 为查询体（DSL）。
+func (c *Client) DeleteByQuery(ctx context.Context, index, bodyJSON string) error {
+	req := opensearchapiV4.DocumentDeleteByQueryReq{
+		Indices: []string{index},
+		Body:    bytes.NewReader([]byte(bodyJSON)),
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to delete by query: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("delete by query failed: %s", errResp.Error))
+		return ErrDeleteDocument
+	}
+	return nil
+}
+
 // UpdateDocument 更新一条数据
 func (c *Client) UpdateDocument(ctx context.Context, indexName string, pk string, doc any) error {
 	if pk == "" {
@@ -989,4 +1220,577 @@ func (c *Client) QueryWithSQLPaginationTo(ctx context.Context, indexName string,
 	// 转成目标结构体
 	data, _ := c.codec.Marshal(rows)
 	return c.codec.Unmarshal(data, out)
+}
+
+// CreateAlias 创建或更新一个别名（指向指定索引）。
+// 注意：OpenSearch 的别名创建接口不接受 body（别名与索引在路径中指定），
+// bodyJSON 参数仅为与 elasticsearch 客户端对称保留，在此实现中忽略。
+func (c *Client) CreateAlias(ctx context.Context, alias, index, bodyJSON string) error {
+	_ = bodyJSON
+	req := opensearchapiV4.AliasPutReq{
+		Indices: []string{index},
+		Alias:   alias,
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to create alias: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("create alias failed: %s", errResp.Error))
+		return ErrCreateIndex
+	}
+	return nil
+}
+
+// DeleteAlias 删除一个别名。
+func (c *Client) DeleteAlias(ctx context.Context, alias, index string) error {
+	req := opensearchapiV4.AliasDeleteReq{
+		Indices: []string{index},
+		Alias:   []string{alias},
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to delete alias: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("delete alias failed: %s", errResp.Error))
+		return ErrDeleteIndex
+	}
+	return nil
+}
+
+// GetAlias 查询别名信息。
+func (c *Client) GetAlias(ctx context.Context, alias string) (map[string]any, error) {
+	req := opensearchapiV4.AliasGetReq{
+		Alias: []string{alias},
+	}
+	var out map[string]any
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &out)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to get alias: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("get alias failed: %s", errResp.Error))
+		return nil, ErrGetDocument
+	}
+	return out, nil
+}
+
+// ExistsAlias 判断别名是否存在。
+func (c *Client) ExistsAlias(ctx context.Context, alias string) (bool, error) {
+	req := opensearchapiV4.AliasExistsReq{
+		Alias: []string{alias},
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodHead, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to check alias existence: %v", err))
+		return false, err
+	}
+	return !resp.IsError(), nil
+}
+
+// GetMapping 获取索引的 mapping。
+func (c *Client) GetMapping(ctx context.Context, index string) (map[string]any, error) {
+	req := opensearchapiV4.MappingGetReq{
+		Indices: []string{index},
+	}
+	var out map[string]any
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &out)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to get mapping: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("get mapping failed: %s", errResp.Error))
+		return nil, ErrGetDocument
+	}
+	return out, nil
+}
+
+// PutMapping 更新索引的 mapping。
+func (c *Client) PutMapping(ctx context.Context, index, mappingJSON string) error {
+	req := opensearchapiV4.MappingPutReq{
+		Indices: []string{index},
+		Body:    bytes.NewReader([]byte(mappingJSON)),
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to put mapping: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("put mapping failed: %s", errResp.Error))
+		return ErrCreateIndex
+	}
+	return nil
+}
+
+// GetSettings 获取索引的 settings。
+func (c *Client) GetSettings(ctx context.Context, index string) (map[string]any, error) {
+	req := opensearchapiV4.SettingsGetReq{
+		Indices: []string{index},
+	}
+	var out map[string]any
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &out)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to get settings: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("get settings failed: %s", errResp.Error))
+		return nil, ErrGetDocument
+	}
+	return out, nil
+}
+
+// PutSettings 更新索引的 settings。
+func (c *Client) PutSettings(ctx context.Context, index, settingsJSON string) error {
+	req := opensearchapiV4.SettingsPutReq{
+		Indices: []string{index},
+		Body:    bytes.NewReader([]byte(settingsJSON)),
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to put settings: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("put settings failed: %s", errResp.Error))
+		return ErrCreateIndex
+	}
+	return nil
+}
+
+// OpenIndex 打开一个索引。
+func (c *Client) OpenIndex(ctx context.Context, index string) error {
+	req := opensearchapiV4.IndicesOpenReq{
+		Index: index,
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to open index: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("open index failed: %s", errResp.Error))
+		return ErrCreateIndex
+	}
+	return nil
+}
+
+// CloseIndex 关闭一个索引。
+func (c *Client) CloseIndex(ctx context.Context, index string) error {
+	req := opensearchapiV4.IndicesCloseReq{
+		Index: index,
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to close index: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("close index failed: %s", errResp.Error))
+		return ErrCreateIndex
+	}
+	return nil
+}
+
+// FlushIndex 刷新一个索引的内部缓冲区到磁盘。
+func (c *Client) FlushIndex(ctx context.Context, index string) error {
+	req := opensearchapiV4.IndicesFlushReq{
+		Indices: []string{index},
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to flush index: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("flush index failed: %s", errResp.Error))
+		return ErrCreateIndex
+	}
+	return nil
+}
+
+// SearchWithBody 以任意 DSL body（例如聚合 aggs）执行搜索，返回库 SearchResp。
+func (c *Client) SearchWithBody(ctx context.Context, index string, body map[string]any) (*opensearchapiV4.SearchResp, error) {
+	buf := &bytes.Buffer{}
+	if err := json.NewEncoder(buf).Encode(body); err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to encode search body: %v", err))
+		return nil, err
+	}
+	searchReq := &opensearchapiV4.SearchReq{
+		Indices: []string{index},
+		Body:    buf,
+	}
+	var searchResult opensearchapiV4.SearchResp
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, searchReq, &searchResult)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to search documents: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		log.Error(context.Background(), fmt.Sprintf("search document failed [%d]: %s", resp.StatusCode, string(bodyBytes)))
+		return nil, ErrSearchDocument
+	}
+	return &searchResult, nil
+}
+
+// Count 返回匹配查询的文档数量。body 为查询体（DSL，可空）。
+func (c *Client) Count(ctx context.Context, index string, body map[string]any) (int64, error) {
+	if index == "" {
+		return 0, ErrInvalidRequest
+	}
+	var req opensearchapiV4.IndicesCountReq
+	req.Indices = []string{index}
+	if body != nil {
+		buf := &bytes.Buffer{}
+		if err := json.NewEncoder(buf).Encode(body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to encode count body: %v", err))
+			return 0, err
+		}
+		req.Body = bytes.NewReader(buf.Bytes())
+	}
+	var countResp opensearchapiV4.IndicesCountResp
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &countResp)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to count: %v", err))
+		return 0, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return 0, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("count failed: %s", errResp.Error))
+		return 0, ErrSearchDocument
+	}
+	return int64(countResp.Count), nil
+}
+
+// SearchScroll 按已有的 scroll id 拉取下一批结果。返回库 SearchResp。
+func (c *Client) SearchScroll(ctx context.Context, scrollID, keepAlive string) (*opensearchapiV4.SearchResp, error) {
+	if scrollID == "" {
+		return nil, ErrInvalidRequest
+	}
+	req := opensearchapiV4.ScrollGetReq{
+		ScrollID: scrollID,
+	}
+	_ = keepAlive
+	var searchResult opensearchapiV4.SearchResp
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPost, req, &searchResult)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to scroll: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("scroll failed: %s", errResp.Error))
+		return nil, ErrSearchDocument
+	}
+	return &searchResult, nil
+}
+
+// ClearScroll 清理一个或多个 scroll 上下文。
+func (c *Client) ClearScroll(ctx context.Context, scrollID string) error {
+	if scrollID == "" {
+		return ErrInvalidRequest
+	}
+	req := opensearchapiV4.ScrollDeleteReq{
+		ScrollIDs: []string{scrollID},
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to clear scroll: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("clear scroll failed: %s", errResp.Error))
+		return ErrSearchDocument
+	}
+	return nil
+}
+
+// ClusterHealth 返回集群健康信息。
+func (c *Client) ClusterHealth(ctx context.Context) (map[string]any, error) {
+	req := opensearchapiV4.ClusterHealthReq{}
+	var out map[string]any
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &out)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to get cluster health: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("cluster health failed: %s", errResp.Error))
+		return nil, ErrRequestFailed
+	}
+	return out, nil
+}
+
+// ClusterInfo 返回集群信息（版本等）。
+func (c *Client) ClusterInfo(ctx context.Context) (map[string]any, error) {
+	req := opensearchapiV4.InfoReq{}
+	var out map[string]any
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &out)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to get cluster info: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("cluster info failed: %s", errResp.Error))
+		return nil, ErrRequestFailed
+	}
+	return out, nil
+}
+
+// GetISMPolicy 查询一个 ISM 策略。沿用现有 CreateISMPolicy/DeleteISMPolicy 的 raw Stream 模式。
+func (c *Client) GetISMPolicy(ctx context.Context, policyName string) (map[string]any, error) {
+	if c.Client == nil {
+		return nil, ErrRequestFailed
+	}
+	endpoint := "/_plugins/_ism/policies/" + policyName
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to create ISM policy get request: %v", err))
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.Client.Stream(req)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to perform ISM policy get request: %v", err))
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("get ISM policy failed: %s", errResp.Error.Reason))
+		return nil, ErrRequestFailed
+	}
+
+	var out map[string]any
+	if err = json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to decode ISM policy response: %v", err))
+		return nil, err
+	}
+	return out, nil
+}
+
+// CreateSnapshot 在指定仓库创建一个快照。bodyJSON 为快照体（可空）。
+func (c *Client) CreateSnapshot(ctx context.Context, repository, snapshot, bodyJSON string) error {
+	var req opensearchapiV4.SnapshotCreateReq
+	req.Repo = repository
+	req.Snapshot = snapshot
+	if bodyJSON != "" {
+		req.Body = bytes.NewReader([]byte(bodyJSON))
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to create snapshot: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("create snapshot failed: %s", errResp.Error))
+		return ErrRequestFailed
+	}
+	return nil
+}
+
+// GetSnapshot 查询一个快照的信息。
+func (c *Client) GetSnapshot(ctx context.Context, repository, snapshot string) (map[string]any, error) {
+	req := opensearchapiV4.SnapshotGetReq{
+		Repo:      repository,
+		Snapshots: []string{snapshot},
+	}
+	var out map[string]any
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &out)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to get snapshot: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("get snapshot failed: %s", errResp.Error))
+		return nil, ErrRequestFailed
+	}
+	return out, nil
+}
+
+// DeleteSnapshot 删除一个快照。
+func (c *Client) DeleteSnapshot(ctx context.Context, repository, snapshot string) error {
+	req := opensearchapiV4.SnapshotDeleteReq{
+		Repo:      repository,
+		Snapshots: []string{snapshot},
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to delete snapshot: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("delete snapshot failed: %s", errResp.Error))
+		return ErrRequestFailed
+	}
+	return nil
+}
+
+// CreateSnapshotRepository 创建或更新一个快照仓库。bodyJSON 为仓库配置体。
+func (c *Client) CreateSnapshotRepository(ctx context.Context, repository, bodyJSON string) error {
+	req := opensearchapiV4.SnapshotRepositoryCreateReq{
+		Repo: repository,
+		Body: bytes.NewReader([]byte(bodyJSON)),
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodPut, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to create snapshot repository: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("create snapshot repository failed: %s", errResp.Error))
+		return ErrRequestFailed
+	}
+	return nil
+}
+
+// DeleteSnapshotRepository 删除一个快照仓库。
+func (c *Client) DeleteSnapshotRepository(ctx context.Context, repository string) error {
+	req := opensearchapiV4.SnapshotRepositoryDeleteReq{
+		Repos: []string{repository},
+	}
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodDelete, req, (*opensearchV4.NoBody)(nil))
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to delete snapshot repository: %v", err))
+		return err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return err
+		}
+		log.Error(context.Background(), fmt.Sprintf("delete snapshot repository failed: %s", errResp.Error))
+		return ErrRequestFailed
+	}
+	return nil
+}
+
+// GetSnapshotRepository 查询快照仓库信息。
+func (c *Client) GetSnapshotRepository(ctx context.Context, repository string) (map[string]any, error) {
+	req := opensearchapiV4.SnapshotRepositoryGetReq{
+		Repos: []string{repository},
+	}
+	var out map[string]any
+	resp, err := opensearchV4.Do(ctx, c.Client, http.MethodGet, req, &out)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to get snapshot repository: %v", err))
+		return nil, err
+	}
+	if resp.IsError() {
+		var errResp *ErrorResponse
+		if errResp, err = ParseErrorMessage(resp.Body); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to parse error message: %v", err))
+			return nil, err
+		}
+		log.Error(context.Background(), fmt.Sprintf("get snapshot repository failed: %s", errResp.Error))
+		return nil, ErrRequestFailed
+	}
+	return out, nil
 }
