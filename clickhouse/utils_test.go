@@ -129,9 +129,9 @@ func TestStructToValueArrayVarious(t *testing.T) {
 		PB             []byte
 		SL             []int
 		NS             struct{ Name string }
-		Tsv            timestamppb.Timestamp
+		Tsv            *timestamppb.Timestamp
 		Tsp            *timestamppb.Timestamp
-		Dv             durationpb.Duration
+		Dv             *durationpb.Duration
 		Dp             *durationpb.Duration
 		unexportedSome string
 		PInt           *int
@@ -148,9 +148,9 @@ func TestStructToValueArrayVarious(t *testing.T) {
 		PB:  pb,
 		SL:  sl,
 		NS:  ns,
-		Tsv: tsVal,
+		Tsv: &tsVal,
 		Tsp: tsPtr,
-		Dv:  durVal,
+		Dv:  &durVal,
 		Dp:  durPtr,
 		// unexportedSome left as zero value (should produce nil in output)
 		PInt: &pintVal,

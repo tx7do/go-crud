@@ -15,6 +15,14 @@ import (
 
 var jsonKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_.]+$`)
 
+// identifierPattern 列名白名单：字母/下划线开头，仅含字母、数字、下划线。
+var identifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// isValidIdentifier 校验列名是否为合法标识符（防止过滤字段名注入 SQL）。
+func isValidIdentifier(identifier string) bool {
+	return identifierPattern.MatchString(strings.TrimSpace(identifier))
+}
+
 // Processor 用于基于 *query.Builder 构建 ClickHouse 风格的 WHERE/ARGS
 type Processor struct {
 	codec encoding.Codec

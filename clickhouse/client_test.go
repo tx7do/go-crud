@@ -42,6 +42,12 @@ func createTestClient(t *testing.T) *Client {
 	if cli == nil {
 		t.Skip("ClickHouse service unreachable")
 	}
+	// clickhouse-go opens lazily: NewClient returns a non-nil client even when
+	// no server is reachable. Probe the connection so tests skip cleanly
+	// instead of proceeding and panicking on a nil result.
+	if err := cli.CheckConnection(context.Background()); err != nil {
+		t.Skip("ClickHouse service unreachable")
+	}
 	return cli
 }
 
