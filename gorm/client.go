@@ -206,6 +206,12 @@ func NewClient(opts ...Option) (*Client, error) {
 		}
 	}
 
+	// 注册租户隔离强制回调（不可选，覆盖 Query/Update/Delete；Create 由
+	// TenantID mixin 的 BeforeCreate 处理）。语义与 entgo TenantPrivacy 一致。
+	if err := RegisterTenantCallbacks(c.DB); err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
