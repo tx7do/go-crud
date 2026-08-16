@@ -184,3 +184,94 @@ func TestBuildSelectors_OrGroupHostileFieldFailsClosed(t *testing.T) {
 		t.Fatalf("hostile field in OR group must fail the query, got %d rows", len(rows))
 	}
 }
+
+// TestBuildSelectors_EmptyValueSkipped 验证空值条件被跳过（回归保护）：
+// 892425b 曾使空值生成 field = ” / NOT (field = ”) / LIKE '%%'，
+// 现应与各算子方法一致：空值不添加条件。
+func TestBuildSelectors_EmptyValueSkipped(t *testing.T) {
+	db := openTestDB(t)
+	if err := db.Create(&[]User{
+		{Name: "alice", Status: "active"},
+		{Name: "", Status: "active"},
+	}).Error; err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// EQ 空值：不添加条件 → 返回全部行（含 name 为空的行）
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "name", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: ""}},
+		},
+	}
+	sels, err := NewStructuredFilter().BuildSelectors(expr)
+	if err != nil {
+		t.Fatalf("BuildSelectors: %v", err)
+	}
+	tx := db.Model(&User{})
+	for _, s := range sels {
+		tx = s(tx)
+	}
+	var rows []User
+	if err := tx.Find(&rows).Error; err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// 空值条件被跳过 = 无过滤：name 为空的记录也应返回
+	foundEmpty := false
+	for _, r := range rows {
+		if r.Name == "" {
+			foundEmpty = true
+			break
+		}
+	}
+	if !foundEmpty {
+		t.Fatalf("empty-value EQ must be skipped (no filter), got rows without empty-name: %+v", rows)
+	}
+
+	// CONTAINS 空值：不得生成 LIKE '%%'
+	expr2 := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "name", Op: paginationV1.Operator_CONTAINS, ValueOneof: &paginationV1.FilterCondition_Value{Value: ""}},
+		},
+	}
+	sels2, err := NewStructuredFilter().BuildSelectors(expr2)
+	if err != nil {
+		t.Fatalf("BuildSelectors: %v", err)
+	}
+	tx2 := db.Session(&gorm.Session{DryRun: true}).Model(&User{})
+	for _, s := range sels2 {
+		tx2 = s(tx2)
+	}
+	var out []User
+	if err := tx2.Find(&out).Error; err != nil {
+		t.Fatalf("dry-run: %v", err)
+	}
+	if strings.Contains(tx2.Statement.SQL.String(), "LIKE") {
+		t.Errorf("empty-value CONTAINS must be skipped, got SQL: %q", tx2.Statement.SQL.String())
+	}
+}
+
+// TestBuildSelectors_InvalidFieldEmptyValueFailsClosed 验证非法字段即使空值
+// 也报错（校验在空值跳过之前，与各算子方法一致）。
+func TestBuildSelectors_InvalidFieldEmptyValueFailsClosed(t *testing.T) {
+	db := openTestDB(t)
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_AND,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "idÿ' OR '1'='1", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: ""}},
+		},
+	}
+	sels, err := NewStructuredFilter().BuildSelectors(expr)
+	if err != nil {
+		t.Fatalf("BuildSelectors: %v", err)
+	}
+	tx := db.Model(&User{})
+	for _, s := range sels {
+		tx = s(tx)
+	}
+	var rows []User
+	if err := tx.Find(&rows).Error; err == nil {
+		t.Fatalf("hostile field with empty value must fail the query, got %d rows", len(rows))
+	}
+}

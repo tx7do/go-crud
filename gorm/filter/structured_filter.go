@@ -177,10 +177,16 @@ func (sf StructuredFilter) condExpr(db *gorm.DB, cond *paginationV1.FilterCondit
 		field = stringcase.ToSnakeCase(cond.GetField())
 	}
 
+	// 先显式校验字段：非法字段无论值是否为空都报错（fail-closed，与各算子
+	// 方法一致——校验在空值跳过之前）。合法字段的空值条件由 BuildExpression
+	// 返回 ok=false 后按空值跳过语义处理。
+	if !isValidFieldExpr(field) {
+		return "", nil, fmt.Errorf("invalid filter field %q", cond.GetField())
+	}
+
 	expr, args, ok := sf.processor.BuildExpression(db, cond.GetOp(), field, val, cond.GetValues())
 	if !ok {
-		// 与各算子方法一致：空值条件跳过；非法字段/无法生成的方言报错
-		if expr == "" && isSkippableEmpty(cond, val) {
+		if isSkippableEmpty(cond, val) {
 			return "", nil, nil
 		}
 		return "", nil, fmt.Errorf("invalid filter condition on field %q", cond.GetField())

@@ -119,6 +119,19 @@ func (poc Processor) Process(db *gorm.DB, op paginationV1.Operator, field, value
 	}
 }
 
+// requiresValue 报告该操作符是否必须有非空单值。
+// 与各算子方法的既有语义一致：比较/模糊匹配类空值应跳过条件（不添加 WHERE），
+// IS_NULL/IS_NOT_NULL 忽略值，IN/NIN/BETWEEN 走 values 分支。
+func requiresValue(op paginationV1.Operator) bool {
+	switch op {
+	case paginationV1.Operator_IS_NULL, paginationV1.Operator_IS_NOT_NULL,
+		paginationV1.Operator_IN, paginationV1.Operator_NIN, paginationV1.Operator_BETWEEN:
+		return false
+	default:
+		return true
+	}
+}
+
 // BuildExpression 生成单个过滤条件的参数化 SQL 片段（不带 WHERE 前缀）与参数，
 // 供 OR 组等需要把多个条件拼接成单个表达式树的场景使用（gorm v1.31.2 的
 // BuildCondition 不支持 func 闭包，OR 组此前用闭包导致整个过滤静默消失）。
@@ -126,6 +139,10 @@ func (poc Processor) Process(db *gorm.DB, op paginationV1.Operator, field, value
 // 方法保持一致。空值条件返回 ok=false（调用方按既有空值跳过语义处理）。
 func (poc Processor) BuildExpression(db *gorm.DB, op paginationV1.Operator, field, value string, values []string) (string, []any, bool) {
 	if db == nil || !isValidFieldExpr(field) {
+		return "", nil, false
+	}
+	// 空值跳过（修复 892425b 引入的回归：此前空值会生成 field = '' 等比较）
+	if requiresValue(op) && strings.TrimSpace(value) == "" {
 		return "", nil, false
 	}
 	dialect := strings.ToLower(db.Dialector.Name())
