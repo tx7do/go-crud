@@ -278,6 +278,10 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 		}
 
 		operator := ConverterStringToOperator(op)
+		if operator == paginationV1.Operator_OPERATOR_UNSPECIFIED {
+			// fail-closed：未知操作符不再静默丢弃条件（丢弃即无过滤查询）
+			return fmt.Errorf("unknown query operator %q in key %q", op, strings.Join(keys, "__"))
+		}
 
 		filterCondition := &paginationV1.FilterCondition{}
 
@@ -357,7 +361,8 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 				return nil
 			}
 
-			return nil
+			// fail-closed：无法识别的第三段不再静默丢弃条件
+			return fmt.Errorf("unknown query operator %q in key %q", op2, strings.Join(keys, "__"))
 		} else {
 			// JSON字段
 			if qsc.isJsonFieldKey(field) {
@@ -382,11 +387,13 @@ func (qsc *QueryStringConverter) MakeFieldFilter(filterExpr *paginationV1.Filter
 				return nil
 			}
 
-			return nil
+			// fail-closed：无法识别的第三段不再静默丢弃条件
+			return fmt.Errorf("unknown query operator %q in key %q", op2, strings.Join(keys, "__"))
 		}
 
 	default:
-		return nil
+		// fail-closed：超过三段（field__op1__op2__extra）不再静默丢弃
+		return fmt.Errorf("invalid query key %q: too many segments", strings.Join(keys, "__"))
 	}
 }
 

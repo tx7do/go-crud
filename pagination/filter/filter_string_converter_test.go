@@ -224,8 +224,11 @@ func TestFilterStringConverter_Convert_AllOperators(t *testing.T) {
 		{"a = 1 AND b = 2", paginationV1.Operator_EQ, func() *paginationV1.ExprType { e := paginationV1.ExprType_AND; return &e }()},
 		{"a = 1 OR b = 2", paginationV1.Operator_EQ, func() *paginationV1.ExprType { e := paginationV1.ExprType_OR; return &e }()},
 
-		// 未知/不支持运算符（期望返回 OPERATOR_UNSPECIFIED）
-		{"custom_op(name, 'x')", paginationV1.Operator_OPERATOR_UNSPECIFIED, nil},
+	}
+
+	// 未知操作符必须报错（fail-closed：不再静默丢弃条件成为无过滤查询）
+	if _, err := fsc.Convert("custom_op(name, 'x')"); err == nil {
+		t.Fatalf("Convert(unknown operator) must return an error")
 	}
 
 	for _, tc := range cases {

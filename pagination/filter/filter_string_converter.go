@@ -12,6 +12,9 @@ import (
 )
 
 type FilterStringConverter struct {
+	// err 记录 walk 过程中遇到的不可识别操作符（fail-closed：未知操作符
+	// 不再静默丢弃条件变成无过滤查询，Convert 末尾返回错误）
+	err error
 }
 
 func NewFilterStringConverter() *FilterStringConverter {
@@ -22,6 +25,7 @@ func (fsc *FilterStringConverter) Convert(filterString string) (*paginationV1.Fi
 	if len(filterString) == 0 {
 		return nil, nil
 	}
+	fsc.err = nil
 
 	var parser filtering.Parser
 	parser.Init(filterString)
@@ -35,6 +39,9 @@ func (fsc *FilterStringConverter) Convert(filterString string) (*paginationV1.Fi
 	}
 
 	fsc.walk(filterExpr, parsedExpr.GetExpr())
+	if fsc.err != nil {
+		return nil, fsc.err
+	}
 
 	return filterExpr, nil
 }
@@ -192,8 +199,12 @@ func (fsc *FilterStringConverter) walk(out *paginationV1.FilterExpr, in *v1alpha
 			}
 		} else {
 			// 处理其他运算符
+			mappedOp := fsc.mapOperator(op)
+			if mappedOp == paginationV1.Operator_OPERATOR_UNSPECIFIED && fsc.err == nil {
+				fsc.err = fmt.Errorf("unknown filter operator %q", op)
+			}
 			condition := &paginationV1.FilterCondition{
-				Op: fsc.mapOperator(op),
+				Op: mappedOp,
 			}
 			//fmt.Println("Operator mapped to:", condition.Op, kind.CallExpr.Args)
 
