@@ -41,7 +41,10 @@ type Repository[DTO any, ENTITY any] struct {
 	collection string
 }
 
-func NewRepository[DTO any, ENTITY any](client *Client, collection string, mapper *mapper.CopierMapper[DTO, ENTITY]) *Repository[DTO, ENTITY] {
+func NewRepository[DTO any, ENTITY any](client *Client, collection string, mapper *mapper.CopierMapper[DTO, ENTITY], logger log.Logger) *Repository[DTO, ENTITY] {
+	if logger != nil {
+		log.SetLogger(logger)
+	}
 	return &Repository[DTO, ENTITY]{
 		client:     client,
 		collection: collection,

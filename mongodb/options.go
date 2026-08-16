@@ -5,6 +5,7 @@ import (
 	"time"
 
 	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
+	"github.com/tx7do/go-wind/log"
 )
 
 type Option func(o *Client)
@@ -83,5 +84,11 @@ func WithCredentials(username, password string) Option {
 func WithBSONOptions(opt *optionsV2.BSONOptions) Option {
 	return func(o *Client) {
 		o.options = append(o.options, optionsV2.Client().SetBSONOptions(opt))
+	}
+}
+
+func WithLogger(logger log.Logger) Option {
+	return func(c *Client) {
+		log.SetLogger(logger)
 	}
 }
