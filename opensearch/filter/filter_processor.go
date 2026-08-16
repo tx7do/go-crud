@@ -18,8 +18,10 @@ func escapeQueryValue(v string) string {
 }
 
 // escapeWildcard 转义通配符 * 与 ? 为字面量（仅用于 wildcard 查询的值部分）。
+// 反斜杠必须先转义：它是 Lucene 的通配符转义符，值中的 \* 若原样保留会把
+// 随后的 * 重新变成通配符（绕过加宽防护）。
 func escapeWildcard(v string) string {
-	return strings.NewReplacer(`*`, `\*`, `?`, `\?`).Replace(v)
+	return strings.NewReplacer(`\`, `\\`, `*`, `\*`, `?`, `\?`).Replace(v)
 }
 
 type Processor struct{}

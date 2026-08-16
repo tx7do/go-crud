@@ -56,6 +56,13 @@ func TestProcessor_EscapeHelpers(t *testing.T) {
 	if got := escapeWildcard(`a*b?c`); got != `a\*b\?c` {
 		t.Errorf("escapeWildcard: got %q", got)
 	}
+	// 反斜杠先转义：\* 不得重新激活通配符
+	if got := escapeWildcard(`\*x`); got != `\\\*x` {
+		t.Errorf("escapeWildcard backslash bypass: got %q, want %q", got, `\\\*x`)
+	}
+	if got := escapeWildcard(`a\b*c`); got != `a\\b\*c` {
+		t.Errorf("escapeWildcard backslash: got %q", got)
+	}
 }
 
 // extractMust 提取 AND 组输出的 bool.must[0]（AND 组被包在 bool 查询里）
