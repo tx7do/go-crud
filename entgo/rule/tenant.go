@@ -207,6 +207,75 @@ func (f TenantPrivacy[T]) injectTenantWhere(query ent.Query, tenantID T) error {
 	return nil
 }
 
+// InjectTenantWhereIntoBuilder 是 injectTenantWhere 的通用版本，作用于
+// UpdateBuilder / DeleteBuilder / UpdateOneBuilder / DeleteOneBuilder 等
+// 暴露 Where(...func(*sql.Selector)) 的变更构建器（而非 ent.Query）。
+//
+// 这用于闭合 entgo 写侧行级缺口（R-1）：EvalQuery 只在查询侧注入 tenant_id，
+// 生成的 Update/Delete mutation 无 AddPredicate，但 builder.Where(predicates...)
+// 会流入 _spec.Predicate → UpdateNodes/DeleteNodes 的行级 WHERE。本函数在
+// repository 层把这些构建器纳入与查询侧一致的租户谓词注入。
+//
+// 语义与 EnforceTenant/TenantPrivacy 一致：缺身份 fail-closed，平台/系统
+// 放行，租户业务视图注入 tenant_id = ?。
+func InjectTenantWhereIntoBuilder(ctx context.Context, builder any) error {
+	dec, err := viewer.EnforceTenant(ctx)
+	if err != nil {
+		return err
+	}
+	if !dec.Enforce {
+		return nil
+	}
+	return injectTenantWhereReflect(builder, dec.TenantID)
+}
+
+// injectTenantWhereReflect 是 InjectTenantWhereIntoBuilder 的反射核心，
+// 与 TenantPrivacy.injectTenantWhere 同构，区别仅在于目标对象不是 ent.Query。
+func injectTenantWhereReflect(builder any, tenantID uint64) error {
+	if builder == nil {
+		return nil
+	}
+	rv := reflect.ValueOf(builder)
+	mf := rv.MethodByName("Where")
+	if !mf.IsValid() || mf.Kind() != reflect.Func {
+		// 非 tenant-scoped 构建器无 Where（或签名不符）→ 放行
+		return nil
+	}
+
+	mt := mf.Type()
+	if !mt.IsVariadic() || mt.NumIn() != 1 {
+		return nil
+	}
+	elem := mt.In(0).Elem()
+	selPtrType := reflect.TypeOf((*sql.Selector)(nil))
+	if elem.Kind() != reflect.Func || elem.NumIn() < 1 || elem.In(0) != selPtrType {
+		return nil
+	}
+
+	fn := func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C("tenant_id"), tenantID))
+	}
+	valFn := reflect.ValueOf(fn)
+
+	if valFn.Type() != elem {
+		if valFn.Type().ConvertibleTo(elem) {
+			valFn = valFn.Convert(elem)
+		} else {
+			valFn = reflect.MakeFunc(elem, func(in []reflect.Value) []reflect.Value {
+				s := in[0].Interface().(*sql.Selector)
+				fn(s)
+				return nil
+			})
+		}
+	}
+
+	slice := reflect.MakeSlice(reflect.SliceOf(elem), 1, 1)
+	slice.Index(0).Set(valFn)
+	mf.CallSlice([]reflect.Value{slice})
+
+	return nil
+}
+
 // tenantIDMutator 提取的 mutator，负责从 TenantContext 读取 tenant id 并注入 Mutation。
 // 假设生成的 SetTenantID 使用 uint32 类型。
 func tenantIDMutator[T uint32 | uint64](next ent.Mutator) ent.Mutator {

@@ -22,6 +22,7 @@ import (
 	"github.com/tx7do/go-crud/entgo/field"
 	"github.com/tx7do/go-crud/entgo/filter"
 	"github.com/tx7do/go-crud/entgo/pagination"
+	"github.com/tx7do/go-crud/entgo/rule"
 	"github.com/tx7do/go-crud/entgo/sorting"
 	"github.com/tx7do/go-crud/entgo/update"
 	paginationCurd "github.com/tx7do/go-crud/pagination"
@@ -866,6 +867,11 @@ func (r *Repository[
 		builder.Where(predicates...)
 	}
 
+	// 写侧租户行级强制（R-1）：注入 tenant_id 谓词到 UpdateOne 的 WHERE。
+	if err := rule.InjectTenantWhereIntoBuilder(ctx, builder); err != nil {
+		return nil, err
+	}
+
 	field.NormalizeFieldMaskPaths(updateMask)
 
 	var dtoAny any = dto
@@ -977,6 +983,12 @@ func (r *Repository[
 		builder.Where(predicates...)
 	}
 
+	// 写侧租户行级强制（R-1）：注入 tenant_id 谓词到 Update 的 WHERE，
+	// 语义与查询侧 EvalQuery 一致（缺身份 fail-closed / 平台放行 / 租户注入）。
+	if err := rule.InjectTenantWhereIntoBuilder(ctx, builder); err != nil {
+		return err
+	}
+
 	field.NormalizeFieldMaskPaths(updateMask)
 
 	var dtoAny any = dto
@@ -1021,6 +1033,11 @@ func (r *Repository[
 
 	if len(predicates) > 0 {
 		builder.Where(predicates...)
+	}
+
+	// 写侧租户行级强制（R-1）：注入 tenant_id 谓词到 Delete 的 WHERE。
+	if err := rule.InjectTenantWhereIntoBuilder(ctx, builder); err != nil {
+		return 0, err
 	}
 
 	var affected int
