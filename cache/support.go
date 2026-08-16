@@ -18,6 +18,13 @@ type RedisCacheInterface[T any] interface {
 
 type LoaderFunc[T any] func(ctx context.Context) (*T, error)
 
+// MaxKeyLen 是缓存 key 的长度上限。key 含 viewer 身份维度（tenant/user/
+// orgUnit/dataScope）+ filter/sort/page hash + 记录 ID，正常远小于此值。
+// 拒绝过长 key 防止调用方用伪造的超长 ID/viewMask 膨胀键空间（F-4 的
+// 应用层缓解；真正的键数上界依赖 Redis 侧 maxmemory + eviction 策略，
+// 须由部署侧配置）。
+const MaxKeyLen = 512
+
 type CacheSupport[T any] struct {
 	Cache        RedisCacheInterface[T]
 	SingleFlight *SingleFlight[T]
@@ -44,6 +51,12 @@ func (c *CacheSupport[T]) GetOrLoad(
 	opts ...Option,
 ) (*T, error) {
 	var zero *T = nil
+
+	// F-4：拒绝超长 key（防键空间膨胀 DoS）。
+	if len(key) > MaxKeyLen {
+		c.metrics.IncRequestsTotal(fmt.Sprintf("%T", zero), "error")
+		return zero, ErrKeyTooLong
+	}
 
 	entityName := fmt.Sprintf("%T", zero)
 

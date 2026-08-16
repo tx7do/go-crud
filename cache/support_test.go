@@ -87,6 +87,27 @@ func TestCacheSupport_GetOrLoad_CacheHit(t *testing.T) {
 	assert.Equal(t, testType("v1"), *result)
 }
 
+// TestCacheSupport_GetOrLoad_KeyTooLongRejected 验证超长 key 被拒（F-4）。
+func TestCacheSupport_GetOrLoad_KeyTooLongRejected(t *testing.T) {
+	type testType string
+	cache := newMockRedisCache[testType]()
+	s := &CacheSupport[testType]{
+		Cache:        cache,
+		SingleFlight: NewSingleFlight[testType](),
+		TTL:          time.Minute,
+		metrics:      &nopMetrics{},
+	}
+	big := make([]byte, MaxKeyLen+1)
+	for i := range big {
+		big[i] = 'k'
+	}
+	_, err := s.GetOrLoad(context.Background(), string(big), func(ctx context.Context) (*testType, error) {
+		t.Fatal("loader should not be called for oversized key")
+		return nil, nil
+	})
+	assert.ErrorIs(t, err, ErrKeyTooLong)
+}
+
 // TestCacheSupport_GetOrLoad_CacheMiss: 缓存未命中，触发 loader 并回写
 func TestCacheSupport_GetOrLoad_CacheMiss(t *testing.T) {
 	type testType string
