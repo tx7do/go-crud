@@ -23,7 +23,7 @@ func NewTokenPaginator() *TokenPaginator {
 func (p *TokenPaginator) BuildDB(token string, pageSize int) func(*gorm.DB) *gorm.DB {
 	p.impl.
 		WithToken(token).
-		WithPage(pageSize)
+		WithSize(pageSize)
 
 	return func(db *gorm.DB) *gorm.DB {
 		if db == nil {
@@ -35,7 +35,7 @@ func (p *TokenPaginator) BuildDB(token string, pageSize int) func(*gorm.DB) *gor
 			return db.Limit(p.impl.Size())
 		}
 
-		lastID, ok := pagination.VerifyAndDecode(token, nil)
+		lastID, ok := pagination.VerifyAndDecode(token, pagination.TokenSecret())
 		if !ok {
 			return db.Limit(p.impl.Size())
 		}
