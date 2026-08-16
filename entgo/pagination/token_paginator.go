@@ -21,7 +21,7 @@ func NewTokenPaginator() *TokenPaginator {
 func (p *TokenPaginator) BuildSelector(token string, pageSize int) func(*sql.Selector) {
 	p.impl.
 		WithToken(token).
-		WithPage(pageSize)
+		WithSize(pageSize)
 
 	// 无 token 或解码失败时只应用 pageSize
 	if token == "" {
@@ -30,7 +30,7 @@ func (p *TokenPaginator) BuildSelector(token string, pageSize int) func(*sql.Sel
 		}
 	}
 
-	lastID, ok := pagination.VerifyAndDecode(token, nil)
+	lastID, ok := pagination.VerifyAndDecode(token, pagination.TokenSecret())
 	if !ok {
 		return func(s *sql.Selector) {
 			s.Limit(p.impl.Size())
