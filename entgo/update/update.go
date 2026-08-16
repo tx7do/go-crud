@@ -34,6 +34,20 @@ func BuildSetNullUpdater(fields []string) func(u *sql.UpdateBuilder) {
 	}
 }
 
+// escapeSQLIdentifier 转义 PostgreSQL 双引号标识符中的双引号（" → ""），
+// 防止 JSON 列名（调用方传入）破坏标识符定界符。键/路径来自 proto 字段
+// 名已安全，但 fieldName 作为表列名仍属调用方可控，转义作防御纵深。
+func escapeSQLIdentifier(s string) string {
+	return strings.ReplaceAll(s, "\"", "\"\"")
+}
+
+// escapeSQLLiteral 转义 PostgreSQL 单引号字面量中的单引号（' → ”）。
+// 用于 jsonb_build_object 字符串值参数，防止值中的 ' 破坏字面量定界符
+// 构成 SQL 注入（键来自 proto 描述符已安全；值来自消息字段可能含任意字符）。
+func escapeSQLLiteral(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
+}
+
 // ExtractJsonFieldKeyValues 提取json字段的键值对
 func ExtractJsonFieldKeyValues(msg proto.Message, paths []string, needToSnakeCase bool) []string {
 	var keyValues []string
@@ -54,14 +68,14 @@ func ExtractJsonFieldKeyValues(msg proto.Message, paths []string, needToSnakeCas
 			k = path
 		}
 
-		keyValues = append(keyValues, fmt.Sprintf("'%s'", k))
+		keyValues = append(keyValues, fmt.Sprintf("'%s'", escapeSQLLiteral(k)))
 
 		v := rft.Get(fd)
 		switch v.Interface().(type) {
 		case int32, int64, uint32, uint64, float32, float64, bool:
 			keyValues = append(keyValues, fmt.Sprintf("%d", v.Interface()))
 		case string:
-			keyValues = append(keyValues, fmt.Sprintf("'%s'", v.Interface()))
+			keyValues = append(keyValues, fmt.Sprintf("'%s'", escapeSQLLiteral(v.Interface().(string))))
 		}
 	}
 
@@ -76,9 +90,10 @@ func SetJsonNullFieldUpdateBuilder(fieldName string, msg proto.Message, paths []
 	}
 
 	return func(u *sql.UpdateBuilder) {
+		safeField := escapeSQLIdentifier(fieldName)
 		u.Set(fieldName,
 			sql.Expr(
-				fmt.Sprintf("\"%s\" - '{%s}'::text[]", fieldName, strings.Join(nilPaths, ",")),
+				fmt.Sprintf("\"%s\" - '{%s}'::text[]", safeField, strings.Join(nilPaths, ",")),
 			),
 		)
 	}
@@ -92,9 +107,10 @@ func SetJsonFieldValueUpdateBuilder(fieldName string, msg proto.Message, paths [
 	}
 
 	return func(u *sql.UpdateBuilder) {
+		safeField := escapeSQLIdentifier(fieldName)
 		u.Set(fieldName,
 			sql.Expr(
-				fmt.Sprintf("\"%s\" || jsonb_build_object(%s)", fieldName, strings.Join(keyValues, ",")),
+				fmt.Sprintf("\"%s\" || jsonb_build_object(%s)", safeField, strings.Join(keyValues, ",")),
 			),
 		)
 	}
