@@ -119,3 +119,68 @@ func TestProcess_ValidFieldAndJsonExprStillWork(t *testing.T) {
 		t.Errorf("expected JSON expression preserved in SQL, got %q", sql)
 	}
 }
+
+// TestBuildSelectors_OrGroupActuallyFilters 验证 OR 组过滤真实生效：
+// 此前 OR 用 func 闭包传给 gorm，闭包永不执行导致整个 OR 过滤静默消失
+// （无过滤查询）。现在应生成 (a = ? OR b = ?) 并正确过滤行。
+func TestBuildSelectors_OrGroupActuallyFilters(t *testing.T) {
+	db := openTestDB(t)
+	if err := db.Create(&[]User{
+		{Name: "alice", Status: "active"},
+		{Name: "bob", Status: "disabled"},
+		{Name: "carol", Status: "pending"},
+	}).Error; err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_OR,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "name", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "alice"}},
+			{Field: "status", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "disabled"}},
+		},
+	}
+	sels, err := NewStructuredFilter().BuildSelectors(expr)
+	if err != nil {
+		t.Fatalf("BuildSelectors: %v", err)
+	}
+
+	tx := db.Model(&User{})
+	for _, s := range sels {
+		tx = s(tx)
+	}
+	var rows []User
+	if err := tx.Find(&rows).Error; err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("OR filter must return 2 rows (alice or disabled), got %d: %+v", len(rows), rows)
+	}
+}
+
+// TestBuildSelectors_OrGroupHostileFieldFailsClosed 验证 OR 组内的非法字段
+// 使整个查询报错（fail-closed），而非静默丢弃过滤。
+func TestBuildSelectors_OrGroupHostileFieldFailsClosed(t *testing.T) {
+	db := openTestDB(t)
+
+	expr := &paginationV1.FilterExpr{
+		Type: paginationV1.ExprType_OR,
+		Conditions: []*paginationV1.FilterCondition{
+			{Field: "id) OR (1=1 --", Op: paginationV1.Operator_EQ, ValueOneof: &paginationV1.FilterCondition_Value{Value: "1"}},
+		},
+	}
+	sels, err := NewStructuredFilter().BuildSelectors(expr)
+	if err != nil {
+		t.Fatalf("BuildSelectors: %v", err)
+	}
+
+	tx := db.Model(&User{})
+	for _, s := range sels {
+		tx = s(tx)
+	}
+	var rows []User
+	err = tx.Find(&rows).Error
+	if err == nil {
+		t.Fatalf("hostile field in OR group must fail the query, got %d rows", len(rows))
+	}
+}

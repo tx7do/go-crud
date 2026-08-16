@@ -119,6 +119,143 @@ func (poc Processor) Process(db *gorm.DB, op paginationV1.Operator, field, value
 	}
 }
 
+// BuildExpression 生成单个过滤条件的参数化 SQL 片段（不带 WHERE 前缀）与参数，
+// 供 OR 组等需要把多个条件拼接成单个表达式树的场景使用（gorm v1.31.2 的
+// BuildCondition 不支持 func 闭包，OR 组此前用闭包导致整个过滤静默消失）。
+// 字段必须通过白名单校验；方言差异（ILIKE/LOWER/REGEXP/MATCH 等）与各算子
+// 方法保持一致。空值条件返回 ok=false（调用方按既有空值跳过语义处理）。
+func (poc Processor) BuildExpression(db *gorm.DB, op paginationV1.Operator, field, value string, values []string) (string, []any, bool) {
+	if db == nil || !isValidFieldExpr(field) {
+		return "", nil, false
+	}
+	dialect := strings.ToLower(db.Dialector.Name())
+
+	switch op {
+	case paginationV1.Operator_EQ:
+		return fmt.Sprintf("%s = ?", field), []any{value}, true
+	case paginationV1.Operator_NEQ:
+		// 与 NotEqual 一致：NOT (field = ?)，保留 NULL 行为
+		return fmt.Sprintf("NOT (%s = ?)", field), []any{value}, true
+	case paginationV1.Operator_GTE:
+		return fmt.Sprintf("%s >= ?", field), []any{value}, true
+	case paginationV1.Operator_GT:
+		return fmt.Sprintf("%s > ?", field), []any{value}, true
+	case paginationV1.Operator_LTE:
+		return fmt.Sprintf("%s <= ?", field), []any{value}, true
+	case paginationV1.Operator_LT:
+		return fmt.Sprintf("%s < ?", field), []any{value}, true
+	case paginationV1.Operator_IN:
+		if len(value) > 0 {
+			if jsonValues, err := poc.parseJSONValues(value); err == nil {
+				return fmt.Sprintf("%s IN ?", field), []any{jsonValues}, true
+			}
+		}
+		if len(values) > 0 {
+			anyVals := make([]any, len(values))
+			for i, v := range values {
+				anyVals[i] = v
+			}
+			return fmt.Sprintf("%s IN ?", field), []any{anyVals}, true
+		}
+		return "", nil, false
+	case paginationV1.Operator_NIN:
+		if len(value) > 0 {
+			if jsonValues, err := poc.parseJSONValues(value); err == nil {
+				return fmt.Sprintf("%s NOT IN ?", field), []any{jsonValues}, true
+			}
+		}
+		if len(values) > 0 {
+			anyVals := make([]any, len(values))
+			for i, v := range values {
+				anyVals[i] = v
+			}
+			return fmt.Sprintf("%s NOT IN ?", field), []any{anyVals}, true
+		}
+		return "", nil, false
+	case paginationV1.Operator_BETWEEN:
+		if len(value) > 0 {
+			if jsonValues, err := poc.parseJSONValues(value); err == nil && len(jsonValues) == 2 {
+				return fmt.Sprintf("%s >= ? AND %s <= ?", field, field), []any{jsonValues[0], jsonValues[1]}, true
+			}
+		}
+		if len(values) == 2 {
+			return fmt.Sprintf("%s >= ? AND %s <= ?", field, field), []any{values[0], values[1]}, true
+		}
+		return "", nil, false
+	case paginationV1.Operator_IS_NULL:
+		return fmt.Sprintf("%s IS NULL", field), nil, true
+	case paginationV1.Operator_IS_NOT_NULL:
+		return fmt.Sprintf("%s IS NOT NULL", field), nil, true
+	case paginationV1.Operator_CONTAINS:
+		return fmt.Sprintf("%s LIKE ?", field), []any{"%" + value + "%"}, true
+	case paginationV1.Operator_ICONTAINS:
+		switch dialect {
+		case "postgres":
+			return fmt.Sprintf("%s ILIKE ?", field), []any{"%" + value + "%"}, true
+		default:
+			return fmt.Sprintf("LOWER(%s) LIKE ?", field), []any{"%" + strings.ToLower(value) + "%"}, true
+		}
+	case paginationV1.Operator_STARTS_WITH:
+		return fmt.Sprintf("%s LIKE ?", field), []any{value + "%"}, true
+	case paginationV1.Operator_ISTARTS_WITH:
+		switch dialect {
+		case "postgres":
+			return fmt.Sprintf("%s ILIKE ?", field), []any{value + "%"}, true
+		default:
+			return fmt.Sprintf("LOWER(%s) LIKE ?", field), []any{strings.ToLower(value) + "%"}, true
+		}
+	case paginationV1.Operator_ENDS_WITH:
+		return fmt.Sprintf("%s LIKE ?", field), []any{"%" + value}, true
+	case paginationV1.Operator_IENDS_WITH:
+		switch dialect {
+		case "postgres":
+			return fmt.Sprintf("%s ILIKE ?", field), []any{"%" + value}, true
+		default:
+			return fmt.Sprintf("LOWER(%s) LIKE ?", field), []any{"%" + strings.ToLower(value)}, true
+		}
+	case paginationV1.Operator_EXACT:
+		return fmt.Sprintf("%s = ?", field), []any{value}, true
+	case paginationV1.Operator_IEXACT:
+		switch dialect {
+		case "postgres":
+			return fmt.Sprintf("%s ILIKE ?", field), []any{value}, true
+		default:
+			return fmt.Sprintf("LOWER(%s) = ?", field), []any{strings.ToLower(value)}, true
+		}
+	case paginationV1.Operator_REGEXP:
+		switch dialect {
+		case "postgres":
+			return fmt.Sprintf("%s ~ ?", field), []any{value}, true
+		case "mysql":
+			return fmt.Sprintf("%s REGEXP BINARY ?", field), []any{value}, true
+		case "sqlite":
+			return fmt.Sprintf("%s REGEXP ?", field), []any{value}, true
+		}
+	case paginationV1.Operator_IREGEXP:
+		switch dialect {
+		case "postgres":
+			return fmt.Sprintf("%s ~* ?", field), []any{value}, true
+		case "mysql":
+			return fmt.Sprintf("%s REGEXP ?", field), []any{value}, true
+		case "sqlite":
+			if !strings.HasPrefix(value, "(?i)") {
+				value = "(?i)" + value
+			}
+			return fmt.Sprintf("%s REGEXP ?", field), []any{value}, true
+		}
+	case paginationV1.Operator_SEARCH:
+		switch dialect {
+		case "postgres":
+			return fmt.Sprintf("to_tsvector(%s) @@ plainto_tsquery(?)", field), []any{value}, true
+		case "mysql":
+			return fmt.Sprintf("MATCH(%s) AGAINST(? IN NATURAL LANGUAGE MODE)", field), []any{value}, true
+		default:
+			return fmt.Sprintf("%s LIKE ?", field), []any{"%" + value + "%"}, true
+		}
+	}
+	return "", nil, false
+}
+
 // --- 基本比较 ---
 
 // Equal 相等比较，空值不添加条件（与 ent 的 EmptyBehavior 类似）

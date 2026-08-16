@@ -55,6 +55,12 @@ func (sf StructuredFilter) BuildSelectors(expr *paginationV1.FilterExpr) ([]func
 }
 
 // buildFilterSelector 将单个 FilterExpr 转为 *gorm.DB 闭包（递归处理组）
+//
+// 注意：gorm v1.31.2 的 Statement.BuildCondition 不支持 func(*gorm.DB) *gorm.DB
+// 闭包（WHERE/OR 里的闭包永不执行，整个过滤静默消失）。因此这里把表达式树
+// 递归展开为参数化 SQL 片段（值全部走 ? 占位符），再按 AND/OR 连接成单个
+// Where 调用；字段经 Processor.BuildExpression 的白名单校验，非法即报错
+// （fail-closed，而不是静默丢弃过滤）。
 func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (func(*gorm.DB) *gorm.DB, error) {
 	if expr == nil {
 		log.Warn(context.Background(), "Skipping nil FilterExpr")
@@ -65,106 +71,132 @@ func (sf StructuredFilter) buildFilterSelector(expr *paginationV1.FilterExpr) (f
 		return nil, nil
 	}
 
-	// helper: 将单个 Condition 应用到 db 上
-	applyCond := func(db *gorm.DB, cond *paginationV1.FilterCondition) *gorm.DB {
-		if db == nil || cond == nil {
-			return db
-		}
-		val := ""
-		switch cond.ValueOneof.(type) {
-		case *paginationV1.FilterCondition_Value:
-			val = cond.GetValue()
-		default:
-		}
-
-		// 支持 JSON 字段 (e.g. preferences.daily_email)
-		if strings.Contains(cond.GetField(), ".") {
-			parts := strings.SplitN(cond.GetField(), ".", 2)
-			col := stringcase.ToSnakeCase(parts[0])
-			jsonKey := parts[1]
-			// 在运行时根据 db 方言生成表达式
-			exprStr, _ := sf.processor.JsonbFieldExpr(db, jsonKey, col)
-			if exprStr == "" {
-				return db
-			}
-			return sf.processor.Process(db, cond.GetOp(), exprStr, val, cond.GetValues())
-		}
-
-		col := stringcase.ToSnakeCase(cond.GetField())
-		return sf.processor.Process(db, cond.GetOp(), col, val, cond.GetValues())
-	}
-
-	// 构造闭包
 	closure := func(db *gorm.DB) *gorm.DB {
 		if db == nil {
 			return db
 		}
-
-		switch expr.GetType() {
-		case paginationV1.ExprType_AND:
-			// 先处理条件（顺序 AND）
-			for _, cond := range expr.GetConditions() {
-				db = applyCond(db, cond)
-			}
-			// 再处理子组（每个子组也是 AND 语义：子组内部依据其类型处理）
-			for _, g := range expr.GetGroups() {
-				subSel, err := sf.buildFilterSelector(g)
-				if err != nil {
-					// 忽略错误，但记录
-					log.Error(context.Background(), fmt.Sprintf("buildFilterSelector sub-group error: %v", err))
-					continue
-				}
-				if subSel != nil {
-					db = subSel(db)
-				}
-			}
-			return db
-
-		case paginationV1.ExprType_OR:
-			// 为 OR，把所有条件和子组合并为一个 WHERE 子表达式，内部使用 Or 组合
-			db = db.Where(func(tx *gorm.DB) *gorm.DB {
-				first := true
-				// 条件集合
-				for _, cond := range expr.GetConditions() {
-					if first {
-						tx = applyCond(tx, cond)
-						first = false
-					} else {
-						// 每个后续项作为 OR 子句加入
-						c := cond // capture
-						tx = tx.Or(func(t2 *gorm.DB) *gorm.DB {
-							return applyCond(t2, c)
-						})
-					}
-				}
-				// 子组集合
-				for _, g := range expr.GetGroups() {
-					subSel, err := sf.buildFilterSelector(g)
-					if err != nil {
-						log.Error(context.Background(), fmt.Sprintf("buildFilterSelector sub-group error: %v", err))
-						continue
-					}
-					if subSel == nil {
-						continue
-					}
-					if first {
-						tx = subSel(tx)
-						first = false
-					} else {
-						s := subSel // capture
-						tx = tx.Or(func(t2 *gorm.DB) *gorm.DB {
-							return s(t2)
-						})
-					}
-				}
-				return tx
-			})
-			return db
-		default:
-			// 未知类型，直接返回原 db
+		frags, args, err := sf.buildExpr(db, expr)
+		if err != nil {
+			_ = db.AddError(err)
 			return db
 		}
+		if len(frags) == 0 {
+			return db
+		}
+		sep := " AND "
+		if expr.GetType() == paginationV1.ExprType_OR {
+			sep = " OR "
+		}
+		return db.Where(strings.Join(frags, sep), args...)
 	}
 
 	return closure, nil
+}
+
+// buildExpr 将 FilterExpr 递归展开为参数化 SQL 片段列表与参数。
+// 片段按组内语义连接：AND 组的片段用 AND 连接，OR 组用 OR 连接；
+// 子组整体作为一个带括号的片段。参数顺序与片段顺序一一对应。
+func (sf StructuredFilter) buildExpr(db *gorm.DB, expr *paginationV1.FilterExpr) ([]string, []any, error) {
+	if expr == nil {
+		return nil, nil, nil
+	}
+	condFrags, condArgs, err := sf.condExprs(db, expr.GetConditions())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var groupFrags []string
+	var groupArgs []any
+	for _, g := range expr.GetGroups() {
+		subFrags, subArgs, err := sf.buildExpr(db, g)
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(subFrags) == 0 {
+			continue
+		}
+		sep := " AND "
+		if g.GetType() == paginationV1.ExprType_OR {
+			sep = " OR "
+		}
+		groupFrags = append(groupFrags, "("+strings.Join(subFrags, sep)+")")
+		groupArgs = append(groupArgs, subArgs...)
+	}
+
+	frags := append(condFrags, groupFrags...)
+	args := append(condArgs, groupArgs...)
+	return frags, args, nil
+}
+
+// condExprs 将条件列表展开为片段与参数。
+func (sf StructuredFilter) condExprs(db *gorm.DB, conditions []*paginationV1.FilterCondition) ([]string, []any, error) {
+	if len(conditions) == 0 {
+		return nil, nil, nil
+	}
+	var frags []string
+	var args []any
+	for _, cond := range conditions {
+		f, a, err := sf.condExpr(db, cond)
+		if err != nil {
+			return nil, nil, err
+		}
+		if f == "" {
+			continue
+		}
+		frags = append(frags, f)
+		args = append(args, a...)
+	}
+	return frags, args, nil
+}
+
+// condExpr 将单个 Condition 生成参数化片段，字段处理与 applyCond 一致
+// （JSON 字段经 JsonbFieldExpr 生成表达式），校验失败返回错误（fail-closed）。
+func (sf StructuredFilter) condExpr(db *gorm.DB, cond *paginationV1.FilterCondition) (string, []any, error) {
+	if cond == nil {
+		return "", nil, nil
+	}
+	val := ""
+	switch cond.ValueOneof.(type) {
+	case *paginationV1.FilterCondition_Value:
+		val = cond.GetValue()
+	default:
+	}
+
+	var field string
+	if strings.Contains(cond.GetField(), ".") {
+		// 支持 JSON 字段 (e.g. preferences.daily_email)
+		parts := strings.SplitN(cond.GetField(), ".", 2)
+		col := stringcase.ToSnakeCase(parts[0])
+		jsonKey := parts[1]
+		exprStr, _ := sf.processor.JsonbFieldExpr(db, jsonKey, col)
+		if exprStr == "" {
+			return "", nil, fmt.Errorf("invalid filter field %q", cond.GetField())
+		}
+		field = exprStr
+	} else {
+		field = stringcase.ToSnakeCase(cond.GetField())
+	}
+
+	expr, args, ok := sf.processor.BuildExpression(db, cond.GetOp(), field, val, cond.GetValues())
+	if !ok {
+		// 与各算子方法一致：空值条件跳过；非法字段/无法生成的方言报错
+		if expr == "" && isSkippableEmpty(cond, val) {
+			return "", nil, nil
+		}
+		return "", nil, fmt.Errorf("invalid filter condition on field %q", cond.GetField())
+	}
+	return expr, args, nil
+}
+
+// isSkippableEmpty 判断空值条件（既有行为：空值不添加条件）。
+func isSkippableEmpty(cond *paginationV1.FilterCondition, val string) bool {
+	if val != "" {
+		return false
+	}
+	switch cond.GetOp() {
+	case paginationV1.Operator_IN, paginationV1.Operator_NIN, paginationV1.Operator_BETWEEN:
+		return len(cond.GetValues()) == 0
+	default:
+		return true
+	}
 }
