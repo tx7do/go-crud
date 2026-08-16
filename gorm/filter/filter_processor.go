@@ -58,8 +58,16 @@ func (poc Processor) Process(db *gorm.DB, op paginationV1.Operator, field, value
 	if db == nil {
 		return db
 	}
-	// 将 field 转为 snake_case（与 DB 列风格一致）
-	field = stringcase.ToSnakeCase(field)
+	// 将 field 转为 snake_case（与 DB 列风格一致）。
+	// JsonbFieldExpr 生成的 JSON 表达式必须跳过转换，否则表达式结构会被拆散。
+	if !jsonExprPattern.MatchString(field) {
+		field = stringcase.ToSnakeCase(field)
+	}
+	// field 可能是列名或 JSON 表达式，两者都必须通过白名单校验，非法即拒绝（fail-closed）
+	if !isValidFieldExpr(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 
 	switch op {
 	case paginationV1.Operator_EQ:
@@ -470,6 +478,10 @@ func (poc Processor) DatePart(db *gorm.DB, datePart, field string) *gorm.DB {
 	if !IsValidDatePartString(datePart) {
 		return db
 	}
+	if !isValidIdentifier(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	part := strings.ToUpper(datePart)
 	switch strings.ToLower(db.Dialector.Name()) {
 	case "postgres":
@@ -501,6 +513,10 @@ func (poc Processor) Jsonb(db *gorm.DB, jsonbField, field string) *gorm.DB {
 	if !jsonKeyPattern.MatchString(jsonbField) {
 		return db
 	}
+	if !isValidIdentifier(field) {
+		_ = db.AddError(fmt.Errorf("invalid filter field %q", field))
+		return db
+	}
 	switch strings.ToLower(db.Dialector.Name()) {
 	case "postgres":
 		// column ->> 'key'
@@ -517,6 +533,9 @@ func (poc Processor) Jsonb(db *gorm.DB, jsonbField, field string) *gorm.DB {
 func (poc Processor) JsonbFieldExpr(db *gorm.DB, jsonbField, field string) (string, []any) {
 	jsonbField = strings.TrimSpace(jsonbField)
 	if jsonbField == "" || !jsonKeyPattern.MatchString(jsonbField) {
+		return "", nil
+	}
+	if !isValidIdentifier(field) {
 		return "", nil
 	}
 	switch strings.ToLower(db.Dialector.Name()) {
