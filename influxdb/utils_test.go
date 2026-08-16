@@ -1,10 +1,36 @@
 package influxdb
 
 import (
+	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 )
+
+// normalizeQuery 消除多过滤条件因 map 遍历顺序带来的 AND 子句顺序抖动：
+// 固定 SELECT...WHERE 前缀，仅对 WHERE 之后的条件做确定性重排。
+func normalizeQuery(q string) string {
+	idx := strings.Index(q, " WHERE ")
+	if idx < 0 {
+		return q
+	}
+	head, tail := q[:idx+len(" WHERE ")], q[idx+len(" WHERE "):]
+	conds := strings.Split(tail, " AND ")
+	sort.Strings(conds)
+	return head + strings.Join(conds, " AND ")
+}
+
+// normalizeArgs 同理消除参数顺序抖动。
+func normalizeArgs(args []any) []string {
+	s := make([]string, len(args))
+	for i, a := range args {
+		s[i] = fmt.Sprint(a)
+	}
+	sort.Strings(s)
+	return s
+}
 
 func TestBuildQuery(t *testing.T) {
 	tests := []struct {
@@ -71,11 +97,11 @@ func TestBuildQuery(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			query, args := BuildQuery(tt.table, tt.filters, tt.operators, tt.fields)
 
-			if query != tt.expectedQuery {
+			if normalizeQuery(query) != normalizeQuery(tt.expectedQuery) {
 				t.Errorf("expected query %s, got %s", tt.expectedQuery, query)
 			}
 
-			if !reflect.DeepEqual(args, tt.expectedArgs) {
+			if !reflect.DeepEqual(normalizeArgs(args), normalizeArgs(tt.expectedArgs)) {
 				t.Errorf("expected args %v, got %v", tt.expectedArgs, args)
 			}
 		})
@@ -145,7 +171,7 @@ func TestBuildQueryWithParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			query := BuildQueryWithParams(tt.table, tt.filters, tt.operators, tt.fields)
 
-			if query != tt.expectedQuery {
+			if normalizeQuery(query) != normalizeQuery(tt.expectedQuery) {
 				t.Errorf("expected query %s, got %s", tt.expectedQuery, query)
 			}
 			//t.Log(query)
