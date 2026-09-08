@@ -27,7 +27,7 @@ func (s *stubUpdateBuilder) Where(ps ...func(*sql.Selector)) *stubUpdateBuilder 
 // (IsTenantScopedType) 判定为 tenant-scoped，从而让注入测试走到
 // injectTenantWhereReflect。仅用于测试，无实际 tenant 语义。
 func (s *stubUpdateBuilder) GetTenantID() *uint32 { return nil }
-func (s *stubUpdateBuilder) SetTenantID(uint32)    {}
+func (s *stubUpdateBuilder) SetTenantID(uint32)   {}
 
 // badSigBuilder 实现 viewer.ScopedModel（通过类型门控），但其 Where 签名
 // 与预期的 Where(...func(*sql.Selector)) 不符。用于验证
@@ -35,9 +35,9 @@ func (s *stubUpdateBuilder) SetTenantID(uint32)    {}
 // 这是 B.10 的核心：ent 升级若改了 Where 签名，注入必须报错而非放过。
 type badSigBuilder struct{}
 
-func (*badSigBuilder) Where(int) int { return 0 } // 非变参、参数类型不符
+func (*badSigBuilder) Where(int) int        { return 0 } // 非变参、参数类型不符
 func (*badSigBuilder) GetTenantID() *uint32 { return nil }
-func (*badSigBuilder) SetTenantID(uint32)    {}
+func (*badSigBuilder) SetTenantID(uint32)   {}
 
 // stubQueryViewer 实现 viewer.Context，可配置 tenant/platform/system。
 type stubQueryViewer struct {

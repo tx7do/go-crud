@@ -54,15 +54,33 @@ func (f TenantPrivacy[T]) EvalMutation(ctx context.Context, m ent.Mutation) erro
 	}
 
 	op := m.Op()
+	tid := vc.TenantID()
 
-	// 更新/删除：ent mutation 不支持注入行级谓词（生成的 mutation 无 AddPredicate），
-	// 行级租户过滤依赖查询侧 EvalQuery + 拦截器；此处至少阻断跨租户逃逸——
-	// 非平台上下文触碰 tenant_id 时，仅允许"值不变的冗余设置"（旧行、新值、
-	// 当前访问者三者同租户），把记录移到其他租户或改他租户记录一律拒绝。
+	// 更新/删除：通过 entql 为生成 mutation 提供的 WhereP 注入行级租户谓词，
+	// 使 Update/UpdateOne/Delete/DeleteOne 的 WHERE 恒含 tenant_id = viewer.tenant：
+	//   - 批量 Update/Delete 不带条件时不再波及他租户行；
+	//   - UpdateOneID/DeleteOneID 的主键谓词与本谓词 AND，跨租户主键操作
+	//     0 行命中（UpdateOne/DeleteOne 返回 NotFound，不泄露行存在性）。
+	// 谓词存入 mutation.predicates，四类 builder 的 sqlExec 会将其汇入
+	// _spec.Predicate；policy hook 在 withHooks 链中先于 sqlExec 执行，
+	// 此处追加必然生效。缺 WhereP（entql feature 未开启）时 fail-closed，
+	// 与 injectTenantWhere 的 B.10 原则一致。
 	if !op.Is(ent.OpCreate) {
 		if vc.IsPlatformContext() || vc.IsSystemContext() {
 			return nil
 		}
+
+		pm, ok := m.(interface{ WhereP(...func(*sql.Selector)) })
+		if !ok {
+			return fmt.Errorf("security: tenant rule cannot inject row predicate on %s: %T lacks WhereP (entql feature disabled?)", op, m)
+		}
+		pm.WhereP(func(s *sql.Selector) {
+			s.Where(sql.EQ(s.C("tenant_id"), T(tid)))
+		})
+
+		// 行级谓词管不到 SET 的目标值：非平台上下文触碰 tenant_id 时，
+		// 仅允许"值不变的冗余设置"（旧行、新值、当前访问者三者同租户），
+		// 把记录移到其他租户或改他租户记录一律拒绝。
 		if val, set := m.Field("tenant_id"); set {
 			if old, ok := m.(interface {
 				OldTenantID(context.Context) (*T, error)
@@ -71,7 +89,7 @@ func (f TenantPrivacy[T]) EvalMutation(ctx context.Context, m ent.Mutation) erro
 				if err != nil {
 					return fmt.Errorf("security: tenant rule cannot verify tenant_id change: %w", err)
 				}
-				viewerTid := fmt.Sprint(T(vc.TenantID()))
+				viewerTid := fmt.Sprint(T(tid))
 				if prev == nil || fmt.Sprint(*prev) != fmt.Sprint(val) || viewerTid != fmt.Sprint(val) {
 					return fmt.Errorf("security: cross-tenant tenant_id change denied")
 				}
@@ -81,8 +99,6 @@ func (f TenantPrivacy[T]) EvalMutation(ctx context.Context, m ent.Mutation) erro
 		}
 		return nil
 	}
-
-	tid := vc.TenantID()
 
 	if vc.IsPlatformContext() {
 		// 如果管理员在代码里写了 .SetTenantID(101)，则尊重管理员的选择
