@@ -44,8 +44,8 @@ func (r *Repository[
 	r.cacheListTTL = listTTL
 	r.cacheRedisClient = redisClient
 
-	r.cacheSupportSingle = cache.NewCacheSupport[DTO](redisClient, singleTTL)
-	r.cacheSupportList = cache.NewCacheSupport[PagingResult[DTO]](redisClient, listTTL)
+	r.cacheSupportSingle = cache.NewCacheSupport[DTO](redisClient, singleTTL, nil)
+	r.cacheSupportList = cache.NewCacheSupport[PagingResult[DTO]](redisClient, listTTL, nil)
 
 	return r
 }
