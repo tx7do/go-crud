@@ -411,8 +411,6 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/tjfoc/gmsm v1.4.1 h1:aMe1GlZb+0bLjn+cKTPEvvn9oUEBlJitaZiiBwsbgho=
 github.com/tjfoc/gmsm v1.4.1/go.mod h1:j4INPkHWMrhJb38G+J6W4Tw0AbuN8Thu3PbdVYhVcTE=
-github.com/tx7do/go-crud/cache v0.0.1 h1:crGpg5+gOPIAL5000Z8AnzlpzxRm798o8bfjKUQqTKg=
-github.com/tx7do/go-crud/cache v0.0.1/go.mod h1:SlkdVqOQBQ4Z+BK6XXoMmYrGVrZqGE/5enQJ2NjkDbc=
 github.com/tx7do/go-utils v1.1.40 h1:PA6ZpBRbYZNUc3xiSP6oRhMGa9iCXLzF5pwvZHJmpZQ=
 github.com/tx7do/go-utils v1.1.40/go.mod h1:A5zjhW0UTM6veYuCbq7/mcwDXaBw8UhBnvaLSwURBRg=
 github.com/tx7do/go-utils/id v0.0.6 h1:AFGGf5uxXrclOj//ZCwnkorfLcrhbGqyrVzHG3stuR8=

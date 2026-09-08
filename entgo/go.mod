@@ -10,6 +10,8 @@ replace github.com/tx7do/go-crud/audit => ../audit
 
 replace github.com/tx7do/go-crud/viewer => ../viewer
 
+replace github.com/tx7do/go-crud/cache => ../cache
+
 require (
 	entgo.io/ent v0.14.6
 	github.com/XSAM/otelsql v0.44.0
@@ -17,10 +19,10 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.12.1
 	github.com/tx7do/go-crud/api v0.0.7
-	github.com/tx7do/go-crud/audit v0.0.2
-	github.com/tx7do/go-crud/cache v0.0.1
-	github.com/tx7do/go-crud/pagination v0.0.15
-	github.com/tx7do/go-crud/viewer v0.0.6
+	github.com/tx7do/go-crud/audit v0.0.3
+	github.com/tx7do/go-crud/cache v0.0.2
+	github.com/tx7do/go-crud/pagination v0.0.16
+	github.com/tx7do/go-crud/viewer v0.0.7
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/id v0.0.6
 	github.com/tx7do/go-utils/mapper v0.0.3
