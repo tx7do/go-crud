@@ -52,3 +52,37 @@ func TestMaskSet_UnwrapsBackticks(t *testing.T) {
 		t.Errorf("nil mask must be empty, got %v", got)
 	}
 }
+
+// TestNormalizePaths_Idempotent 验证归一化幂等：已归一化（反引号包裹）的合法
+// 标识符再次归一化保持不变，因此 Repository.Get 先 NormalizeFieldMaskPaths
+// 再经 BuildSelector 二次归一化不会把路径判为非法。
+func TestNormalizePaths_Idempotent(t *testing.T) {
+	raw := []string{"id", "name", "user.name", "*", "a`,(select version()),`b"}
+	once := NormalizePaths(raw)
+	twice := NormalizePaths(once)
+
+	for i := range once {
+		if once[i] != twice[i] {
+			t.Errorf("re-normalizing %q changed it to %q (want idempotent)", once[i], twice[i])
+		}
+	}
+	if once[0] != "`id`" || once[1] != "`name`" {
+		t.Errorf("valid paths must be backtick-wrapped, got %q and %q", once[0], once[1])
+	}
+
+	// an already-normalized FieldMask survives a second NormalizeFieldMaskPaths
+	fm := &fieldmaskpb.FieldMask{Paths: []string{"id", "name"}}
+	NormalizeFieldMaskPaths(fm)
+	first := append([]string(nil), fm.Paths...)
+	NormalizeFieldMaskPaths(fm)
+	for i := range first {
+		if first[i] != fm.Paths[i] {
+			t.Errorf("second NormalizeFieldMaskPaths changed %q to %q", first[i], fm.Paths[i])
+		}
+	}
+
+	// a backtick-wrapped invalid payload is still rejected
+	if out := NormalizePaths([]string{"`a`,(select version()),`b`"}); out[0] != "" {
+		t.Errorf("quoted injection payload must be dropped, got %q", out[0])
+	}
+}

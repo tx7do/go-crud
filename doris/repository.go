@@ -76,6 +76,21 @@ func NewRepository[DTO any, ENTITY any](
 	}
 }
 
+// expandINPlaceholders 将 where 子句中的 "IN (?)" 占位符展开为与切片参数个数
+// 一致的占位符个数（如 "id IN (?)" + 3 个参数 -> "id IN (?,?,?)"）。
+// 空切片展开为 IN (NULL)（恒不匹配），与 gorm 空 IN 列表的语义一致。
+func expandINPlaceholders(where string, n int) string {
+	switch {
+	case n > 1:
+		placeholders := strings.TrimRight(strings.Repeat("?,", n), ",")
+		return strings.ReplaceAll(where, "IN (?)", "IN ("+placeholders+")")
+	case n == 0:
+		return strings.ReplaceAll(where, "IN (?)", "IN (NULL)")
+	default:
+		return where
+	}
+}
+
 // Count 使用 Doris client 计算符合 baseWhere 的记录数
 // baseWhere: 可以包含 "WHERE ..." 前缀或只写条件表达式（函数会自动拼接）
 // 示例调用： total, err := q.Count(ctx, "id = ?", id)
@@ -88,7 +103,7 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, w
 		return 0, errors.New("table is empty")
 	}
 
-	// 展开单个切片参数为独立参数
+	// 展开单个切片参数为独立参数，并同步展开 IN (?) 占位符
 	if len(whereArgs) == 1 {
 		v := reflect.ValueOf(whereArgs[0])
 		if v.IsValid() && v.Kind() == reflect.Slice {
@@ -96,6 +111,7 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, w
 			for i := 0; i < v.Len(); i++ {
 				expanded[i] = v.Index(i).Interface()
 			}
+			baseWhere = expandINPlaceholders(baseWhere, len(expanded))
 			whereArgs = expanded
 		}
 	}
@@ -132,6 +148,9 @@ func (r *Repository[DTO, ENTITY]) Count(ctx context.Context, baseWhere string, w
 
 // ListWithPaging 使用 PagingRequest 查询列表
 func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *paginationV1.PagingRequest) (*PagingResult[DTO], error) {
+	if req == nil {
+		return nil, errors.New("paging request is nil")
+	}
 	if r.client == nil {
 		return nil, errors.New("doris client is nil")
 	}
@@ -237,6 +256,9 @@ func (r *Repository[DTO, ENTITY]) ListWithPaging(ctx context.Context, req *pagin
 
 // ListWithPagination 使用 PaginationRequest 查询列表
 func (r *Repository[DTO, ENTITY]) ListWithPagination(ctx context.Context, req *paginationV1.PaginationRequest) (*PagingResult[DTO], error) {
+	if req == nil {
+		return nil, errors.New("pagination request is nil")
+	}
 	if r.client == nil {
 		return nil, errors.New("doris client is nil")
 	}
@@ -1287,7 +1309,7 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, 
 		return false, errors.New("table is empty")
 	}
 
-	// 展开单个切片参数为独立参数
+	// 展开单个切片参数为独立参数，并同步展开 IN (?) 占位符
 	if len(whereArgs) == 1 {
 		v := reflect.ValueOf(whereArgs[0])
 		if v.IsValid() && v.Kind() == reflect.Slice {
@@ -1295,6 +1317,7 @@ func (r *Repository[DTO, ENTITY]) Exists(ctx context.Context, baseWhere string, 
 			for i := 0; i < v.Len(); i++ {
 				expanded[i] = v.Index(i).Interface()
 			}
+			baseWhere = expandINPlaceholders(baseWhere, len(expanded))
 			whereArgs = expanded
 		}
 	}

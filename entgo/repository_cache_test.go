@@ -1,7 +1,9 @@
 package entgo
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -144,4 +146,31 @@ func TestGenerateListCacheKeyFromPagination_TokenBranch(t *testing.T) {
 // uint32Ptr 辅助函数，用于创建uint32指针
 func uint32Ptr(i uint32) *uint32 {
 	return &i
+}
+
+// TestWithCache_NilRedisDisablesCache 验证 nil redis 客户端时 WithCache
+// 与 gorm 仓库一致地禁用缓存：cacheSupport* 保持 nil，后续 invalidateCache
+// 为 no-op 而不是对 nil 客户端解引用 panic。
+func TestWithCache_NilRedisDisablesCache(t *testing.T) {
+	repo := NewRepository[
+		any, any,
+		any, any,
+		any, any,
+		any,
+		any, any, any,
+	](nil)
+
+	// 配置缓存前 invalidate 是 no-op
+	repo.invalidateCache(context.Background(), 1)
+
+	repo.WithCache(nil, "menu:", time.Minute, 30*time.Second)
+	assert.Nil(t, repo.cacheRedisClient, "nil redis must be stored as nil")
+	assert.Zero(t, repo.cacheKeyPrefix, "cache settings must not be applied when cache is disabled")
+	assert.Zero(t, repo.cacheTTL)
+	assert.Zero(t, repo.cacheListTTL)
+	assert.Nil(t, repo.cacheSupportSingle, "cache support must stay disabled for a nil redis client")
+	assert.Nil(t, repo.cacheSupportList)
+
+	// 写路径失效缓存在 WithCache(nil) 之后不得 panic
+	repo.invalidateCache(context.Background(), 1)
 }

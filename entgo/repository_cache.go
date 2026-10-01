@@ -39,6 +39,12 @@ func (r *Repository[
 	ENT_DELETE,
 	PREDICATE, DTO, ENTITY,
 ] {
+	// 没有 Redis 客户端时，不启用缓存（保持 cacheSupport* 为 nil），
+	// 让带缓存的方法自动降级为普通查询，而不是构造一个持有 nil redis 的支持对象导致后续 panic。
+	if redisClient == nil {
+		return r
+	}
+
 	r.cacheKeyPrefix = prefix
 	r.cacheTTL = singleTTL
 	r.cacheListTTL = listTTL

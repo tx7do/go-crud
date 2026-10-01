@@ -44,6 +44,17 @@ func NormalizePaths(fields []string) []string {
 		}
 		for j, p := range parts {
 			p = strings.TrimSpace(p)
+			// 已经是反引号包裹的合法标识符原样保留，保证归一化幂等：
+			// Repository.Get 先 NormalizeFieldMaskPaths 再经 BuildSelector
+			// 二次归一化，若重复包裹成 ``id`` 会被判非法、掩码静默失效。
+			if strings.HasPrefix(p, "`") && strings.HasSuffix(p, "`") && len(p) >= 2 {
+				if identifierPattern.MatchString(p[1 : len(p)-1]) {
+					parts[j] = p
+					continue
+				}
+				valid = false
+				break
+			}
 			// "*"（全字段掩码）也置空：下游 Builder.Select 对 "*" 直接 panic，
 			// 而默认行为本就是 SELECT *，丢弃即表达"不限制字段"。
 			if p == "*" {

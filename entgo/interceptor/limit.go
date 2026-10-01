@@ -19,7 +19,7 @@ import (
 func SharedLimiter[Q interface{ Limit(int) }](f func(ent.Query) (Q, error), limit int) ent.Interceptor {
 	return ent.InterceptFunc(func(next ent.Querier) ent.Querier {
 		return ent.QuerierFunc(func(ctx context.Context, query ent.Query) (ent.Value, error) {
-			if ent.QueryFromContext(ctx).Limit != nil {
+			if qc := ent.QueryFromContext(ctx); qc != nil && qc.Limit != nil {
 				// 调用方显式设置过 Limit，尊重调用方
 				return next.Query(ctx, query)
 			}

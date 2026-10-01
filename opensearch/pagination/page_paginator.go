@@ -19,7 +19,8 @@ func NewPagePaginator() *PagePaginator {
 }
 
 // BuildClause 根据传入的 page/size 更新内部状态并将 page/size 设置到 query.Builder。
-// 若 limit <= 0（未设置或无效），返回原 builder。
+// size 超过 MaxLimit 时钳制到上限；size 无效（<= 0）时交给 builder.SetPage
+// 归一化为默认页大小。
 func (p *PagePaginator) BuildClause(builder *query.Builder, page, size int) *query.Builder {
 	p.impl.
 		WithPage(page).
@@ -30,6 +31,12 @@ func (p *PagePaginator) BuildClause(builder *query.Builder, page, size int) *que
 		return builder
 	}
 
-	builder.SetPage(page, size)
+	if size < 1 {
+		// 未设置或无效：保留 SetPage 的默认页大小语义
+		builder.SetPage(page, 0)
+		return builder
+	}
+
+	builder.SetPage(p.impl.Page(), lim)
 	return builder
 }
