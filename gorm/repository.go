@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -603,13 +604,45 @@ func (r *Repository[DTO, ENTITY]) Update(ctx context.Context, db *gorm.DB, dto *
 		return nil, errors.New("update failed")
 	}
 
-	// 读取并返回更新后的实体
+	// 读取并返回更新后的实体。
+	// 不能复用 qdb 读回：它携带调用方的 WHERE，若本次更新恰好修改了 WHERE
+	// 引用的列（如按 name 过滤却同时更新 name），旧条件将匹配不到任何行而误报
+	// record not found。这里改用主键读回——与 GORM 自身在 Updates 中为 Dest
+	// 结构体的非零主键追加 WHERE 条件的机制保持一致。
+	// 注意：NewDB 与 Context 必须放在同一次 Session 调用里；若之后再链式调用
+	// WithContext（内部又是一次不带 NewDB 的 Session），会重新克隆出携带旧
+	// 条件的语句，导致调用方 WHERE 复活。
+	// 实体主键为零（无法定位行）时退回旧行为（复用调用方的查询条件）。
 	var updated ENTITY
-	readDB := qdb.Select("*")
+	readDB := db.Session(&gorm.Session{NewDB: true, Context: ctx}).Model(new(ENTITY))
+	if pkValues, ok := primaryFieldValues(qdb.Statement, ent); ok {
+		readDB = readDB.Where(pkValues)
+	} else {
+		readDB = qdb.Select("*")
+	}
 	if err := readDB.First(&updated).Error; err != nil {
 		return nil, err
 	}
 	return r.mapper.ToDTO(&updated), nil
+}
+
+// primaryFieldValues 提取实体 ent 中非零的主键字段值（列名 -> 值）。
+// 依赖 GORM 在执行 Updates 时解析出的 schema（Statement.Schema.PrimaryFields）。
+func primaryFieldValues(stmt *gorm.Statement, ent any) (map[string]any, bool) {
+	if stmt == nil || stmt.Schema == nil || len(stmt.Schema.PrimaryFields) == 0 {
+		return nil, false
+	}
+
+	rv := reflect.ValueOf(ent)
+	pks := make(map[string]any, len(stmt.Schema.PrimaryFields))
+	for _, f := range stmt.Schema.PrimaryFields {
+		v, isZero := f.ValueOf(stmt.Context, rv)
+		if isZero {
+			continue
+		}
+		pks[f.DBName] = v
+	}
+	return pks, len(pks) > 0
 }
 
 // UpdateWithFilters 接受 whereSelectors 并在内部应用到查询 DB，然后执行更新

@@ -1,9 +1,11 @@
 package gorm
 
 import (
+	"context"
 	"testing"
 
 	"github.com/glebarez/sqlite"
+	"github.com/tx7do/go-utils/mapper"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -45,6 +47,32 @@ func seedUsersForUpdater(t *testing.T, db *gorm.DB, users ...testUserEntity) {
 		if err := db.Create(&u).Error; err != nil {
 			t.Fatalf("seed user failed: %v", err)
 		}
+	}
+}
+
+// TestRepository_UpdateReadsBackByPrimaryKey guards against regression: an
+// Update whose WHERE references the very column being changed must still
+// return the updated entity — the read-back goes by primary key, not by the
+// caller's (now stale) WHERE clause.
+func TestRepository_UpdateReadsBackByPrimaryKey(t *testing.T) {
+	db := openTestDBForRepository(t)
+	ctx := context.Background()
+	seedUsers(t, db, testUserEntity{Name: "alice", Age: 20})
+	r := NewRepository[CacheTestUser, testUserEntity](mapper.NewCopierMapper[CacheTestUser, testUserEntity]())
+
+	// The WHERE matches by name, but the update changes that very name.
+	dto, err := r.Update(ctx, db.Where("name = ?", "alice"), &CacheTestUser{Id: 1, Name: "bob", Age: 21}, nil)
+	if err != nil {
+		t.Fatalf("Update(changing filtered column) error: %v", err)
+	}
+	if dto == nil || dto.Name != "bob" || dto.Age != 21 {
+		t.Fatalf("Update(changing filtered column) unexpected dto: %+v", dto)
+	}
+
+	// The documented id-based-where usage keeps working.
+	dto, err = r.Update(ctx, db.Where("id = ?", 1), &CacheTestUser{Id: 1, Name: "carol", Age: 22}, nil)
+	if err != nil || dto == nil || dto.Name != "carol" || dto.Age != 22 {
+		t.Fatalf("Update(by id) = %+v, %v", dto, err)
 	}
 }
 

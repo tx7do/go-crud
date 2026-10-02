@@ -348,6 +348,16 @@ func (qb *Builder) BuildFindOne() (any, optionsV2.Lister[optionsV2.FindOneOption
 	if qb.findOneOpts == nil {
 		qb.findOneOpts = &optionsV2.FindOneOptions{}
 	}
+	// SetSort/SetProjection 写入的是 findOpts，这里同步到 findOneOpts，
+	// 否则 FindOne 会静默丢失排序与投影。
+	if qb.findOpts != nil {
+		if qb.findOneOpts.Sort == nil {
+			qb.findOneOpts.Sort = qb.findOpts.Sort
+		}
+		if qb.findOneOpts.Projection == nil {
+			qb.findOneOpts.Projection = qb.findOpts.Projection
+		}
+	}
 	// 将 skip/limit（若设置）也应用到 findOneOpts（一般 FindOne 只需 projection/sort）
 	if qb.skip != nil {
 		// findOneOpts.Skip 是 *int64

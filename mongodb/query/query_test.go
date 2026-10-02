@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	bsonV2 "go.mongodb.org/mongo-driver/v2/bson"
+	optionsV2 "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func TestQueryBuilder(t *testing.T) {
@@ -292,4 +293,27 @@ func TestBuildImmutability(t *testing.T) {
 	if beforeOpts.Skip != nil {
 		assert.Equal(t, int64(10), *beforeOpts.Skip)
 	}
+}
+
+// TestBuildFindOne_PropagatesSortAndProjection guards against regression:
+// SetSort/SetProjection write to FindOptions, and BuildFindOne must carry them
+// over to the FindOne options instead of silently dropping them.
+func TestBuildFindOne_PropagatesSortAndProjection(t *testing.T) {
+	qb := NewQueryBuilder()
+	qb.SetFilter(bsonV2.M{"_id": 1})
+	qb.SetSort(bsonV2.D{{Key: "createdAt", Value: -1}})
+	qb.SetProjection(bsonV2.M{"name": 1})
+
+	filter, lister, err := qb.BuildFindOne()
+	assert.NoError(t, err)
+	assert.Equal(t, bsonV2.M{"_id": 1}, filter)
+
+	fresh := &optionsV2.FindOneOptions{}
+	fns := lister.List()
+	assert.Len(t, fns, 2) // sort, projection
+	for _, fn := range fns {
+		assert.NoError(t, fn(fresh))
+	}
+	assert.Equal(t, bsonV2.D{{Key: "createdAt", Value: -1}}, fresh.Sort)
+	assert.Equal(t, bsonV2.M{"name": 1}, fresh.Projection)
 }
