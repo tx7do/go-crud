@@ -64,4 +64,3 @@ func MergeOptions(mapping, settings string) (string, error) {
 
 	return string(bodyBytes), nil
 }
-

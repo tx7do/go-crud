@@ -223,7 +223,6 @@ func TestFilterStringConverter_Convert_AllOperators(t *testing.T) {
 		// 组合逻辑：检查顶层 ExprType
 		{"a = 1 AND b = 2", paginationV1.Operator_EQ, func() *paginationV1.ExprType { e := paginationV1.ExprType_AND; return &e }()},
 		{"a = 1 OR b = 2", paginationV1.Operator_EQ, func() *paginationV1.ExprType { e := paginationV1.ExprType_OR; return &e }()},
-
 	}
 
 	// 未知操作符必须报错（fail-closed：不再静默丢弃条件成为无过滤查询）

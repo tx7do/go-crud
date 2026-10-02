@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	clickhouseV2 "github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/tx7do/go-wind/log"
 	"github.com/tx7do/go-crud/viewer"
+	"github.com/tx7do/go-wind/log"
 )
 
 type Client struct {

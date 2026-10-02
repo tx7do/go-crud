@@ -90,7 +90,7 @@ func TestNewElasticsearchClient_BasicAuthFlush(t *testing.T) {
 func TestWithSingleOptionSetters(t *testing.T) {
 	cases := []struct {
 		name string
-		fn    func(*Client)
+		fn   func(*Client)
 	}{
 		{"DiscoverNodesOnStart", func(c *Client) { WithDiscoverNodesOnStart(true)(c) }},
 		{"EnableCompatibilityMode", func(c *Client) { WithEnableCompatibilityMode(true)(c) }},
@@ -134,7 +134,7 @@ func TestWithSingleOptionSetters(t *testing.T) {
 func TestWithTransportPassthroughSetters(t *testing.T) {
 	cases := []struct {
 		name string
-		fn    func(*Client)
+		fn   func(*Client)
 	}{
 		{"Transport", func(c *Client) { WithTransport(http.DefaultTransport)(c) }},
 		{"Header", func(c *Client) { WithHeader(http.Header{"X-A": []string{"b"}})(c) }},
@@ -163,7 +163,7 @@ func TestWithTransportPassthroughSetters(t *testing.T) {
 func TestWithScalarSetters(t *testing.T) {
 	cases := []struct {
 		name string
-		fn    func(*Client)
+		fn   func(*Client)
 	}{
 		{"CloudID", func(c *Client) { WithCloudID("cloud-id")(c) }},
 		{"APIKey", func(c *Client) { WithAPIKey("key")(c) }},
