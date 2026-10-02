@@ -1212,3 +1212,62 @@ func TestEntClient_Exec_Query(t *testing.T) {
 		t.Fatalf("expected 1, got %d", v)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Non-proto DTOs on the write paths (regression: the unchecked
+// dto.(proto.Message) assertions used to panic here)
+// ---------------------------------------------------------------------------
+
+// plainNonProtoDTO deliberately does NOT implement proto.Message.
+type plainNonProtoDTO struct {
+	Name string
+}
+
+func newNonProtoMenuRepository() *Repository[
+	ent.MenuQuery, ent.MenuSelect,
+	ent.MenuCreate, ent.MenuCreateBulk,
+	ent.MenuUpdate, ent.MenuUpdateOne,
+	ent.MenuDelete,
+	predicate.Menu, plainNonProtoDTO, ent.Menu,
+] {
+	return NewRepository[
+		ent.MenuQuery, ent.MenuSelect,
+		ent.MenuCreate, ent.MenuCreateBulk,
+		ent.MenuUpdate, ent.MenuUpdateOne,
+		ent.MenuDelete,
+		predicate.Menu,
+	](mapper.NewCopierMapper[plainNonProtoDTO, ent.Menu]())
+}
+
+func TestRepositoryWritePaths_NonProtoDTO(t *testing.T) {
+	repo := newNonProtoMenuRepository()
+	cli := newIsolatedTestEntClient(t)
+	ctx := context.Background()
+
+	dto := &plainNonProtoDTO{Name: "no-proto"}
+
+	if _, err := repo.Create(ctx, cli.Client().Menu.Create(), dto, nil, nil); !errors.Is(err, errDtoNotProtoMessage) {
+		t.Fatalf("Create: expected errDtoNotProtoMessage, got %v", err)
+	}
+	if err := repo.CreateX(ctx, cli.Client().Menu.Create(), dto, nil, nil); !errors.Is(err, errDtoNotProtoMessage) {
+		t.Fatalf("CreateX: expected errDtoNotProtoMessage, got %v", err)
+	}
+
+	seeded := seedMenus(t, cli, "np-1")
+	if _, err := repo.UpdateOne(ctx, cli.Client().Menu.UpdateOneID(seeded[0].ID), dto, nil, nil); !errors.Is(err, errDtoNotProtoMessage) {
+		t.Fatalf("UpdateOne: expected errDtoNotProtoMessage, got %v", err)
+	}
+	if err := repo.UpdateX(ctx, cli.Client().Menu.Update(), dto, nil, nil); !errors.Is(err, errDtoNotProtoMessage) {
+		t.Fatalf("UpdateX: expected errDtoNotProtoMessage, got %v", err)
+	}
+
+	if _, err := repo.BatchCreate(ctx, cli.Client().Menu.CreateBulk(), []*plainNonProtoDTO{dto}, nil, nil); !errors.Is(err, errDtoNotProtoMessage) {
+		t.Fatalf("BatchCreate: expected errDtoNotProtoMessage, got %v", err)
+	}
+
+	// the failed writes must not have touched the database
+	count, err := cli.Client().Menu.Query().Count(ctx)
+	if err != nil || count != 1 {
+		t.Fatalf("failed writes must not persist rows: count=%d err=%v", count, err)
+	}
+}

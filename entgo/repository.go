@@ -31,6 +31,10 @@ import (
 	paginationSorting "github.com/tx7do/go-crud/pagination/sorting"
 )
 
+// errDtoNotProtoMessage 由写路径在 DTO 未实现 proto.Message 时返回：
+// 此前的未检查断言会直接 panic。
+var errDtoNotProtoMessage = errors.New("entgo: dto must implement proto.Message")
+
 // Repository Ent查询器
 type Repository[
 	ENT_QUERY any, ENT_SELECT any,
@@ -720,10 +724,9 @@ func (r *Repository[
 
 	field.NormalizeFieldMaskPaths(createMask)
 
-	var dtoAny any = dto
-	var dtoProto = dtoAny.(proto.Message)
-	if dtoProto == nil {
-		return nil, errors.New("dto proto message is nil")
+	dtoProto, ok := any(dto).(proto.Message)
+	if !ok {
+		return nil, errDtoNotProtoMessage
 	}
 	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), createMask); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("invalid field mask [%v], error: %s", createMask, err.Error()))
@@ -767,10 +770,9 @@ func (r *Repository[
 
 	field.NormalizeFieldMaskPaths(createMask)
 
-	var dtoAny any = dto
-	var dtoProto = dtoAny.(proto.Message)
-	if dtoProto == nil {
-		return errors.New("dto proto message is nil")
+	dtoProto, ok := any(dto).(proto.Message)
+	if !ok {
+		return errDtoNotProtoMessage
 	}
 	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), createMask); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("invalid field mask [%v], error: %s", createMask, err.Error()))
@@ -839,10 +841,9 @@ func (r *Repository[
 		if dto == nil {
 			continue
 		}
-		var dtoAny any = dto
-		dtoProto := dtoAny.(proto.Message)
-		if dtoProto == nil {
-			continue
+		dtoProto, ok := any(dto).(proto.Message)
+		if !ok {
+			return nil, errDtoNotProtoMessage
 		}
 
 		if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), createMask); err != nil {
@@ -914,10 +915,9 @@ func (r *Repository[
 
 	field.NormalizeFieldMaskPaths(updateMask)
 
-	var dtoAny any = dto
-	var dtoProto = dtoAny.(proto.Message)
-	if dtoProto == nil {
-		return nil, errors.New("dto proto message is nil")
+	dtoProto, ok := any(dto).(proto.Message)
+	if !ok {
+		return nil, errDtoNotProtoMessage
 	}
 	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), updateMask); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("invalid field mask [%v], error: %s", updateMask, err.Error()))
@@ -1031,10 +1031,9 @@ func (r *Repository[
 
 	field.NormalizeFieldMaskPaths(updateMask)
 
-	var dtoAny any = dto
-	var dtoProto = dtoAny.(proto.Message)
-	if dtoProto == nil {
-		return errors.New("dto proto message is nil")
+	dtoProto, ok := any(dto).(proto.Message)
+	if !ok {
+		return errDtoNotProtoMessage
 	}
 	if err := fieldmaskutil.FilterByFieldMask(trans.Ptr(dtoProto), updateMask); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("invalid field mask [%v], error: %s", updateMask, err.Error()))

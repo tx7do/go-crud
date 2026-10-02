@@ -2,6 +2,7 @@ package update
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -73,10 +74,20 @@ func escapeSQLLiteral(s string) string {
 	return r.Replace(s)
 }
 
-// ExtractJsonFieldKeyValues 提取json字段的键值对
+// ExtractJsonFieldKeyValues 提取json字段的键值对。
+// msg 为 nil 接口或 typed-nil 指针时返回 nil（即无键值对），不 panic。
 func ExtractJsonFieldKeyValues(msg proto.Message, paths []string, needToSnakeCase bool) []string {
+	if msg == nil {
+		return nil
+	}
+	if v := reflect.ValueOf(msg); v.Kind() == reflect.Pointer && v.IsNil() {
+		return nil
+	}
 	var keyValues []string
 	rft := msg.ProtoReflect()
+	if rft == nil {
+		return nil
+	}
 	for _, path := range paths {
 		fd := rft.Descriptor().Fields().ByName(protoreflect.Name(path))
 		if fd == nil {

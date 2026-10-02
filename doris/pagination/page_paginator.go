@@ -20,7 +20,8 @@ func NewPagePaginator() *PagePaginator {
 }
 
 // BuildClause 根据传入的 page/size 更新内部状态并返回 Doris 的 LIMIT/OFFSET 子句。
-// 若 limit <= 0（未设置或无效），返回空字符串。
+// size <= 0（未设置或无效）不会产生空子句：内部分页器会把 size 规整到
+// [1, paginator.MaxLimit] 区间，因此最少返回 "LIMIT 1"。
 // 当 offset 为 0 时仅返回 "LIMIT <n>"，否则返回 "LIMIT <n> OFFSET <m>"。
 func (p *PagePaginator) BuildClause(builder *query.Builder, page, size int) *query.Builder {
 	p.impl.

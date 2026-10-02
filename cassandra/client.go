@@ -72,8 +72,12 @@ func (c *Client) Closed() bool {
 }
 
 // Session returns the wrapped gocql.Session for callers that need direct
-// access to gocql APIs not covered by this wrapper.
+// access to gocql APIs not covered by this wrapper. A nil client (or a client
+// without a session) returns nil, consistent with the nil-safe Close/Closed.
 func (c *Client) Session() *gocql.Session {
+	if c == nil {
+		return nil
+	}
 	return c.session
 }
 
