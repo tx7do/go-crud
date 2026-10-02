@@ -1,6 +1,9 @@
 package pagination
 
-import "reflect"
+import (
+	"reflect"
+	"strconv"
+)
 
 // NodeConstraint 泛型节点约束接口
 // ID: 节点ID的类型
@@ -153,8 +156,10 @@ func IsNil(v any) bool {
 	}
 }
 
-// GetStringField 从结构体（或指向结构体的指针）中按候选字段名读取 string 或 *string 值
+// GetStringField 从结构体（或指向结构体的指针）中按候选字段名读取 string、*string
+// 或常见数值类型（int/uint 各宽度及其指针）字段的字符串表示
 // 返回 (value, true) 表示成功并且不为零值；否则返回 ("", false)
+// 未支持的类型不会 panic，而是尝试下一个候选字段名
 func GetStringField(v any, names []string) (string, bool) {
 	if v == nil {
 		return "", false
@@ -182,20 +187,45 @@ func GetStringField(v any, names []string) (string, bool) {
 				return "", false
 			}
 			return s, true
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			n := f.Int()
+			if n == 0 {
+				return "", false
+			}
+			return strconv.FormatInt(n, 10), true
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			n := f.Uint()
+			if n == 0 {
+				return "", false
+			}
+			return strconv.FormatUint(n, 10), true
 		case reflect.Ptr:
 			if f.IsNil() {
 				return "", false
 			}
 			fe := f.Elem()
-			if fe.Kind() == reflect.String {
+			switch fe.Kind() {
+			case reflect.String:
 				s := fe.String()
 				if s == "" {
 					return "", false
 				}
 				return s, true
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				n := fe.Int()
+				if n == 0 {
+					return "", false
+				}
+				return strconv.FormatInt(n, 10), true
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				n := fe.Uint()
+				if n == 0 {
+					return "", false
+				}
+				return strconv.FormatUint(n, 10), true
 			}
 		default:
-			panic("unhandled default case")
+			// 未支持的类型：尝试下一个候选字段名，而不是 panic
 		}
 	}
 	return "", false

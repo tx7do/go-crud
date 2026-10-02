@@ -60,6 +60,11 @@ type Repository[
 
 	// cacheRedisClient 用于写操作后按模式失效缓存（单条 key 含 userID 维度，需跨用户清除）
 	cacheRedisClient *redis.Client
+
+	// bulkEntityFactory 由持有 client 的调用方注入：把已映射的实体批量转换为
+	// CreateBulk 构建器。ent 生成的 CreateBulk 构建器在构造之后无法追加记录，
+	// 映射出的实体只能通过 client.MapCreateBulk 之类的工厂并入批量创建。
+	bulkEntityFactory func(ents []*ENTITY) (CreateBulkBuilder[ENT_CREATE_BULK, ENTITY], error)
 }
 
 func NewRepository[
@@ -784,6 +789,28 @@ func (r *Repository[
 	return nil
 }
 
+// WithBulkEntityFactory 注入实体批量工厂，用于把 BatchCreate 映射出的实体
+// 转换为 CreateBulk 构建器（ent 的 CreateBulk 构建器构造后无法追加记录，
+// 只有持有 client 的一方能够完成实体到构建器的转换）。
+func (r *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+]) WithBulkEntityFactory(
+	factory func(ents []*ENTITY) (CreateBulkBuilder[ENT_CREATE_BULK, ENTITY], error),
+) *Repository[
+	ENT_QUERY, ENT_SELECT,
+	ENT_CREATE, ENT_CREATE_BULK,
+	ENT_UPDATE, ENT_UPDATE_ONE,
+	ENT_DELETE,
+	PREDICATE, DTO, ENTITY,
+] {
+	r.bulkEntityFactory = factory
+	return r
+}
+
 // BatchCreate 批量创建记录，返回创建后的 DTO 列表
 func (r *Repository[
 	ENT_QUERY, ENT_SELECT,
@@ -825,6 +852,19 @@ func (r *Repository[
 		// 将 DTO 映射为 ENTITY（依赖 mapper 提供 ToEntity）
 		ent := r.mapper.ToEntity(dto)
 		ents = append(ents, ent)
+	}
+
+	// 修复：将映射出的实体并入批量创建。此前 ents 被直接丢弃，导致只有调用方
+	// 预先注册到构建器上的记录会落库。ent 的 CreateBulk 构建器构造后无法追加
+	// 记录，因此若调用方注入了实体批量工厂，则用它把实体转换为 CreateBulk
+	// 构建器后再保存；未注入工厂时保持原行为（保存调用方传入的构建器）。
+	if len(ents) > 0 && r.bulkEntityFactory != nil {
+		entityBulk, ferr := r.bulkEntityFactory(ents)
+		if ferr != nil {
+			log.Error(context.Background(), fmt.Sprintf("build bulk create from entities failed: %s", ferr.Error()))
+			return nil, ferr
+		}
+		builder = entityBulk
 	}
 
 	createdEnts, err := builder.Save(ctx)

@@ -1618,8 +1618,10 @@ func (c *Client) ClusterHealth(ctx context.Context) (map[string]any, error) {
 
 // ClusterInfo 返回集群信息（版本等）。
 func (c *Client) ClusterInfo(ctx context.Context) (map[string]any, error) {
+	// esapi 要求 target 非空，缺省查询全部（_all）
+	target := []string{"_all"}
 	resp, err := c.Client.Cluster.Info(
-		[]string{},
+		target,
 		c.Client.Cluster.Info.WithContext(ctx),
 	)
 	if err != nil {

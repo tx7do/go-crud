@@ -597,6 +597,54 @@ func TestGetStringField_Failure(t *testing.T) {
 	}
 }
 
+// numericIDStruct 模拟数值 ID 的树节点 DTO（如 uint32 主键）
+type numericIDStruct struct {
+	ID       uint32
+	ParentID uint32
+	Name     string
+}
+
+func TestGetStringField_NumericKinds(t *testing.T) {
+	num := uint32(42)
+	zero := uint32(0)
+	neg := int64(-3)
+
+	testCases := []struct {
+		name     string
+		input    any
+		fields   []string
+		expected string
+		ok       bool
+	}{
+		{"uint32 value", numericIDStruct{ID: 42, ParentID: 7}, []string{"ID"}, "42", true},
+		{"uint32 zero", numericIDStruct{}, []string{"ID"}, "", false},
+		{"uint32 parent", numericIDStruct{ID: 1, ParentID: 7}, []string{"ParentID"}, "7", true},
+		{"uint32 pointer", struct{ ID *uint32 }{ID: &num}, []string{"ID"}, "42", true},
+		{"uint32 pointer zero", struct{ ID *uint32 }{ID: &zero}, []string{"ID"}, "", false},
+		{"uint32 pointer nil", struct{ ID *uint32 }{}, []string{"ID"}, "", false},
+		{"int64 value", struct{ ID int64 }{ID: neg}, []string{"ID"}, "-3", true},
+		{"int64 zero", struct{ ID int64 }{}, []string{"ID"}, "", false},
+		{"string value still works", struct{ ID string }{ID: "abc"}, []string{"ID"}, "abc", true},
+		{"unsupported kind skipped for next candidate", struct {
+			ID   chan int
+			Name string
+		}{Name: "n"}, []string{"ID", "Name"}, "n", true},
+		{"unsupported kind no panic", struct{ ID float64 }{ID: 1.5}, []string{"ID"}, "", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, ok := GetStringField(tc.input, tc.fields)
+			if ok != tc.ok {
+				t.Errorf("GetStringField(%v, %v) returned ok=%v, want %v", tc.input, tc.fields, ok, tc.ok)
+			}
+			if result != tc.expected {
+				t.Errorf("GetStringField(%v, %v) = %q, want %q", tc.input, tc.fields, result, tc.expected)
+			}
+		})
+	}
+}
+
 // ============ AppendChild 测试 ============
 
 // childParent 用于AppendChild测试

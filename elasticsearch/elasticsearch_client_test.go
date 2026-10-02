@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,9 +15,13 @@ import (
 	"github.com/tx7do/go-wind/log"
 )
 
-// requireService skips the test when running in -short mode to keep hermetic runs green.
+// requireService skips the test unless integration mode is enabled (KRATOS_IT)
+// or in -short mode, to keep hermetic runs green.
 func requireService(t *testing.T) {
 	t.Helper()
+	if os.Getenv("KRATOS_IT") == "" {
+		t.Skip("skipping integration test: requires a live server; set KRATOS_IT to enable")
+	}
 	if testing.Short() {
 		t.Skip("skipping integration test in -short mode")
 	}
