@@ -15,6 +15,8 @@
 - ✅ **系统任务识别** - IsSystemContext 区分后台任务
 - ✅ **审计日志开关** - ShouldAudit 控制是否记录审计
 - ✅ **Context 注入/提取** - WithContext / FromContext / MustFromContext
+- ✅ **标准用户上下文** - NewUserContext 携带 uid/tid/ouid/traceID/数据范围的标准实现（不含权限/角色承载，细粒度权限走接入方自己的 authz 链路）
+- ✅ **系统后台任务上下文** - NewSystemContext / WithSystemContext 定时任务、服务间调用等非用户发起路径的固定身份（零值身份、平台视图、EnforceTenant 放行）
 - ✅ **Noop 实现** - NewNoopContext 匿名/未授权用户默认实现
 
 ## 快速开始
@@ -27,7 +29,29 @@ go get github.com/tx7do/go-crud/viewer
 
 ### 2. 创建 Viewer Context
 
-#### 基本用法
+#### 标准实现
+
+多数接入方不需要手写实现：包内提供两个标准上下文。
+
+```go
+import (
+    "context"
+    "github.com/tx7do/go-crud/viewer"
+)
+
+// 用户身份：uid/tid/ouid/traceID 与数据范围由令牌/会话解析结果注入，
+// 平台/租户视图随 tid 是否为零翻转（租户隔离闸门的判定依据）。
+// 不携带权限/角色列表，HasPermission 恒拒——细粒度权限判定走接入方
+// 自己的 authz 链路，不在 viewer 层承载。
+vc := viewer.NewUserContext(uid, tid, ouid, traceID, dataScopes)
+ctx = viewer.WithContext(ctx, vc)
+
+// 系统后台任务（定时任务、服务间调用等非用户发起的路径）：
+// 固定的零值身份 + 平台视图 + IsSystemContext=true，EnforceTenant 对其放行。
+ctx = viewer.WithSystemContext(ctx)
+```
+
+#### 自定义实现（基本用法）
 
 ```go
 import (
