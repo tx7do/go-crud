@@ -67,6 +67,8 @@ type fakeTransport struct {
 	// 回放面（空响应体回退为 "{}"；状态码默认 200）。
 	createRsp     string // POST /v1/objects
 	createStatus  int
+	schemaRsp     string // GET/POST/DELETE /v1/schema...
+	schemaStatus  int
 	batchRsp      string // POST /v1/batch/objects
 	batchStatus   int
 	graphqlRsp    string // POST /v1/graphql
@@ -125,6 +127,8 @@ func (t *fakeTransport) reply(method, path string) (int, string) {
 		return def(t.graphqlRsp, t.graphqlStatus)
 	// weaviate 1.27+ 的批量删除端点：DELETE /v1/batch/objects（携带
 	// BatchDelete 匹配体）；SDK 的 ObjectsBatchDeleter 亦按此发送。
+	case strings.HasPrefix(path, "/v1/schema"):
+		return def(t.schemaRsp, t.schemaStatus)
 	case method == http.MethodDelete && path == "/v1/batch/objects":
 		return def(t.deleteRsp, t.deleteStatus)
 	case method == http.MethodGet && strings.HasPrefix(path, "/v1/objects/"):
@@ -580,4 +584,155 @@ func TestFake_NilDTO(t *testing.T) {
 
 	_, err := repo.Create(fcCtx7, nil)
 	assert.ErrorIs(t, err, ErrInvalidRequest)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// schema 管理与畸形响应补充面。
+// ─────────────────────────────────────────────────────────────────────────────
+
+// TestFake_HasCollection 集合存在性：SDK 仅按状态码判定——200 即存在
+// （响应体不参与），非 200 即不存在且无错误。
+func TestFake_HasCollection(t *testing.T) {
+	ft, holder := newFakeRepo[fcEntity](t)
+
+	ok, err := holder.client.HasCollection(context.Background(), "Coll")
+	require.NoError(t, err)
+	assert.True(t, ok, "200 means the class exists")
+
+	ft.schemaStatus = http.StatusNotFound
+	ok, err = holder.client.HasCollection(context.Background(), "Coll")
+	require.NoError(t, err)
+	assert.False(t, ok, "non-200 means the class is absent")
+}
+
+// TestFake_DropCollection 集合删除：成功返回 nil，失败包装 ErrDeleteFailed。
+func TestFake_DropCollection(t *testing.T) {
+	ft, holder := newFakeRepo[fcEntity](t)
+
+	require.NoError(t, holder.client.DropCollection(context.Background(), "Coll"))
+	assert.Equal(t, http.MethodDelete, ft.reqByPath(t, "/v1/schema/Coll").method)
+
+	ft.schemaStatus = http.StatusInternalServerError
+	err := holder.client.DropCollection(context.Background(), "Coll")
+	assert.ErrorIs(t, err, ErrDeleteFailed)
+}
+
+// TestFake_CreateCollection 建集合：成功 / 服务端错误 / 非法类名。
+func TestFake_CreateCollection(t *testing.T) {
+	ft, repo := newFakeRepo[fcEntity](t)
+
+	require.NoError(t, repo.CreateCollection(fcCtxPlatform, vector.MetricCosine))
+	req := ft.reqByPath(t, "/v1/schema")
+	assert.Equal(t, http.MethodPost, req.method)
+	assert.Contains(t, string(req.body), `"class":"Coll"`)
+	assert.Contains(t, string(req.body), `"distance":"cosine"`)
+
+	ft.schemaStatus = http.StatusInternalServerError
+	assert.ErrorIs(t, repo.CreateCollection(fcCtxPlatform, ""), ErrInsertFailed)
+
+	// 非法类名在触碰网络前拒绝（client 尚未发过 schema 请求以外的路径）。
+	lower, err := NewClient(WithHost("localhost:8080"), WithHTTPClient(&http.Client{Transport: &fakeTransport{}}))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lower.Close() })
+	badRepo := NewRepository[fcEntity, fcEntity](lower, "coll", mapper.NewCopierMapper[fcEntity, fcEntity](), log.GetLogger())
+	assert.ErrorIs(t, badRepo.CreateCollection(fcCtxPlatform, ""), ErrInvalidRequest)
+}
+
+// TestFake_Create_NoVectorField 无向量字段的实体在触碰网络前拒绝。
+func TestFake_Create_NoVectorField(t *testing.T) {
+	// fcPlainEntity 含 Emb 向量字段；此处用无向量实体另建仓库。
+	type plainNoVec struct {
+		UUID  string `json:"-"`
+		Title string `json:"title"`
+	}
+	c, err := NewClient(WithHost("localhost:8080"), WithHTTPClient(&http.Client{Transport: &fakeTransport{}}))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	r2 := NewRepository[plainNoVec, plainNoVec](c, "Coll", mapper.NewCopierMapper[plainNoVec, plainNoVec](), log.GetLogger())
+
+	_, err = r2.Create(fcCtx7, &plainNoVec{Title: "x"})
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+}
+
+// TestFake_BatchCreate_EdgeCases 全 nil 条目 → 空批量；批量响应短于条目
+// → 余下 UUID 留空；无向量实体拒绝。
+func TestFake_BatchCreate_EdgeCases(t *testing.T) {
+	ft, repo := newFakeRepo[fcEntity](t)
+
+	outs, err := repo.BatchCreate(fcCtx7, []*fcEntity{nil, nil})
+	assert.NoError(t, err)
+	assert.Nil(t, outs)
+
+	ft.batchRsp = `[{"class":"Coll","id":"u-1","result":{"status":"SUCCESS"}}]`
+	outs, err = repo.BatchCreate(fcCtx7, []*fcEntity{{Title: "a", Emb: []float32{1}}, {Title: "b", Emb: []float32{2}}})
+	require.NoError(t, err)
+	require.Len(t, outs, 2)
+	assert.Equal(t, "u-1", outs[0].UUID)
+	assert.Empty(t, outs[1].UUID, "short batch response leaves remaining channels empty")
+}
+
+// TestFake_GetByUUID_ServerError 服务端错误包装为 ErrQueryFailed。
+func TestFake_GetByUUID_ServerError(t *testing.T) {
+	ft, repo := newFakeRepo[fcEntity](t)
+	ft.objectStatus = http.StatusInternalServerError
+	ft.objectRsp = `{"error":[{"message":"boom"}]}`
+
+	_, err := repo.GetByUUID(fcCtx7, "u-1")
+	assert.ErrorIs(t, err, ErrQueryFailed)
+}
+
+// TestFake_Query_MalformedPayloads 非映射命中剔除；空 Data 不 panic。
+func TestFake_Query_MalformedPayloads(t *testing.T) {
+	ft, repo := newFakeRepo[fcEntity](t)
+	ft.graphqlRsp = `{"data":{"Get":{"Coll":[
+		1,
+		{"Title":"x","tenant_id":7,"_additional":{"id":"u-1"}}
+	]}}}`
+
+	rows, err := repo.Query(fcCtx7, nil, 0)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "x", rows[0].Title)
+
+	ft.graphqlRsp = `{"data":{}}`
+	rows, err = repo.Query(fcCtx7, nil, 0)
+	require.NoError(t, err)
+	assert.Empty(t, rows)
+}
+
+// TestFake_Count_EmptyAggregate 空聚合行 / 缺 meta → 0。
+func TestFake_Count_EmptyAggregate(t *testing.T) {
+	ft, repo := newFakeRepo[fcEntity](t)
+
+	for _, rsp := range []string{
+		`{"data":{"Aggregate":{"Coll":[]}}}`,
+		`{"data":{"Aggregate":{"Coll":[{}]}}}`,
+		`{}`,
+	} {
+		ft.graphqlRsp = rsp
+		n, err := repo.Count(fcCtx7, nil)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), n)
+	}
+}
+
+// TestFake_Delete_NilResults 响应缺 results → 计数 0。
+func TestFake_Delete_NilResults(t *testing.T) {
+	ft, repo := newFakeRepo[fcEntity](t)
+	ft.deleteRsp = `{}`
+
+	n, err := repo.DeleteByUUIDs(fcCtx7, []string{"u-1"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), n)
+}
+
+// TestJsonNumberToFloat64 JSON 数值宽容转换矩阵。
+func TestJsonNumberToFloat64(t *testing.T) {
+	assert.InDelta(t, 1.5, jsonNumberToFloat64(float64(1.5)), 1e-9)
+	assert.InDelta(t, 1.5, jsonNumberToFloat64(float32(1.5)), 1e-6)
+	assert.InDelta(t, 42, jsonNumberToFloat64(int64(42)), 1e-9)
+	assert.InDelta(t, 42, jsonNumberToFloat64(42), 1e-9)
+	assert.InDelta(t, 2.5, jsonNumberToFloat64(json.Number("2.5")), 1e-9)
+	assert.InDelta(t, 0, jsonNumberToFloat64("not-a-number"), 1e-9)
+	assert.InDelta(t, 0, jsonNumberToFloat64(nil), 1e-9)
 }

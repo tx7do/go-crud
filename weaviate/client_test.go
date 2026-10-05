@@ -76,6 +76,12 @@ func TestClient_Options(t *testing.T) {
 	hc := &http.Client{Transport: &fakeTransport{}}
 	WithHTTPClient(hc)(c)
 	assert.Same(t, hc, c.httpClient, "injected http client takes over")
+
+	inner, err := NewClient(WithHost("localhost:8080"), WithHTTPClient(&http.Client{Transport: &fakeTransport{}}))
+	require.NoError(t, err)
+	injected, err := NewClient(WithWeaviateClient(inner.cli))
+	require.NoError(t, err)
+	assert.Same(t, inner.cli, injected.cli, "injected client takes over (skips real construction)")
 }
 
 // TestClient_Guards 未初始化客户端的集合守卫。

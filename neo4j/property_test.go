@@ -189,3 +189,44 @@ func TestParseTagSetting(t *testing.T) {
 	assert.Equal(t, map[string]string{"name": "a", "other": "b"}, parseTagSetting("name: a , other: b"))
 	assert.Equal(t, map[string]string{}, parseTagSetting("noseparator"))
 }
+
+// TestStructToProperties_NilEntity nil 实体返回空属性表。
+func TestStructToProperties_NilEntity(t *testing.T) {
+	var e *convEntity
+	m := structToProperties(e)
+	assert.Empty(t, m)
+}
+
+// TestStructToProperties_UnexportedAndUnencodableSlices 未导出字段跳过；
+// 元素不可编码的切片整体跳过；空切片合法编码为空列表（无失败元素）。
+func TestStructToProperties_UnexportedAndUnencodableSlices(t *testing.T) {
+	type inner struct{ A string }
+	type oddEntity struct {
+		hidden string
+		Inner  []inner
+		Empty  []int64
+		OK     string
+	}
+	e := &oddEntity{hidden: "h", Inner: []inner{{A: "x"}}, OK: "o"}
+
+	m := structToProperties(e)
+	assert.Equal(t, map[string]any{"OK": "o", "Empty": []any{}}, m)
+}
+
+// TestSetElementID_NilEntity nil 实体不 panic。
+func TestSetElementID_NilEntity(t *testing.T) {
+	var e *convEntity
+	assert.NotPanics(t, func() { setElementID(e, "4:0:1") })
+}
+
+// TestNewClient_OfflineConstruction 默认 URI 可离线构建真实驱动（惰性
+// 连接），非法 URI 构建期报错；Close 幂等。
+func TestNewClient_OfflineConstruction(t *testing.T) {
+	c, err := NewClient()
+	require.NoError(t, err)
+	require.NotNil(t, c.drv)
+	assert.NoError(t, c.Close())
+
+	_, err = NewClient(WithURI("://invalid-uri"))
+	assert.Error(t, err, "unparseable URI must fail at construction")
+}

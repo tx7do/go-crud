@@ -603,3 +603,92 @@ func TestFake_CollectError(t *testing.T) {
 	_, err = repo.Count(fcCtx7, nil)
 	assert.ErrorIs(t, err, ErrCountFailed)
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 畸形响应与 fail-closed 补充面。
+// ─────────────────────────────────────────────────────────────────────────────
+
+// TestFake_Query_MalformedRecordsSkipped nil 记录 / 缺 n 列 / 非节点值
+// 一律剔除，不 panic。
+func TestFake_Query_MalformedRecordsSkipped(t *testing.T) {
+	d, repo := newFakeRepo[fcEntity](t)
+	d.records = []*neo4j.Record{
+		nil,
+		{Keys: []string{"other"}, Values: []any{int64(1)}},
+		{Keys: []string{"n"}, Values: []any{int64(1)}},
+		nodeRecord("e0", map[string]any{"tenant_id": int64(7), "Name": "a"}),
+	}
+
+	rows, err := repo.Query(fcCtx7, nil)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "a", rows[0].Name)
+}
+
+// TestFake_GetByUUID_NonNodeRecord 直取路径取到非节点值 → 与不存在同构。
+func TestFake_GetByUUID_NonNodeRecord(t *testing.T) {
+	d, repo := newFakeRepo[fcEntity](t)
+	d.records = []*neo4j.Record{{Keys: []string{"n"}, Values: []any{int64(1)}}}
+
+	_, err := repo.GetByUUID(fcCtx7, "u1")
+	assert.ErrorIs(t, err, ErrPointNotFound)
+}
+
+// TestFake_Create_MissingViewerFailClosed 缺身份 fail-closed（写路径）。
+func TestFake_Create_MissingViewerFailClosed(t *testing.T) {
+	d, repo := newFakeRepo[fcEntity](t)
+
+	_, err := repo.Create(context.Background(), &fcEntity{Name: "x"})
+	assert.ErrorIs(t, err, viewer.ErrMissingViewer)
+	assert.Empty(t, d.cyphers, "no statement may be issued without a viewer")
+}
+
+// TestFake_BatchCreate_MissingViewerFailClosed 缺身份 fail-closed（批量路径）。
+func TestFake_BatchCreate_MissingViewerFailClosed(t *testing.T) {
+	d, repo := newFakeRepo[fcEntity](t)
+
+	_, err := repo.BatchCreate(context.Background(), []*fcEntity{{Name: "x"}})
+	assert.ErrorIs(t, err, viewer.ErrMissingViewer)
+	assert.Empty(t, d.cyphers)
+}
+
+// TestFake_BatchCreate_AllNilEntries 全 nil 条目 → 空批量返回。
+func TestFake_BatchCreate_AllNilEntries(t *testing.T) {
+	d, repo := newFakeRepo[fcEntity](t)
+
+	outs, err := repo.BatchCreate(fcCtx7, []*fcEntity{nil, nil})
+	assert.NoError(t, err)
+	assert.Nil(t, outs)
+	assert.Empty(t, d.cyphers)
+}
+
+// TestFake_BatchCreate_MalformedElementRecords 回读记录缺失 / 为 nil /
+// 非字符串 elementId → 身份通道留空而不报错。
+func TestFake_BatchCreate_MalformedElementRecords(t *testing.T) {
+	d, repo := newFakeRepo[fcEntity](t)
+	d.records = []*neo4j.Record{
+		elementRecord("e0"),
+		{Keys: []string{"elementId(n)"}, Values: []any{int64(1)}},
+	}
+
+	outs, err := repo.BatchCreate(fcCtx7, []*fcEntity{{Name: "a"}, {Name: "b"}, {Name: "c"}})
+	require.NoError(t, err)
+	require.Len(t, outs, 3)
+	assert.Equal(t, "e0", outs[0].UUID)
+	assert.Empty(t, outs[1].UUID, "non-string element id leaves the channel empty")
+	assert.Empty(t, outs[2].UUID, "missing record leaves the channel empty")
+}
+
+// TestFake_Count_Delete_MissingViewerFailClosed 缺身份 fail-closed
+// （计数与删除路径）。
+func TestFake_Count_Delete_MissingViewerFailClosed(t *testing.T) {
+	d, repo := newFakeRepo[fcEntity](t)
+
+	_, err := repo.Count(context.Background(), nil)
+	assert.ErrorIs(t, err, viewer.ErrMissingViewer)
+	_, err = repo.Exists(context.Background(), nil)
+	assert.ErrorIs(t, err, viewer.ErrMissingViewer)
+	_, err = repo.DeleteByUUIDs(context.Background(), []string{"u1"})
+	assert.ErrorIs(t, err, viewer.ErrMissingViewer)
+	assert.Empty(t, d.cyphers)
+}
