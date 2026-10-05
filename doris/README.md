@@ -979,3 +979,20 @@ PROPERTIES (
 ## 许可证
 
 本项目采用 MIT 许可证。 
+
+## 向量检索（距离函数近邻检索）
+
+基于 Doris 3.0+ 向量距离函数（`cosine_distance` / `l2_distance` / `inner_product`），未启用向量索引时为暴力检索，启用后由向量化执行计划加速：
+
+- `Query.Metric` 查询期选择：cosine（默认）、euclidean、dot；
+- 过滤条件按模块既有约定经 `baseWhere + whereArgs` 传入（含租户谓词注入）；
+- 相似度分在 Go 侧按命中实体携带的向量重算（`vector.Distance`）；内积按降序取近邻且分数不做换算。
+
+```go
+res, err := repo.SearchByVector(ctx, "tenant_id = ?", &vector.Query{
+    Field:  "embedding",
+    Vector: embedding, // []float32
+    TopK:   10,
+    Metric: vector.MetricCosine,
+}, "t1")
+```

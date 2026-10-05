@@ -119,6 +119,30 @@ func (c *Client) Find(ctx context.Context, collection string, filter any, result
 	return cursor.All(ctx, results)
 }
 
+// Aggregate 执行聚合管道并将结果解码到 results
+func (c *Client) Aggregate(ctx context.Context, collection string, pipeline any, results any) error {
+	if c.cli == nil {
+		log.Error(context.Background(), fmt.Sprintf("mongodb client is not initialized"))
+		return mongoV2.ErrClientDisconnected
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	cursor, err := c.cli.Database(c.database).Collection(collection).Aggregate(ctx, pipeline)
+	if err != nil {
+		log.Error(context.Background(), fmt.Sprintf("failed to aggregate documents in collection %s: %v", collection, err))
+		return err
+	}
+	defer func(cursor *mongoV2.Cursor, ctx context.Context) {
+		if err = cursor.Close(ctx); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("failed to close cursor: %v", err))
+		}
+	}(cursor, ctx)
+
+	return cursor.All(ctx, results)
+}
+
 // InsertOne 插入单个文档
 func (c *Client) InsertOne(ctx context.Context, collection string, document any) (*mongoV2.InsertOneResult, error) {
 	if c.cli == nil {

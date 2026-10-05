@@ -851,3 +851,30 @@ mongorestore --uri="mongodb://localhost:27017/mydb" /backup/mydb
 ## 许可证
 
 本项目采用 MIT 许可证。
+
+## 向量检索（Atlas Vector Search）
+
+基于 `$vectorSearch` 聚合阶段（Atlas 7.0+，或自管 MongoDB 8.0+ 且已创建 Search 索引）：
+
+- `Query.Index` 必填：`$vectorSearch` 依赖命名 Search 索引；
+- `Query.Filter`（或传入的 `query.Builder` 过滤文档）作为 `$vectorSearch.filter` pre-filter；
+- `Query.MinScore` 在投影出 `_vs_score` 后以 `$match` 施加；`numCandidates` 未指定时取 `TopK × 10`。
+
+```go
+// 1. 创建向量 Search 索引（异步操作）
+err := client.CreateVectorSearchIndex(ctx, "docs", "doc_vector_index", "embedding", 768, vector.MetricCosine)
+
+// 2. 检索近邻（Builder 过滤条件作为 pre-filter，租户行级强制照常生效）
+qb := query.NewQueryBuilder().SetFilter(bson.M{"category": "news"})
+res, err := repo.SearchByVector(ctx, qb, &vector.Query{
+    Index:  "doc_vector_index",
+    Field:  "embedding",
+    Vector: embedding, // []float32
+    TopK:   10,
+})
+
+// 3. 删除索引
+err = client.DropVectorSearchIndex(ctx, "docs", "doc_vector_index")
+```
+
+分数来自 `$meta: "vectorSearchScore"`，原生「越大越相似」，与 `vector.Hit.Score` 语义一致。

@@ -8,11 +8,14 @@ replace github.com/tx7do/go-crud/pagination => ../pagination
 
 replace github.com/tx7do/go-crud/viewer => ../viewer
 
+replace github.com/tx7do/go-crud/vector => ../vector
+
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
 	github.com/stretchr/testify v1.12.1
 	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-crud/pagination v0.0.16
+	github.com/tx7do/go-crud/vector v0.0.1
 	github.com/tx7do/go-crud/viewer v0.0.7
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/mapper v0.0.3

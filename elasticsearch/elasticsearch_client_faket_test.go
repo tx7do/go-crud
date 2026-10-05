@@ -46,13 +46,22 @@ type fakeESTransport struct {
 	mu        sync.Mutex
 	responses []fakeESResponse
 	requests  []*http.Request
-	err       error // when set, RoundTrip fails instead of answering
+	bodies    []string // 按请求顺序记录的请求体（RoundTrip 时读出并回填）
+	err       error    // when set, RoundTrip fails instead of answering
 }
 
 func (f *fakeESTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.requests = append(f.requests, r)
+	if r.Body != nil {
+		raw, _ := io.ReadAll(r.Body)
+		_ = r.Body.Close()
+		f.bodies = append(f.bodies, string(raw))
+		r.Body = io.NopCloser(strings.NewReader(string(raw)))
+	} else {
+		f.bodies = append(f.bodies, "")
+	}
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -85,6 +94,26 @@ func (f *fakeESTransport) lastMethod() string {
 		return ""
 	}
 	return f.requests[len(f.requests)-1].Method
+}
+
+// lastPath 返回最近一次请求的 URL 路径。
+func (f *fakeESTransport) lastPath() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.requests) == 0 {
+		return ""
+	}
+	return f.requests[len(f.requests)-1].URL.Path
+}
+
+// lastRequestBody 返回最近一次请求的请求体（RoundTrip 时读出并回填，不影响后续处理）。
+func (f *fakeESTransport) lastRequestBody() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.bodies) == 0 {
+		return ""
+	}
+	return f.bodies[len(f.bodies)-1]
 }
 
 const (

@@ -6,11 +6,14 @@ replace github.com/tx7do/go-crud/api => ../api
 
 replace github.com/tx7do/go-crud/pagination => ../pagination
 
+replace github.com/tx7do/go-crud/vector => ../vector
+
 require (
 	github.com/elastic/elastic-transport-go/v8 v8.11.0
 	github.com/elastic/go-elasticsearch/v9 v9.5.2
 	github.com/stretchr/testify v1.12.1
 	github.com/tx7do/go-crud/api v0.0.7
+	github.com/tx7do/go-crud/vector v0.0.1
 	github.com/tx7do/go-wind v0.0.2
 	github.com/tx7do/go-wind-plugins/encoding v0.0.1
 	github.com/tx7do/go-wind-plugins/encoding/json v0.0.1

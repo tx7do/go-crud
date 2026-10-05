@@ -481,3 +481,37 @@ go test -bench=BenchmarkRepository -benchmem ./gorm
 ## 许可证
 
 本项目采用 MIT 许可证。
+
+## 向量检索（pgvector）
+
+基于 pgvector，仅 PostgreSQL。使用步骤：
+
+```sql
+-- 1. 数据库开启扩展
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+```go
+// 2. 实体向量字段使用 vector.Float32Vector 并声明列类型
+type Doc struct {
+    ID        uint
+    Embedding vector.Float32Vector `gorm:"type:vector(768)"`
+}
+
+// 3.（推荐）建表后创建 HNSW 索引
+err := client.CreateVectorIndex("docs", "embedding", vector.MetricCosine)
+
+// 4. 检索近邻（复用 whereSelectors 过滤通道，租户回调照常生效）
+res, err := repo.SearchByVector(ctx, db, &vector.Query{
+    Field:  "embedding",
+    Vector: embedding, // []float32
+    TopK:   10,
+    Metric: vector.MetricCosine, // 查询期选择：<=> / <-> / <#>
+}, []func(*gorm.DB) *gorm.DB{ func(db *gorm.DB) *gorm.DB {
+    return db.Where("tenant_id = ?", "t1")
+}})
+```
+
+度量与操作符映射：cosine（默认）`<=>` 余弦距离、euclidean `<->` 欧氏距离、dot `<#>` 负内积。
+分数统一换算为「越大越相似」：cosine `score = 1-d`、euclidean `score = 1/(1+d)`、dot `score` 即内积。
+非 postgres 方言会直接报错（DryRun 会话除外，便于离线预览 SQL）；`vector.Float32Vector` 以 pgvector 文本格式 `[1,2,3]` 编解码，亦可独立用于任意 `database/sql` 场景。

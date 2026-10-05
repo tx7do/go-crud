@@ -443,3 +443,33 @@ FROM my_index;
 2. **不支持事务、JOIN、子查询有限支持**
 3. 默认返回条数受限，可使用 LIMIT 分页
 4. 聚合查询性能优异，显著优于传统关系型数据库
+
+## 向量检索（k-NN query / RAG）
+
+映射到 OpenSearch 2.11+ 的 `query.knn`（k-NN query DSL）与 `knn_vector` 字段：
+
+- 距离度量在 **mapping 时固定**（`method.space_type`：cosinesimil / l2 / innerproduct），查询期传入的 `Query.Metric` 被忽略；
+- 建索引自动写入 `index.knn=true` 设置；
+- `Query.Filter` 为引擎原生 query DSL，作为 `knn.filter` 施加 pre-filter（efficient filtering）；
+- `Query.MinScore` 映射到顶层 `min_score`；`Query.MaxDistance` 无对应参数，忽略。
+
+```go
+// 1. 创建带 knn_vector 字段的索引
+err := client.CreateVectorIndex(ctx, "docs", "embedding", 768, vector.MetricCosine)
+
+// 2. kNN 检索
+resp, err := client.KnnSearch(ctx, "docs", &vector.Query{
+    Field:  "embedding",
+    Vector: embedding, // []float32
+    TopK:   10,
+    Filter: map[string]any{"term": map[string]any{"tenant_id": "t1"}},
+})
+
+// 3. 在任意 body（_source 投影 / aggs 等）上并入 query.knn（body 已含 query 时报错）
+resp, err = client.SearchWithKnn(ctx, "docs", map[string]any{
+    "_source": []string{"title"},
+}, &vector.Query{Field: "embedding", Vector: embedding, TopK: 10})
+
+// 4. 转换为统一结果（Score 即 OS _score，越大越相似）
+out := ToVectorResult[Doc](resp)
+```

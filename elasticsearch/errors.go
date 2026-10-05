@@ -48,6 +48,12 @@ var (
 
 	ErrCreateILMPolicy = errors.Internal("CREATE_ILM_POLICY_FAILED")
 
+	// ErrVectorSearch is returned when a kNN vector search fails.
+	ErrVectorSearch = errors.Internal("VECTOR_SEARCH_FAILED")
+
+	// ErrInvalidVectorQuery is returned when the vector query is invalid.
+	ErrInvalidVectorQuery = errors.BadRequest("INVALID_VECTOR_QUERY")
+
 	ErrDocumentConflict = errors.Internal("DOCUMENT_CONFLICT")
 )
 

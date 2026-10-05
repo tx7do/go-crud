@@ -840,3 +840,36 @@ err = client.DeleteILMPolicy(ctx, "logs-policy")
 ```
 
 ---
+
+## 向量检索（kNN / RAG）
+
+映射到 Elasticsearch 8+/9.x 的顶层 `knn` 子句与 `dense_vector` 字段：
+
+- 距离度量在 **mapping 时固定**（`similarity`），查询期传入的 `Query.Metric` 被忽略；
+- `Query.Filter` 为引擎原生 query DSL（`map[string]any` 或 DSL 数组），作为 `knn.filter` 施加 pre-filter；
+- `Query.MinScore` 映射到 `knn.similarity`；`Query.MaxDistance` 无对应参数，忽略。
+
+```go
+// 1. 创建带 dense_vector 字段的索引（similarity 由 metric 映射：cosine/l2_norm/dot_product）
+err := client.CreateVectorIndex(ctx, "docs", "embedding", 768, vector.MetricCosine)
+
+// 2. 纯 kNN 检索
+res, err := client.KnnSearch(ctx, "docs", &vector.Query{
+    Field:  "embedding",
+    Vector: embedding, // []float32
+    TopK:   10,
+    Filter: map[string]any{"bool": map[string]any{
+        "filter": map[string]any{"term": map[string]any{"tenant_id": "t1"}},
+    }},
+})
+
+// 3. 混合检索：query + knn 同体（ES 自动做分数融合）
+res, err = client.SearchWithKnn(ctx, "docs", map[string]any{
+    "query": map[string]any{"match": map[string]any{"title": "hello"}},
+}, &vector.Query{Field: "embedding", Vector: embedding, TopK: 10})
+
+// 4. 转换为统一结果（Score 即 ES _score，越大越相似）
+out := ToVectorResult[Doc](res)
+```
+
+其它可用参数见 `vector.Query`（`NumCandidates` 未指定时按 `TopK × 10` 放大）。

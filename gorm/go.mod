@@ -10,6 +10,8 @@ replace github.com/tx7do/go-crud/viewer => ../viewer
 
 replace github.com/tx7do/go-crud/cache => ../cache
 
+replace github.com/tx7do/go-crud/vector => ../vector
+
 require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
@@ -18,6 +20,7 @@ require (
 	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-crud/cache v0.0.2
 	github.com/tx7do/go-crud/pagination v0.0.16
+	github.com/tx7do/go-crud/vector v0.0.1
 	github.com/tx7do/go-crud/viewer v0.0.7
 	github.com/tx7do/go-utils v1.1.40
 	github.com/tx7do/go-utils/id v0.0.6

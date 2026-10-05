@@ -51,6 +51,12 @@ var (
 	ErrCreateTemplate = errors.Internal("CREATE_TEMPLATE_FAILED")
 
 	ErrDeleteTemplate = errors.Internal("DELETE_TEMPLATE_FAILED")
+
+	// ErrVectorSearch is returned when a kNN vector search fails.
+	ErrVectorSearch = errors.Internal("VECTOR_SEARCH_FAILED")
+
+	// ErrInvalidVectorQuery is returned when the vector query is invalid.
+	ErrInvalidVectorQuery = errors.BadRequest("INVALID_VECTOR_QUERY")
 )
 
 // PartialFailureError 表示批量操作部分失败

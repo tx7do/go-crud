@@ -877,3 +877,22 @@ TTL timestamp + INTERVAL 90 DAY;
 ## 许可证
 
 本项目采用 MIT 许可证。
+
+## 向量检索（距离函数近邻检索）
+
+基于 ClickHouse 数组距离函数的暴力检索（`ORDER BY 距离函数 + LIMIT`），适合中小规模向量集：
+
+- `Query.Metric` 查询期选择：cosine（默认）`cosineDistance`、euclidean `L2Distance`、dot `dotProduct`；
+- 过滤条件按模块既有约定经 `baseWhere + whereArgs` 传入（含租户谓词注入）；
+- 相似度分在 Go 侧按命中实体携带的向量重算（`vector.Distance`），与 SQL 函数语义一致。
+
+```go
+res, err := repo.SearchByVector(ctx, "tenant_id = ?", &vector.Query{
+    Field:  "embedding",
+    Vector: embedding, // []float32
+    TopK:   10,
+    Metric: vector.MetricCosine,
+}, "t1")
+```
+
+说明：内积是相似度而非距离，`dot` 按降序取近邻且分数不做换算；距离类升序取近邻并换算为「越大越相似」。向量列类型为 `Array(Float32)`；大规模场景建议配合专用向量引擎。
