@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">go-crud · Universal Data Access Layer Toolkit</h1>
   <p align="center">
-    <strong>A single generic Repository interface to unify 8 data storage engines</strong>
+    <strong>A single generic Repository interface to unify 10 data storage engines</strong>
   </p>
   <p align="center">
     <em>Stop writing boilerplate — let every line of code focus on business value</em>
@@ -23,7 +23,7 @@
 
 ## Highlights
 
-- **Unified Data Access Layer**: A single generic Repository interface covering GORM, Ent, MongoDB, ClickHouse, Apache Doris, Elasticsearch, OpenSearch, and InfluxDB — say goodbye to repetitive boilerplate
+- **Unified Data Access Layer**: A single generic Repository interface covering GORM, Ent, MongoDB, ClickHouse, Apache Doris, Elasticsearch, OpenSearch, Qdrant, Milvus, and InfluxDB — say goodbye to repetitive boilerplate
 - **Three Pagination Strategies**: Offset / Page / Token pagination modes for traditional web paging, RESTful APIs, and infinite-scroll scenarios
 - **Structured Filter Engine**: 29+ operators with AND/OR multi-level nesting, supporting both JSON and Google AIP filter syntaxes with parameterized queries to prevent SQL injection
 - **Protocol Buffers Contract**: Standardized pagination, filtering, and sorting definitions via Protobuf — a natural fit for gRPC microservices; interfaces as documentation
@@ -47,6 +47,8 @@
 | [Apache Doris](./doris) | Columnar OLAP | ✅ | Real-time BI dashboards, interactive analytics, high-speed Stream Load ingestion |
 | [Elasticsearch](./elasticsearch) | Search Engine | ✅ | Full-text search, log analysis, highlighted results, aggregation analytics |
 | [OpenSearch](./opensearch) | Search Engine | ✅ | Open-source ES alternative, vector search, security analytics |
+| [Qdrant](./qdrant) | Vector Database | ✅ | RAG retrieval, semantic search, recommendation recall, multi-tenant vector isolation |
+| [Milvus](./milvus) | Vector Database | ✅ | RAG retrieval, semantic search, recommendation recall, multi-tenant vector isolation |
 | [InfluxDB](./influxdb) | Time-Series DB | ✅ | IoT monitoring, DevOps metrics, time-series data analytics |
 | [Cassandra](./cassandra) | Wide-Column DB | 🚧 | High-availability writes, cross-datacenter replication (in development) |
 
@@ -65,6 +67,7 @@ graph TB
         Cache["Cache<br/>Redis Cache-Aside · SingleFlight Stampede Protection"]
         Audit["Audit<br/>Audit Log · Context Injection · Change Tracking"]
         Viewer["Viewer<br/>Identity Context · Permission Checks · Five-Level Data Scope"]
+        Vector["Vector<br/>Vector Search Contract · Unified Distance Metrics"]
     end
 
     subgraph DAL["Data Access Layer"]
@@ -75,6 +78,8 @@ graph TB
         Doris["Apache Doris"]
         ES["Elasticsearch"]
         OS["OpenSearch"]
+        Qdrant["Qdrant"]
+        Milvus["Milvus"]
         Influx["InfluxDB"]
     end
 
@@ -83,6 +88,7 @@ graph TB
     Cache --> DAL
     Audit --> DAL
     Viewer --> DAL
+    Vector --> DAL
 ```
 
 ---
@@ -101,6 +107,7 @@ go-crud/
 ├── cache/                        # Redis cache layer (Cache-Aside + SingleFlight stampede protection)
 ├── audit/                        # Unified audit logging interface (Auditor · Entry · Context)
 ├── viewer/                       # Viewer context (identity · permissions · five-level data scope)
+├── vector/                       # Vector search contract (Query/Result · distance metrics · pgvector text codec)
 ├── gorm/                         # GORM data access layer (CRUD · Upsert · Cache · Soft Delete)
 ├── entgo/                        # Ent data access layer (CRUD · Tree Queries · Cache · Transactions)
 ├── mongodb/                      # MongoDB data access layer (CRUD · QueryBuilder)
@@ -108,6 +115,8 @@ go-crud/
 ├── doris/                        # Apache Doris data access layer (CRUD · Stream Load · SQL Queries)
 ├── elasticsearch/                # Elasticsearch client and utilities
 ├── opensearch/                   # OpenSearch client and utilities
+├── qdrant/                       # Qdrant data access layer (vector search · tenant isolation)
+├── milvus/                       # Milvus data access layer (vector search · tenant isolation)
 ├── influxdb/                     # InfluxDB data access layer (Flux queries)
 └── cassandra/                    # Cassandra data access layer (in development)
 ```
@@ -137,6 +146,45 @@ Every DAL module provides a unified generic Repository wrapper with bidirectiona
 | Transaction Support | ✅ | ✅ | — | — | ✅ | — | — |
 | Stream Load | — | — | — | — | ✅ | — | — |
 | Raw SQL Queries | — | — | — | — | ✅ | ✅ | — |
+| Vector Search (kNN / TopK) | ✅ pgvector | — | ✅ Atlas | ✅ | ✅ | ✅ kNN | — |
+
+### Vector Search (RAG / Semantic Search)
+
+A cross-engine unified vector search contract via the standalone [vector](./vector) module: `vector.Query` expresses the request (vector field, query vector, TopK, distance metric, metadata filter), and `vector.Result[T]` returns hits whose similarity score is always "higher is better".
+
+| Engine | Underlying Syntax | Metric Binding | Metadata Filter | Notes |
+|--------|-------------------|----------------|-----------------|-------|
+| GORM (PostgreSQL) | pgvector `<->` / `<=>` / `<#>` | At query time | whereSelectors channel | Entity field uses `vector.Float32Vector` (`gorm:"type:vector(N)"`), HNSW index creation included |
+| MongoDB | Atlas `$vectorSearch` aggregation | Mapping (Search index) | Pre-filter + Builder | Requires Atlas 7.0+ / self-managed 8.0+, Search index create/drop included |
+| Elasticsearch 8+/9.x | Top-level `knn` clause + dense_vector | Mapping (similarity) | knn.filter (query DSL) | Hybrid search with query in the same body |
+| OpenSearch 2.11+ | `query.knn` + knn_vector | Mapping (space_type) | knn.filter (DSL) | `index.knn=true` enabled on index creation |
+| ClickHouse | cosineDistance / L2Distance / dotProduct | At query time | baseWhere + whereArgs | Brute-force distance scan, score recomputed in Go |
+| Doris 3.0+ | cosine_distance / l2_distance / inner_product | At query time | baseWhere + whereArgs | Accelerated by vector index when enabled |
+| Qdrant | Query API (nearest neighbors) | Fixed at collection creation | qdrant.Filter (payload filtering, backed by payload indexes) | tenant_id integer payload index; tenant condition injected into Filter; client-side tenant check on direct-ID paths |
+| Milvus 2.4+ | Search (AUTOINDEX ANN) | Fixed at index creation | Milvus expression pre-filter | tenant_id column marked as partition key; tenant predicate injected into expressions; client-side tenant check on direct-PK paths |
+
+```go
+// One request shape across engines
+q := &vector.Query{
+    Field:  "embedding",
+    Vector: embedding,        // []float32
+    TopK:   10,
+    Metric: vector.MetricCosine,
+}
+
+// ES / OpenSearch (client methods)
+res, err := client.KnnSearch(ctx, "docs", q)
+// GORM / MongoDB / ClickHouse / Doris (repository methods; filters via the where/builder channel)
+res, err := repo.SearchByVector(ctx, baseWhereOrBuilder, q)
+// Qdrant / Milvus (repository methods; filters via q.Filter, the engine-native condition channel)
+res, err := repo.SearchByVector(ctx, q)
+```
+
+Unified conventions:
+- **Score semantics**: `Score` is always "higher is more similar"; each engine converts its native distance/score accordingly (see per-module docs);
+- **TopK semantics**: vector search returns TopK nearest neighbors rather than pages; `Total` is the number of hits;
+- **Tenant isolation**: repository-level search reuses each module's tenant row-level enforcement;
+- InfluxDB / Ent / Cassandra do not provide vector search yet.
 
 ### Filter Operators
 

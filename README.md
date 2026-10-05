@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">go-crud · 通用数据访问层工具库</h1>
   <p align="center">
-    <strong>一套泛型 Repository 接口，统一驾驭 8 种数据存储引擎</strong>
+    <strong>一套泛型 Repository 接口，统一驾驭 10 种数据存储引擎</strong>
   </p>
   <p align="center">
     <em>让数据操作不再是重复劳动，让每一行代码都聚焦业务价值</em>
@@ -23,7 +23,7 @@
 
 ## 项目亮点
 
-- **统一数据访问层**：一套泛型 Repository 接口，覆盖 GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、InfluxDB 八大数据引擎，告别重复 Boilerplate
+- **统一数据访问层**：一套泛型 Repository 接口，覆盖 GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、InfluxDB 十大数据引擎，告别重复 Boilerplate
 - **三种分页策略**：Offset / Page / Token 三种分页模式，从传统 Web 分页到无限滚动，全场景覆盖
 - **结构化过滤引擎**：29+ 种操作符，支持 AND/OR 多层嵌套，同时兼容 JSON 与 Google AIP 两种过滤语法，参数化查询杜绝 SQL 注入
 - **Protocol Buffers 契约**：基于 Protobuf 定义标准化的分页、过滤、排序协议，天然适配 gRPC 微服务架构，接口即文档
@@ -47,6 +47,8 @@
 | [Apache Doris](./doris) | 列式 OLAP | ✅ | 实时 BI 报表、交互式分析、Stream Load 高速写入 |
 | [Elasticsearch](./elasticsearch) | 搜索引擎 | ✅ | 全文检索、日志分析、高亮搜索、聚合分析 |
 | [OpenSearch](./opensearch) | 搜索引擎 | ✅ | Elasticsearch 开源替代、向量检索、安全分析 |
+| [Qdrant](./qdrant) | 向量数据库 | ✅ | RAG 检索、语义搜索、推荐召回、多租户向量隔离 |
+| [Milvus](./milvus) | 向量数据库 | ✅ | RAG 检索、语义搜索、推荐召回、多租户向量隔离 |
 | [InfluxDB](./influxdb) | 时序数据库 | ✅ | IoT 监控、DevOps 指标、时序数据分析 |
 | [Cassandra](./cassandra) | 宽列数据库 | 🚧 | 高可用写入、跨数据中心复制（开发中） |
 
@@ -65,6 +67,7 @@ graph TB
         Cache["Cache<br/>Redis Cache-Aside · SingleFlight 防击穿"]
         Audit["Audit<br/>审计日志 · Context 注入 · 变更追踪"]
         Viewer["Viewer<br/>身份上下文 · 权限检查 · 五级数据范围"]
+        Vector["Vector<br/>向量检索契约 · 距离度量统一"]
     end
 
     subgraph DAL["数据访问层"]
@@ -75,6 +78,8 @@ graph TB
         Doris["Apache Doris"]
         ES["Elasticsearch"]
         OS["OpenSearch"]
+        Qdrant["Qdrant"]
+        Milvus["Milvus"]
         Influx["InfluxDB"]
     end
 
@@ -83,6 +88,7 @@ graph TB
     Cache --> DAL
     Audit --> DAL
     Viewer --> DAL
+    Vector --> DAL
 ```
 
 ---
@@ -101,6 +107,7 @@ go-crud/
 ├── cache/                        # Redis 缓存层 (Cache-Aside + SingleFlight 防击穿)
 ├── audit/                        # 统一审计日志接口 (Auditor · Entry · Context)
 ├── viewer/                       # 查看者上下文 (身份 · 权限 · 五级数据范围)
+├── vector/                       # 向量检索契约 (Query/Result · 距离度量 · pgvector 文本编解码)
 ├── gorm/                         # GORM 数据访问层 (CRUD · Upsert · 缓存 · 软删除)
 ├── entgo/                        # Ent 数据访问层 (CRUD · 树形查询 · 缓存 · 事务)
 ├── mongodb/                      # MongoDB 数据访问层 (CRUD · QueryBuilder)
@@ -108,6 +115,8 @@ go-crud/
 ├── doris/                        # Apache Doris 数据访问层 (CRUD · Stream Load · SQL 查询)
 ├── elasticsearch/                # Elasticsearch 客户端与工具
 ├── opensearch/                   # OpenSearch 客户端与工具
+├── qdrant/                       # Qdrant 数据访问层 (向量检索 · 租户隔离)
+├── milvus/                       # Milvus 数据访问层 (向量检索 · 租户隔离)
 ├── influxdb/                     # InfluxDB 数据访问层 (Flux 查询)
 └── cassandra/                    # Cassandra 数据访问层 (开发中)
 ```
@@ -137,6 +146,45 @@ go-crud/
 | 事务支持 | ✅ | ✅ | — | — | ✅ | — | — |
 | Stream Load | — | — | — | — | ✅ | — | — |
 | SQL 原生查询 | — | — | — | — | ✅ | ✅ | — |
+| 向量检索 (kNN / TopK) | ✅ pgvector | — | ✅ Atlas | ✅ | ✅ | ✅ kNN | — |
+
+### 向量检索（RAG / 语义检索）
+
+通过独立的 [vector](./vector) 契约模块提供跨引擎统一的向量检索：`vector.Query` 表达请求（向量字段、查询向量、TopK、距离度量、元数据过滤），`vector.Result[T]` 返回「相似度分恒为越大越相似」的命中列表。
+
+| 引擎 | 底层语法 | 度量时机 | 元数据过滤 | 备注 |
+|------|----------|----------|------------|------|
+| GORM (PostgreSQL) | pgvector `<->` / `<=>` / `<#>` | 查询期 | whereSelectors 通道 | 实体字段用 `vector.Float32Vector`（`gorm:"type:vector(N)"`），附 HNSW 索引创建 |
+| MongoDB | Atlas `$vectorSearch` 聚合 | mapping（Search 索引） | pre-filter + Builder | 需要 Atlas 7.0+ / 自管 8.0+，附 Search 索引创建/删除 |
+| Elasticsearch 8+/9.x | 顶层 `knn` 子句 + dense_vector | mapping（similarity） | knn.filter（query DSL） | 支持与 query 同体的混合检索 |
+| OpenSearch 2.11+ | `query.knn` + knn_vector | mapping（space_type） | knn.filter（DSL） | 建索引自动开启 `index.knn` |
+| ClickHouse | cosineDistance / L2Distance / dotProduct | 查询期 | baseWhere + whereArgs | 距离函数暴力检索，分数在 Go 侧重算 |
+| Doris 3.0+ | cosine_distance / l2_distance / inner_product | 查询期 | baseWhere + whereArgs | 启用向量索引后自动加速 |
+| Qdrant | Query API（最近邻） | 集合创建时固定 | qdrant.Filter（payload 过滤，配合载荷索引） | tenant_id 整数载荷索引；Filter 注入租户条件；按 ID 直取路径客户端租户校验 |
+| Milvus 2.4+ | Search（AUTOINDEX ANN） | 索引创建时固定 | Milvus 表达式 pre-filter | tenant_id 列标记 partition key；表达式注入租户谓词；按主键直取路径客户端租户校验 |
+
+```go
+// 各引擎同构的检索请求
+q := &vector.Query{
+    Field:  "embedding",
+    Vector: embedding,        // []float32
+    TopK:   10,
+    Metric: vector.MetricCosine,
+}
+
+// ES / OpenSearch（客户端方法）
+res, err := client.KnnSearch(ctx, "docs", q)
+// GORM / MongoDB / ClickHouse / Doris（Repository 方法，过滤经 where/builder 通道）
+res, err := repo.SearchByVector(ctx, baseWhereOrBuilder, q)
+// Qdrant / Milvus（Repository 方法，过滤经 q.Filter 引擎原生条件通道）
+res, err := repo.SearchByVector(ctx, q)
+```
+
+统一约定：
+- **分数语义**：`Score` 恒为「越大越相似」，各引擎把原生距离/分数换算到该语义（换算规则见各模块实现注释）；
+- **TopK 语义**：向量检索是 TopK 近邻而非分页，`Total` 即命中条数；
+- **租户隔离**：Repository 侧检索沿用各模块租户行级强制（tenant 谓词注入）的既有约定；
+- InfluxDB / Ent / Cassandra 暂不提供向量检索。
 
 ### 过滤操作符
 

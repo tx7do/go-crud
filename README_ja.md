@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">go-crud · ユニバーサルデータアクセスレイヤーツールキット</h1>
   <p align="center">
-    <strong>単一のジェネリック Repository インターフェースで8つのデータストレージエンジンを統一</strong>
+    <strong>単一のジェネリック Repository インターフェースで10つのデータストレージエンジンを統一</strong>
   </p>
   <p align="center">
     <em>ボイラープレートの繰り返しを終わりに — すべてのコード行をビジネス価値に集中</em>
@@ -23,7 +23,7 @@
 
 ## プロジェクトの特徴
 
-- **統一データアクセスレイヤー**：単一のジェネリック Repository インターフェースで GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、InfluxDB の8つのデータエンジンをカバー — 反復的なボイラープレートに別れを
+- **統一データアクセスレイヤー**：単一のジェネリック Repository インターフェースで GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、InfluxDB の10つのデータエンジンをカバー — 反復的なボイラープレートに別れを
 - **3つのページネーション戦略**：Offset / Page / Token の3つのページネーションモードで、伝統的な Web ページングから無限スクロールまで全シナリオをカバー
 - **構造化フィルタエンジン**：29+ の演算子で AND/OR 多階層ネストをサポート、JSON と Google AIP の両方のフィルタ構文に対応、パラメータ化クエリで SQL インジェクションを防止
 - **Protocol Buffers 契約**：Protobuf で標準化されたページネーション、フィルタリング、ソート定義 — gRPC マイクロサービスに最適な適合、インターフェース即ドキュメント
@@ -47,6 +47,8 @@
 | [Apache Doris](./doris) | カラムナ OLAP | ✅ | リアルタイム BI ダッシュボード、インタラクティブ分析、高速 Stream Load 取り込み |
 | [Elasticsearch](./elasticsearch) | 検索エンジン | ✅ | フルテキスト検索、ログ分析、ハイライト結果、集計分析 |
 | [OpenSearch](./opensearch) | 検索エンジン | ✅ | Elasticsearch オープンソース代替、ベクトル検索、セキュリティ分析 |
+| [Qdrant](./qdrant) | ベクトル DB | ✅ | RAG 検索、意味検索、レコメンド recall、マルチテナントベクトル分離 |
+| [Milvus](./milvus) | ベクトル DB | ✅ | RAG 検索、意味検索、レコメンド recall、マルチテナントベクトル分離 |
 | [InfluxDB](./influxdb) | 時系列 DB | ✅ | IoT モニタリング、DevOps メトリクス、時系列データ分析 |
 | [Cassandra](./cassandra) | ワイドカラム DB | 🚧 | 高可用性書き込み、クロスデータセンターレプリケーション（開発中） |
 
@@ -65,6 +67,7 @@ graph TB
         Cache["Cache<br/>Redis Cache-Aside · SingleFlight スタンピード保護"]
         Audit["Audit<br/>監査ログ · Context インジェクション · 変更追跡"]
         Viewer["Viewer<br/>アイデンティティコンテキスト · 権限チェック · 5段階データスコープ"]
+        Vector["Vector<br/>ベクトル検索契約 · 距離メトリック統一"]
     end
 
     subgraph DAL["データアクセス層"]
@@ -75,6 +78,8 @@ graph TB
         Doris["Apache Doris"]
         ES["Elasticsearch"]
         OS["OpenSearch"]
+        Qdrant["Qdrant"]
+        Milvus["Milvus"]
         Influx["InfluxDB"]
     end
 
@@ -83,6 +88,7 @@ graph TB
     Cache --> DAL
     Audit --> DAL
     Viewer --> DAL
+    Vector --> DAL
 ```
 
 ---
@@ -101,6 +107,7 @@ go-crud/
 ├── cache/                        # Redis キャッシュ層 (Cache-Aside + SingleFlight スタンピード保護)
 ├── audit/                        # 統一監査ログインターフェース (Auditor · Entry · Context)
 ├── viewer/                       # Viewer コンテキスト (アイデンティティ · 権限 · 5段階データスコープ)
+├── vector/                       # ベクトル検索契約 (Query/Result · 距離メトリック · pgvector テキストコーデック)
 ├── gorm/                         # GORM データアクセス層 (CRUD · Upsert · キャッシュ · ソフトデリート)
 ├── entgo/                        # Ent データアクセス層 (CRUD · ツリークエリ · キャッシュ · トランザクション)
 ├── mongodb/                      # MongoDB データアクセス層 (CRUD · QueryBuilder)
@@ -108,6 +115,8 @@ go-crud/
 ├── doris/                        # Apache Doris データアクセス層 (CRUD · Stream Load · SQL クエリ)
 ├── elasticsearch/                # Elasticsearch クライアントとユーティリティ
 ├── opensearch/                   # OpenSearch クライアントとユーティリティ
+├── qdrant/                       # Qdrant データアクセスレイヤー (ベクトル検索 · テナント分離)
+├── milvus/                       # Milvus データアクセスレイヤー (ベクトル検索 · テナント分離)
 ├── influxdb/                     # InfluxDB データアクセス層 (Flux クエリ)
 └── cassandra/                    # Cassandra データアクセス層 (開発中)
 ```
@@ -137,6 +146,45 @@ go-crud/
 | トランザクションサポート | ✅ | ✅ | — | — | ✅ | — | — |
 | Stream Load | — | — | — | — | ✅ | — | — |
 | Raw SQL クエリ | — | — | — | — | ✅ | ✅ | — |
+| ベクトル検索 (kNN / TopK) | ✅ pgvector | — | ✅ Atlas | ✅ | ✅ | ✅ kNN | — |
+
+### ベクトル検索（RAG / セマンティック検索）
+
+独立モジュール [vector](./vector) によるエンジン横断の統一ベクトル検索契約：`vector.Query` がリクエスト（ベクトルフィールド・クエリベクトル・TopK・距離メトリック・メタデータフィルタ）を表現し、`vector.Result[T]` が「スコアは常に大きいほど類似」のヒット列を返します。
+
+| エンジン | 低レイヤ構文 | メトリック指定 | メタデータフィルタ | 備考 |
+|----------|--------------|----------------|--------------------|------|
+| GORM (PostgreSQL) | pgvector `<->` / `<=>` / `<#>` | クエリ時 | whereSelectors チャネル | エンティティフィールドは `vector.Float32Vector`（`gorm:"type:vector(N)"`）、HNSW インデックス作成付き |
+| MongoDB | Atlas `$vectorSearch` 集約 | マッピング（Search インデックス） | pre-filter + Builder | Atlas 7.0+ / セルフマネージド 8.0+ 必須、Search インデックス作成/削除付き |
+| Elasticsearch 8+/9.x | トップレベル `knn` 句 + dense_vector | マッピング（similarity） | knn.filter（query DSL） | query と同一ボディのハイブリッド検索対応 |
+| OpenSearch 2.11+ | `query.knn` + knn_vector | マッピング（space_type） | knn.filter（DSL） | インデックス作成時に `index.knn=true` を自動設定 |
+| ClickHouse | cosineDistance / L2Distance / dotProduct | クエリ時 | baseWhere + whereArgs | 距離関数のブルートフォース検索、スコアは Go 側で再計算 |
+| Doris 3.0+ | cosine_distance / l2_distance / inner_product | クエリ時 | baseWhere + whereArgs | ベクトルインデックス有効時は自動加速 |
+| Qdrant | Query API（近傍検索） | コレクション作成時に固定 | qdrant.Filter（ペイロードフィルタ、ペイロードインデックス併用） | tenant_id 整数ペイロードインデックス。Filter へのテナント条件注入、ID 直取得経路のクライアント側テナント検証 |
+| Milvus 2.4+ | Search（AUTOINDEX ANN） | インデックス作成時に固定 | Milvus 式 pre-filter | tenant_id 列を partition key として設定。式へのテナント述語注入、主キー直取得経路のクライアント側テナント検証 |
+
+```go
+// エンジン共通のリクエスト
+q := &vector.Query{
+    Field:  "embedding",
+    Vector: embedding,        // []float32
+    TopK:   10,
+    Metric: vector.MetricCosine,
+}
+
+// ES / OpenSearch（クライアントメソッド）
+res, err := client.KnnSearch(ctx, "docs", q)
+// GORM / MongoDB / ClickHouse / Doris（リポジトリメソッド、フィルタは where/builder チャネル経由）
+res, err := repo.SearchByVector(ctx, baseWhereOrBuilder, q)
+// Qdrant / Milvus（リポジトリメソッド、フィルタは q.Filter のエンジンネイティブ条件チャネル経由）
+res, err := repo.SearchByVector(ctx, q)
+```
+
+統一規約：
+- **スコアセマンティクス**：`Score` は常に「大きいほど類似」。各エンジンのネイティブ距離/スコアをこの意味に変換します（詳細は各モジュールのドキュメント参照）；
+- **TopK セマンティクス**：ベクトル検索はページングではなく TopK 近傍返却で、`Total` はヒット件数です；
+- **テナント分離**：リポジトリレベルの検索は各モジュールのテナント行レベル強制をそのまま適用します；
+- InfluxDB / Ent / Cassandra は現在ベクトル検索を提供していません。
 
 ### フィルタ演算子
 
