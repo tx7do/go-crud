@@ -23,7 +23,7 @@
 
 ## Highlights
 
-- **Unified Data Access Layer**: A single generic Repository interface covering GORM, Ent, MongoDB, ClickHouse, Apache Doris, Elasticsearch, OpenSearch, Qdrant, Milvus, and InfluxDB — say goodbye to repetitive boilerplate
+- **Unified Data Access Layer**: A single generic Repository interface covering GORM, Ent, MongoDB, ClickHouse, Apache Doris, Elasticsearch, OpenSearch, Qdrant, Milvus, Weaviate, Neo4j, and InfluxDB — twelve data engines in total, say goodbye to repetitive boilerplate
 - **Three Pagination Strategies**: Offset / Page / Token pagination modes for traditional web paging, RESTful APIs, and infinite-scroll scenarios
 - **Structured Filter Engine**: 29+ operators with AND/OR multi-level nesting, supporting both JSON and Google AIP filter syntaxes with parameterized queries to prevent SQL injection
 - **Protocol Buffers Contract**: Standardized pagination, filtering, and sorting definitions via Protobuf — a natural fit for gRPC microservices; interfaces as documentation
@@ -49,6 +49,8 @@
 | [OpenSearch](./opensearch) | Search Engine | ✅ | Open-source ES alternative, vector search, security analytics |
 | [Qdrant](./qdrant) | Vector Database | ✅ | RAG retrieval, semantic search, recommendation recall, multi-tenant vector isolation |
 | [Milvus](./milvus) | Vector Database | ✅ | RAG retrieval, semantic search, recommendation recall, multi-tenant vector isolation |
+| [Weaviate](./weaviate) | Vector Database | ✅ | RAG retrieval, semantic search, multi-tenant vector isolation (GraphQL search) |
+| [Neo4j](./neo4j) | Graph Database | ✅ | Node CRUD, property-level multi-tenancy (label as table, element id as row identity) |
 | [InfluxDB](./influxdb) | Time-Series DB | ✅ | IoT monitoring, DevOps metrics, time-series data analytics |
 | [Cassandra](./cassandra) | Wide-Column DB | 🚧 | High-availability writes, cross-datacenter replication (in development) |
 
@@ -80,6 +82,8 @@ graph TB
         OS["OpenSearch"]
         Qdrant["Qdrant"]
         Milvus["Milvus"]
+        Weaviate["Weaviate"]
+        Neo4j["Neo4j"]
         Influx["InfluxDB"]
     end
 
@@ -117,6 +121,8 @@ go-crud/
 ├── opensearch/                   # OpenSearch client and utilities
 ├── qdrant/                       # Qdrant data access layer (vector search · tenant isolation)
 ├── milvus/                       # Milvus data access layer (vector search · tenant isolation)
+├── weaviate/                     # Weaviate data access layer (vector search · tenant isolation)
+├── neo4j/                        # Neo4j data access layer (node CRUD · property-level tenancy)
 ├── influxdb/                     # InfluxDB data access layer (Flux queries)
 └── cassandra/                    # Cassandra data access layer (in development)
 ```
@@ -162,6 +168,7 @@ A cross-engine unified vector search contract via the standalone [vector](./vect
 | Doris 3.0+ | cosine_distance / l2_distance / inner_product | At query time | baseWhere + whereArgs | Accelerated by vector index when enabled |
 | Qdrant | Query API (nearest neighbors) | Fixed at collection creation | qdrant.Filter (payload filtering, backed by payload indexes) | tenant_id integer payload index; tenant condition injected into Filter; client-side tenant check on direct-ID paths |
 | Milvus 2.4+ | Search (AUTOINDEX ANN) | Fixed at index creation | Milvus expression pre-filter | tenant_id column marked as partition key; tenant predicate injected into expressions; client-side tenant check on direct-PK paths |
+| Weaviate 1.27+ | GraphQL nearVector | Fixed at collection creation (vectorIndexConfig.distance) | Where-condition pre-filter | lowercase-first property names enforced (GraphQL naming convention); tenant condition injected into Where; client-side tenant check on direct-UUID paths |
 
 ```go
 // One request shape across engines
@@ -176,7 +183,7 @@ q := &vector.Query{
 res, err := client.KnnSearch(ctx, "docs", q)
 // GORM / MongoDB / ClickHouse / Doris (repository methods; filters via the where/builder channel)
 res, err := repo.SearchByVector(ctx, baseWhereOrBuilder, q)
-// Qdrant / Milvus (repository methods; filters via q.Filter, the engine-native condition channel)
+// Qdrant / Milvus / Weaviate (repository methods; filters via q.Filter, the engine-native condition channel)
 res, err := repo.SearchByVector(ctx, q)
 ```
 
@@ -184,7 +191,7 @@ Unified conventions:
 - **Score semantics**: `Score` is always "higher is more similar"; each engine converts its native distance/score accordingly (see per-module docs);
 - **TopK semantics**: vector search returns TopK nearest neighbors rather than pages; `Total` is the number of hits;
 - **Tenant isolation**: repository-level search reuses each module's tenant row-level enforcement;
-- InfluxDB / Ent / Cassandra do not provide vector search yet.
+- InfluxDB / Ent / Cassandra / Neo4j do not provide vector search yet.
 
 ### Filter Operators
 

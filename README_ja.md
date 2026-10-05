@@ -23,7 +23,7 @@
 
 ## プロジェクトの特徴
 
-- **統一データアクセスレイヤー**：単一のジェネリック Repository インターフェースで GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、InfluxDB の10つのデータエンジンをカバー — 反復的なボイラープレートに別れを
+- **統一データアクセスレイヤー**：単一のジェネリック Repository インターフェースで GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、Weaviate、Neo4j、InfluxDB の12のデータエンジンをカバー — 反復的なボイラープレートに別れを
 - **3つのページネーション戦略**：Offset / Page / Token の3つのページネーションモードで、伝統的な Web ページングから無限スクロールまで全シナリオをカバー
 - **構造化フィルタエンジン**：29+ の演算子で AND/OR 多階層ネストをサポート、JSON と Google AIP の両方のフィルタ構文に対応、パラメータ化クエリで SQL インジェクションを防止
 - **Protocol Buffers 契約**：Protobuf で標準化されたページネーション、フィルタリング、ソート定義 — gRPC マイクロサービスに最適な適合、インターフェース即ドキュメント
@@ -49,6 +49,8 @@
 | [OpenSearch](./opensearch) | 検索エンジン | ✅ | Elasticsearch オープンソース代替、ベクトル検索、セキュリティ分析 |
 | [Qdrant](./qdrant) | ベクトル DB | ✅ | RAG 検索、意味検索、レコメンド recall、マルチテナントベクトル分離 |
 | [Milvus](./milvus) | ベクトル DB | ✅ | RAG 検索、意味検索、レコメンド recall、マルチテナントベクトル分離 |
+| [Weaviate](./weaviate) | ベクトル DB | ✅ | RAG 検索、意味検索、マルチテナントベクトル分離（GraphQL 検索） |
+| [Neo4j](./neo4j) | グラフ DB | ✅ | ノード CRUD、プロパティ単位マルチテナント（label=テーブル、element id=行識別子） |
 | [InfluxDB](./influxdb) | 時系列 DB | ✅ | IoT モニタリング、DevOps メトリクス、時系列データ分析 |
 | [Cassandra](./cassandra) | ワイドカラム DB | 🚧 | 高可用性書き込み、クロスデータセンターレプリケーション（開発中） |
 
@@ -80,6 +82,8 @@ graph TB
         OS["OpenSearch"]
         Qdrant["Qdrant"]
         Milvus["Milvus"]
+        Weaviate["Weaviate"]
+        Neo4j["Neo4j"]
         Influx["InfluxDB"]
     end
 
@@ -117,6 +121,8 @@ go-crud/
 ├── opensearch/                   # OpenSearch クライアントとユーティリティ
 ├── qdrant/                       # Qdrant データアクセスレイヤー (ベクトル検索 · テナント分離)
 ├── milvus/                       # Milvus データアクセスレイヤー (ベクトル検索 · テナント分離)
+├── weaviate/                     # Weaviate データアクセスレイヤー (ベクトル検索 · テナント分離)
+├── neo4j/                        # Neo4j データアクセスレイヤー (ノード CRUD · プロパティ単位テナント)
 ├── influxdb/                     # InfluxDB データアクセス層 (Flux クエリ)
 └── cassandra/                    # Cassandra データアクセス層 (開発中)
 ```
@@ -162,6 +168,7 @@ go-crud/
 | Doris 3.0+ | cosine_distance / l2_distance / inner_product | クエリ時 | baseWhere + whereArgs | ベクトルインデックス有効時は自動加速 |
 | Qdrant | Query API（近傍検索） | コレクション作成時に固定 | qdrant.Filter（ペイロードフィルタ、ペイロードインデックス併用） | tenant_id 整数ペイロードインデックス。Filter へのテナント条件注入、ID 直取得経路のクライアント側テナント検証 |
 | Milvus 2.4+ | Search（AUTOINDEX ANN） | インデックス作成時に固定 | Milvus 式 pre-filter | tenant_id 列を partition key として設定。式へのテナント述語注入、主キー直取得経路のクライアント側テナント検証 |
+| Weaviate 1.27+ | GraphQL nearVector | コレクション作成時に固定（vectorIndexConfig.distance） | Where 条件 pre-filter | プロパティ名は小文字開始を強制（GraphQL 命名規約）。Where へのテナント条件注入、UUID 直取得経路のクライアント側テナント検証 |
 
 ```go
 // エンジン共通のリクエスト
@@ -176,7 +183,7 @@ q := &vector.Query{
 res, err := client.KnnSearch(ctx, "docs", q)
 // GORM / MongoDB / ClickHouse / Doris（リポジトリメソッド、フィルタは where/builder チャネル経由）
 res, err := repo.SearchByVector(ctx, baseWhereOrBuilder, q)
-// Qdrant / Milvus（リポジトリメソッド、フィルタは q.Filter のエンジンネイティブ条件チャネル経由）
+// Qdrant / Milvus / Weaviate（リポジトリメソッド、フィルタは q.Filter のエンジンネイティブ条件チャネル経由）
 res, err := repo.SearchByVector(ctx, q)
 ```
 
@@ -184,7 +191,7 @@ res, err := repo.SearchByVector(ctx, q)
 - **スコアセマンティクス**：`Score` は常に「大きいほど類似」。各エンジンのネイティブ距離/スコアをこの意味に変換します（詳細は各モジュールのドキュメント参照）；
 - **TopK セマンティクス**：ベクトル検索はページングではなく TopK 近傍返却で、`Total` はヒット件数です；
 - **テナント分離**：リポジトリレベルの検索は各モジュールのテナント行レベル強制をそのまま適用します；
-- InfluxDB / Ent / Cassandra は現在ベクトル検索を提供していません。
+- InfluxDB / Ent / Cassandra / Neo4j は現在ベクトル検索を提供していません。
 
 ### フィルタ演算子
 

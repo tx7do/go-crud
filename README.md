@@ -23,7 +23,7 @@
 
 ## 项目亮点
 
-- **统一数据访问层**：一套泛型 Repository 接口，覆盖 GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、InfluxDB 十大数据引擎，告别重复 Boilerplate
+- **统一数据访问层**：一套泛型 Repository 接口，覆盖 GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、Weaviate、Neo4j、InfluxDB 十二大数据引擎，告别重复 Boilerplate
 - **三种分页策略**：Offset / Page / Token 三种分页模式，从传统 Web 分页到无限滚动，全场景覆盖
 - **结构化过滤引擎**：29+ 种操作符，支持 AND/OR 多层嵌套，同时兼容 JSON 与 Google AIP 两种过滤语法，参数化查询杜绝 SQL 注入
 - **Protocol Buffers 契约**：基于 Protobuf 定义标准化的分页、过滤、排序协议，天然适配 gRPC 微服务架构，接口即文档
@@ -49,6 +49,8 @@
 | [OpenSearch](./opensearch) | 搜索引擎 | ✅ | Elasticsearch 开源替代、向量检索、安全分析 |
 | [Qdrant](./qdrant) | 向量数据库 | ✅ | RAG 检索、语义搜索、推荐召回、多租户向量隔离 |
 | [Milvus](./milvus) | 向量数据库 | ✅ | RAG 检索、语义搜索、推荐召回、多租户向量隔离 |
+| [Weaviate](./weaviate) | 向量数据库 | ✅ | RAG 检索、语义搜索、多租户向量隔离（GraphQL 检索） |
+| [Neo4j](./neo4j) | 图数据库 | ✅ | 节点 CRUD、属性级多租户（label 即表、element id 即行身份） |
 | [InfluxDB](./influxdb) | 时序数据库 | ✅ | IoT 监控、DevOps 指标、时序数据分析 |
 | [Cassandra](./cassandra) | 宽列数据库 | 🚧 | 高可用写入、跨数据中心复制（开发中） |
 
@@ -80,6 +82,8 @@ graph TB
         OS["OpenSearch"]
         Qdrant["Qdrant"]
         Milvus["Milvus"]
+        Weaviate["Weaviate"]
+        Neo4j["Neo4j"]
         Influx["InfluxDB"]
     end
 
@@ -117,6 +121,8 @@ go-crud/
 ├── opensearch/                   # OpenSearch 客户端与工具
 ├── qdrant/                       # Qdrant 数据访问层 (向量检索 · 租户隔离)
 ├── milvus/                       # Milvus 数据访问层 (向量检索 · 租户隔离)
+├── weaviate/                     # Weaviate 数据访问层 (向量检索 · 租户隔离)
+├── neo4j/                        # Neo4j 数据访问层 (节点 CRUD · 属性级租户)
 ├── influxdb/                     # InfluxDB 数据访问层 (Flux 查询)
 └── cassandra/                    # Cassandra 数据访问层 (开发中)
 ```
@@ -162,6 +168,7 @@ go-crud/
 | Doris 3.0+ | cosine_distance / l2_distance / inner_product | 查询期 | baseWhere + whereArgs | 启用向量索引后自动加速 |
 | Qdrant | Query API（最近邻） | 集合创建时固定 | qdrant.Filter（payload 过滤，配合载荷索引） | tenant_id 整数载荷索引；Filter 注入租户条件；按 ID 直取路径客户端租户校验 |
 | Milvus 2.4+ | Search（AUTOINDEX ANN） | 索引创建时固定 | Milvus 表达式 pre-filter | tenant_id 列标记 partition key；表达式注入租户谓词；按主键直取路径客户端租户校验 |
+| Weaviate 1.27+ | GraphQL nearVector | 建库期固定（vectorIndexConfig.distance） | Where 条件 pre-filter | 属性名强制小写开头（GraphQL 命名约定）；Where 注入租户条件；按 UUID 直取路径客户端租户校验 |
 
 ```go
 // 各引擎同构的检索请求
@@ -176,7 +183,7 @@ q := &vector.Query{
 res, err := client.KnnSearch(ctx, "docs", q)
 // GORM / MongoDB / ClickHouse / Doris（Repository 方法，过滤经 where/builder 通道）
 res, err := repo.SearchByVector(ctx, baseWhereOrBuilder, q)
-// Qdrant / Milvus（Repository 方法，过滤经 q.Filter 引擎原生条件通道）
+// Qdrant / Milvus / Weaviate（Repository 方法，过滤经 q.Filter 引擎原生条件通道）
 res, err := repo.SearchByVector(ctx, q)
 ```
 
@@ -184,7 +191,7 @@ res, err := repo.SearchByVector(ctx, q)
 - **分数语义**：`Score` 恒为「越大越相似」，各引擎把原生距离/分数换算到该语义（换算规则见各模块实现注释）；
 - **TopK 语义**：向量检索是 TopK 近邻而非分页，`Total` 即命中条数；
 - **租户隔离**：Repository 侧检索沿用各模块租户行级强制（tenant 谓词注入）的既有约定；
-- InfluxDB / Ent / Cassandra 暂不提供向量检索。
+- InfluxDB / Ent / Cassandra / Neo4j 暂不提供向量检索。
 
 ### 过滤操作符
 

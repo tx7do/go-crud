@@ -1,0 +1,12 @@
+github.com/jinzhu/copier v0.4.0 h1:w3ciUoD19shMCRargcpm0cm91ytaBhDvuRpz1ODO/U8=
+github.com/jinzhu/copier v0.4.0/go.mod h1:DfbEm0FYsaqBcKcFuvmOZb218JkPGtvSHsKg8S8hyyg=
+github.com/neo4j/neo4j-go-driver/v5 v5.28.5 h1:YfqEKXt8AxsXRMGu73eNipYWCSXodVI4dl2I8iwcavA=
+github.com/neo4j/neo4j-go-driver/v5 v5.28.5/go.mod h1:Vff8OwT7QpLm7L2yYr85XNWe9Rbqlbeb9asNXJTHO4k=
+github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
+github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+github.com/tx7do/go-utils/mapper v0.0.3 h1:Z7YoPVsa6I3lfWGSUoa9atujHWeF3kP+yKfS6Rkx5SM=
+github.com/tx7do/go-utils/mapper v0.0.3/go.mod h1:zziBbtoqCt8pRw+jmK9Ic9sRD7a2yCLWG40Hy2UCSCs=
+github.com/tx7do/go-wind v0.0.3 h1:w28QBX73mG8oGlPQ6kIsC84QL7AUy4xmR0IlVWZNfFI=
+github.com/tx7do/go-wind v0.0.3/go.mod h1:BgeqjCLtGfTlT709176kd2KuLq7I1Am9tqQBrzYssc0=
+go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
+go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
