@@ -2,9 +2,11 @@ package qdrant
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 	"testing"
 
+	qdrant "github.com/qdrant/go-client/qdrant"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -50,6 +52,8 @@ func TestClient_Guards(t *testing.T) {
 	assert.ErrorIs(t, err, ErrClientNotInitialized)
 	err = c.DropCollection(ctx, "x")
 	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	err = c.DropVectorCollection(ctx, "x")
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
 	err = c.CreateVectorCollection(ctx, "x", 4, vector.MetricCosine)
 	assert.ErrorIs(t, err, ErrClientNotInitialized)
 	err = c.CreatePayloadIndex(ctx, "x", "f", PayloadIndexKeyword)
@@ -78,6 +82,37 @@ func NewClientLocal(t *testing.T) *Client {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.Close() })
 	return c
+}
+
+// TestClient_ZeroValueClose 零值客户端 Close 幂等返回（无连接可关）。
+func TestClient_ZeroValueClose(t *testing.T) {
+	assert.NoError(t, (&Client{}).Close())
+}
+
+// TestClient_Options 各选项的字段落位。
+func TestClient_Options(t *testing.T) {
+	c := &Client{}
+	for _, o := range []Option{
+		WithHost("h"),
+		WithPort(1),
+		WithAPIKey("k"),
+		WithTLS(true),
+		WithTLSConfig(&tls.Config{}),
+	} {
+		o(c)
+	}
+	assert.Equal(t, "h", c.host)
+	assert.Equal(t, 1, c.port)
+	assert.Equal(t, "k", c.apiKey)
+	assert.True(t, c.useTLS)
+	assert.NotNil(t, c.tlsConfig)
+}
+
+// TestClient_InjectedClientEarlyReturn 注入即短路：不触拨号，字段即注入对象。
+func TestClient_InjectedClientEarlyReturn(t *testing.T) {
+	c, err := NewClient(WithQdrantClient(&qdrant.Client{}))
+	require.NoError(t, err)
+	assert.NotNil(t, c.cli)
 }
 
 // TestIntegration_VectorCollectionLifecycle 集合生命周期（需 KRATOS_IT）。

@@ -91,6 +91,51 @@ func TestRepository_Guards(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidRequest)
 	_, err = noCollRepo.SearchByVector(ctx, &vector.Query{Field: "nope", Vector: []float32{1}, TopK: 1})
 	assert.ErrorIs(t, err, ErrInvalidRequest)
+
+	// 集合管理包装方法的守卫。
+	_, err = nilRepo.HasCollection(ctx)
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = emptyRepo.HasCollection(ctx)
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = noCollRepo.HasCollection(ctx)
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	err = nilRepo.DropCollection(ctx)
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	err = noCollRepo.DropCollection(ctx)
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+
+	// Exists / DeleteByUUIDs / BatchCreate / GetByUUID 的守卫面。
+	_, err = emptyRepo.Exists(ctx, "x == 1")
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = noCollRepo.Exists(ctx, "x == 1")
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = emptyRepo.DeleteByUUIDs(ctx, []string{"u"})
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = noCollRepo.DeleteByUUIDs(ctx, []string{"u"})
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = noCollRepo.DeleteByIDs(ctx, []uint64{1})
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = noCollRepo.GetByUUID(ctx, "u")
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = emptyRepo.BatchCreate(ctx, []*guardEntity{{ID: 1, Emb: []float32{1}}})
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = noCollRepo.BatchCreate(ctx, nil)
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+
+	// CreateCollection 守卫：未初始化 / 空集合名。
+	err = nilRepo.CreateCollection(ctx, 4, vector.MetricCosine)
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	err = emptyRepo.CreateCollection(ctx, 4, vector.MetricCosine)
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	err = noCollRepo.CreateCollection(ctx, 4, vector.MetricCosine)
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+
+	// CreateCollection 参数校验（真实惰性客户端，校验先于网络触达）。
+	localRepo := NewRepository[guardEntity, guardEntity](localClient, "coll", m, logger)
+	err = localRepo.CreateCollection(ctx, 4, "bogus")
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	err = localRepo.CreateCollection(ctx, 0, vector.MetricCosine)
+	assert.ErrorIs(t, err, ErrInvalidRequest)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

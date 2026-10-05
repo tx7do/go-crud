@@ -116,11 +116,44 @@ func TestBuildSchema_Rejections(t *testing.T) {
 	require.NotNil(t, schema.PKField())
 	assert.Equal(t, entity.FieldTypeVarChar, schema.PKField().DataType)
 
+	// tenant 字段非 int64 → 拒绝。
+	type badTenantEntity struct {
+		ID     int64
+		Tenant string `milvus:"name:tenant_id"`
+		Emb    []float32
+	}
+	_, err = buildSchema[badTenantEntity]("c", 4)
+	assert.ErrorIs(t, err, ErrSchemaBuildFailed)
+
+	// 无 Milvus 对应类型且非无符号的字段（结构体）→ 跳过不进 schema。
+	type structFieldEntity struct {
+		ID  int64
+		Foo struct{ X int }
+		Emb []float32
+	}
+	schema, err = buildSchema[structFieldEntity]("c", 4)
+	require.NoError(t, err)
+	assert.Nil(t, findField(t, schema, "Foo"))
+
 	// 非法参数。
 	_, err = buildSchema[schemaEntity]("", 4)
 	assert.ErrorIs(t, err, ErrInvalidRequest)
 	_, err = buildSchema[schemaEntity]("c", 0)
 	assert.ErrorIs(t, err, ErrInvalidRequest)
+}
+
+// TestIsUnsignedKind 无符号类别判定矩阵。
+func TestIsUnsignedKind(t *testing.T) {
+	assert.True(t, isUnsignedKind(reflect.Uint))
+	assert.True(t, isUnsignedKind(reflect.Uint8))
+	assert.True(t, isUnsignedKind(reflect.Uint16))
+	assert.True(t, isUnsignedKind(reflect.Uint32))
+	assert.True(t, isUnsignedKind(reflect.Uint64))
+	assert.True(t, isUnsignedKind(reflect.Uintptr))
+	assert.False(t, isUnsignedKind(reflect.Int))
+	assert.False(t, isUnsignedKind(reflect.UnsafePointer))
+	assert.False(t, isUnsignedKind(reflect.String))
+	assert.False(t, isUnsignedKind(reflect.Struct))
 }
 
 func TestVectorDimsOf(t *testing.T) {
@@ -131,4 +164,115 @@ func TestVectorDimsOf(t *testing.T) {
 	assert.Equal(t, 3, vectorDimsOf(specs, withVec))
 	assert.Equal(t, 0, vectorDimsOf(specs, &schemaEntity{}))
 	assert.Equal(t, 0, vectorDimsOf(specs, (*schemaEntity)(nil)))
+}
+
+// TestMilvusScoreToScore 分数换算：相似度度量透传，L2 距离 → 1/(1+d)。
+func TestMilvusScoreToScore(t *testing.T) {
+	assert.Equal(t, 0.25, milvusScoreToScore(vector.MetricCosine, 0.25))
+	assert.Equal(t, -3.0, milvusScoreToScore(vector.MetricDotProduct, -3))
+	assert.Equal(t, 0.25, milvusScoreToScore("", 0.25))
+	assert.Equal(t, 1.0, milvusScoreToScore(vector.MetricEuclidean, 0))
+	assert.InDelta(t, 1.0/3.0, milvusScoreToScore(vector.MetricEuclidean, 2), 1e-9)
+}
+
+// TestResolveVectorFieldSpecs 向量字段解析：匹配放行、未匹配/多字段/缺字段拒绝。
+func TestResolveVectorFieldSpecs(t *testing.T) {
+	// 单一向量字段：显式匹配；未指定 → 默认该字段。
+	specs, err := specsOf[schemaEntity]()
+	require.NoError(t, err)
+	name, err := resolveVectorFieldSpecs(specs, "Emb")
+	require.NoError(t, err)
+	assert.Equal(t, "Emb", name)
+	name, err = resolveVectorFieldSpecs(specs, "")
+	require.NoError(t, err)
+	assert.Equal(t, "Emb", name)
+	// 未匹配的字段名拒绝。
+	_, err = resolveVectorFieldSpecs(specs, "nope")
+	assert.ErrorIs(t, err, ErrInvalidVectorQuery)
+
+	// 双向量字段：必须显式指定其一。
+	type twoVecEntity struct {
+		ID   int64
+		Emb  []float32
+		Emb2 []float32
+	}
+	specs2, err := specsOf[twoVecEntity]()
+	require.NoError(t, err)
+	_, err = resolveVectorFieldSpecs(specs2, "")
+	assert.ErrorIs(t, err, ErrInvalidVectorQuery)
+	name, err = resolveVectorFieldSpecs(specs2, "Emb2")
+	require.NoError(t, err)
+	assert.Equal(t, "Emb2", name)
+
+	// 无向量字段：拒绝。
+	type noVec2Entity struct {
+		ID int64
+	}
+	specs3, err := specsOf[noVec2Entity]()
+	require.NoError(t, err)
+	_, err = resolveVectorFieldSpecs(specs3, "")
+	assert.ErrorIs(t, err, ErrInvalidVectorQuery)
+}
+
+// TestPkColumnBuilders 主键列构造：类型匹配、类型不匹配拒绝、
+// VarChar 值含引号/反斜杠拒绝（官方 PKs2Expr 无转义，防表达式逃逸）。
+func TestPkColumnBuilders(t *testing.T) {
+	intSpecs, err := specsOf[schemaEntity]()
+	require.NoError(t, err)
+	intPk, err := pkSpecOf(intSpecs)
+	require.NoError(t, err)
+
+	type varcharPkEntity struct {
+		UUID string
+		Emb  []float32
+	}
+	strSpecs, err := specsOf[varcharPkEntity]()
+	require.NoError(t, err)
+	strPk, err := pkSpecOf(strSpecs)
+	require.NoError(t, err)
+
+	// 数值主键：int64 主键构造；VarChar 主键拒绝。
+	col, err := numericPkColumn(intPk, []uint64{1, 2})
+	require.NoError(t, err)
+	assert.Equal(t, "ID", col.Name())
+	ic, ok := col.(*entity.ColumnInt64)
+	require.True(t, ok)
+	assert.Equal(t, []int64{1, 2}, ic.Data())
+	_, err = numericPkColumn(strPk, []uint64{1})
+	assert.ErrorIs(t, err, ErrInvalidPointID)
+
+	// VarChar 主键：正常值构造；引号/反斜杠拒绝；int64 主键拒绝。
+	col, err = varcharPkColumn(strPk, []string{"ok"})
+	require.NoError(t, err)
+	assert.Equal(t, "UUID", col.Name())
+	sc, ok := col.(*entity.ColumnVarChar)
+	require.True(t, ok)
+	assert.Equal(t, []string{"ok"}, sc.Data())
+	_, err = varcharPkColumn(strPk, []string{"a\"b"})
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = varcharPkColumn(strPk, []string{"a\\b"})
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = varcharPkColumn(intPk, []string{"a"})
+	assert.ErrorIs(t, err, ErrInvalidPointID)
+}
+
+// TestPkSpecOf_Errors 主键解析：多主键与无主键拒绝。
+func TestPkSpecOf_Errors(t *testing.T) {
+	type multiPkEntity struct {
+		ID   int64
+		UUID string
+		Emb  []float32
+	}
+	specs, err := specsOf[multiPkEntity]()
+	require.NoError(t, err)
+	_, err = pkSpecOf(specs)
+	assert.ErrorIs(t, err, ErrInvalidPointID)
+
+	type noPkEntity struct {
+		Emb []float32
+	}
+	specs, err = specsOf[noPkEntity]()
+	require.NoError(t, err)
+	_, err = pkSpecOf(specs)
+	assert.ErrorIs(t, err, ErrInvalidPointID)
 }

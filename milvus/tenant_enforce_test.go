@@ -2,6 +2,7 @@ package milvus
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
@@ -102,6 +103,24 @@ func TestCheckTenantColumn_MissingColumn(t *testing.T) {
 	assert.Equal(t, errTenantMismatch, checkTenantColumn[scopedEntity](ctx, rs, 0))
 }
 
+// TestCheckTenantColumn_ValueShape 取值错误（越界行）、非 int64 列值、
+// 非正数列值均视同不匹配。
+func TestCheckTenantColumn_ValueShape(t *testing.T) {
+	ctx := viewer.WithContext(context.Background(), testEnforceViewer{tid: 7})
+
+	rs := client.ResultSet{entity.NewColumnInt64("tenant_id", []int64{7})}
+	assert.Equal(t, errTenantMismatch, checkTenantColumn[scopedEntity](ctx, rs, 5))
+
+	rs = client.ResultSet{entity.NewColumnInt64("tenant_id", []int64{0})}
+	assert.Equal(t, errTenantMismatch, checkTenantColumn[scopedEntity](ctx, rs, 0))
+
+	rs = client.ResultSet{entity.NewColumnInt64("tenant_id", []int64{-1})}
+	assert.Equal(t, errTenantMismatch, checkTenantColumn[scopedEntity](ctx, rs, 0))
+
+	rs = client.ResultSet{entity.NewColumnVarChar("tenant_id", []string{"7"})}
+	assert.Equal(t, errTenantMismatch, checkTenantColumn[scopedEntity](ctx, rs, 0))
+}
+
 // TestCheckTenantColumn_NonScopedSkips 非 tenant 实体放行（无校验）。
 func TestCheckTenantColumn_NonScopedSkips(t *testing.T) {
 	ctx := viewer.WithContext(context.Background(), testEnforceViewer{tid: 7})
@@ -137,4 +156,23 @@ func TestEnforceOnScopedInstance_TenantContextSets(t *testing.T) {
 func TestEnforceOnScopedInstance_MissingViewerFailClosed(t *testing.T) {
 	var e scopedEntity
 	assert.ErrorIs(t, viewer.EnforceOnScopedInstance(context.Background(), &e), viewer.ErrMissingViewer)
+}
+
+// TestMixinTenantIDBounds int64 → uint32 有损转换边界：
+// 非正数与超出 uint32 范围的值视为无租户标识。
+func TestMixinTenantIDBounds(t *testing.T) {
+	var m mixin.TenantID
+	assert.Nil(t, m.GetTenantID())
+	m.TenantID = -1
+	assert.Nil(t, m.GetTenantID())
+	m.TenantID = int64(math.MaxUint32) + 1
+	assert.Nil(t, m.GetTenantID())
+	m.SetTenantID(7)
+	got := m.GetTenantID()
+	require.NotNil(t, got)
+	assert.Equal(t, uint32(7), *got)
+	m.TenantID = math.MaxUint32
+	got = m.GetTenantID()
+	require.NotNil(t, got)
+	assert.Equal(t, uint32(math.MaxUint32), *got)
 }

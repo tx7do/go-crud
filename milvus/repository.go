@@ -66,6 +66,9 @@ func (r *Repository[DTO, ENTITY]) HasCollection(ctx context.Context) (bool, erro
 	if r.client == nil || r.client.cli == nil {
 		return false, ErrClientNotInitialized
 	}
+	if r.collection == "" {
+		return false, ErrInvalidRequest
+	}
 	return r.client.HasCollection(ctx, r.collection)
 }
 
@@ -73,6 +76,9 @@ func (r *Repository[DTO, ENTITY]) HasCollection(ctx context.Context) (bool, erro
 func (r *Repository[DTO, ENTITY]) DropCollection(ctx context.Context) error {
 	if r.client == nil || r.client.cli == nil {
 		return ErrClientNotInitialized
+	}
+	if r.collection == "" {
+		return ErrInvalidRequest
 	}
 	return r.client.DropCollection(ctx, r.collection)
 }
@@ -499,7 +505,12 @@ func (r *Repository[DTO, ENTITY]) tenantFilterPks(ctx context.Context, pk *field
 				}
 				return nil, verr
 			}
-			pvv, gerr := rs.GetColumn(pk.name).Get(i)
+			pkc := rs.GetColumn(pk.name)
+			if pkc == nil {
+				// 服务端省略了请求的主键列：该行不可判属，跳过。
+				continue
+			}
+			pvv, gerr := pkc.Get(i)
 			if gerr != nil {
 				continue
 			}
@@ -517,7 +528,12 @@ func (r *Repository[DTO, ENTITY]) tenantFilterPks(ctx context.Context, pk *field
 			}
 			return nil, verr
 		}
-		pvv, gerr := rs.GetColumn(pk.name).Get(i)
+		pkc := rs.GetColumn(pk.name)
+		if pkc == nil {
+			// 服务端省略了请求的主键列：该行不可判属，跳过。
+			continue
+		}
+		pvv, gerr := pkc.Get(i)
 		if gerr != nil {
 			continue
 		}

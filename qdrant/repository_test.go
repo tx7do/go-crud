@@ -53,12 +53,32 @@ func TestRepository_Guards(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidRequest)
 	_, err = noCollRepo.Get(ctx, 1)
 	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = noCollRepo.GetByUUID(ctx, "u")
+	assert.ErrorIs(t, err, ErrInvalidRequest)
 	_, err = noCollRepo.Count(ctx, nil)
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = noCollRepo.Exists(ctx, nil)
 	assert.ErrorIs(t, err, ErrInvalidRequest)
 	_, err = noCollRepo.SearchByVector(ctx, &vector.Query{Field: "e", Vector: []float32{1}, TopK: 1})
 	assert.ErrorIs(t, err, ErrInvalidRequest)
 	_, err = noCollRepo.DeleteByFilter(ctx, nil)
 	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = noCollRepo.DeleteByIDs(ctx, []uint64{1})
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = noCollRepo.DeleteByUUIDs(ctx, []string{"u"})
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = noCollRepo.BatchCreate(ctx, nil)
+	assert.ErrorIs(t, err, ErrInvalidRequest)
+
+	// 未初始化客户端：同一批入口。
+	_, err = emptyRepo.GetByUUID(ctx, "u")
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = emptyRepo.DeleteByUUIDs(ctx, []string{"u"})
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = emptyRepo.Exists(ctx, nil)
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	_, err = emptyRepo.BatchCreate(ctx, []*guardEntity{})
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
 
 	// nil DTO（离线可达的路径：集合名校验先于 DTO 校验，两者均为
 	// ErrInvalidRequest；DTO 校验分支见 Create 的 nil 检查）。

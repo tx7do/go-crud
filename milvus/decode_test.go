@@ -49,3 +49,71 @@ func TestEntityFromColumns_MissingColumnsLeaveZero(t *testing.T) {
 	assert.Equal(t, "", e.Title)
 	assert.Nil(t, e.GetTenantID())
 }
+
+// decodeMatrixEntity 覆盖列 → 字段还原的全部标量类型组合。
+type decodeMatrixEntity struct {
+	B   bool
+	I8  int8
+	I16 int16
+	I32 int32
+	I64 int64
+	F32 float32
+	F64 float64
+	S   string
+	Emb []float32
+	mixin.TenantID
+}
+
+func TestEntityFromColumns_TypeMatrix(t *testing.T) {
+	// 类型一致的列全部还原。
+	cols := client.ResultSet{
+		entity.NewColumnBool("B", []bool{true}),
+		entity.NewColumnInt8("I8", []int8{1}),
+		entity.NewColumnInt16("I16", []int16{2}),
+		entity.NewColumnInt32("I32", []int32{3}),
+		entity.NewColumnInt64("I64", []int64{4}),
+		entity.NewColumnFloat("F32", []float32{5.5}),
+		entity.NewColumnDouble("F64", []float64{6.5}),
+		entity.NewColumnVarChar("S", []string{"s"}),
+		entity.NewColumnInt64("tenant_id", []int64{7}),
+	}
+	var e decodeMatrixEntity
+	require.NoError(t, entityFromColumns(cols, 0, &e))
+	assert.True(t, e.B)
+	assert.Equal(t, int8(1), e.I8)
+	assert.Equal(t, int16(2), e.I16)
+	assert.Equal(t, int32(3), e.I32)
+	assert.Equal(t, int64(4), e.I64)
+	assert.Equal(t, float32(5.5), e.F32)
+	assert.Equal(t, 6.5, e.F64)
+	assert.Equal(t, "s", e.S)
+	require.NotNil(t, e.GetTenantID())
+	assert.Equal(t, uint32(7), *e.GetTenantID())
+
+	// 向量字段不回读（无对应列，且解码器跳过向量映射）。
+	assert.Nil(t, e.Emb)
+}
+
+func TestEntityFromColumns_KindMismatchAndRowBounds(t *testing.T) {
+	// 列值类型与字段类型不符 → 字段保持零值。
+	mismatched := client.ResultSet{
+		entity.NewColumnBool("I8", []bool{true}),
+		entity.NewColumnInt64("B", []int64{1}),
+		entity.NewColumnInt64("S", []int64{2}),
+		entity.NewColumnVarChar("F32", []string{"x"}),
+	}
+	var e decodeMatrixEntity
+	require.NoError(t, entityFromColumns(mismatched, 0, &e))
+	assert.False(t, e.B)
+	assert.Zero(t, e.I8)
+	assert.Equal(t, "", e.S)
+	assert.Zero(t, e.F32)
+
+	// 行索引越界 → 全部取值失败 → 字段保持零值。
+	var e2 decodeMatrixEntity
+	require.NoError(t, entityFromColumns(mismatched, 9, &e2))
+	assert.False(t, e2.B)
+
+	// nil 目标 → ErrColumnConversion。
+	assert.ErrorIs(t, entityFromColumns(mismatched, 0, (*decodeMatrixEntity)(nil)), ErrColumnConversion)
+}

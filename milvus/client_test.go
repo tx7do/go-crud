@@ -45,4 +45,40 @@ func TestClient_Guards(t *testing.T) {
 	assert.ErrorIs(t, err, ErrClientNotInitialized)
 	err = c.DropCollection(ctx, "x")
 	assert.ErrorIs(t, err, ErrClientNotInitialized)
+	err = c.DropVectorCollection(ctx, "x")
+	assert.ErrorIs(t, err, ErrClientNotInitialized)
+}
+
+// TestClient_ZeroValueClose 零值客户端 Close 幂等返回（无连接可关）。
+func TestClient_ZeroValueClose(t *testing.T) {
+	assert.NoError(t, (&Client{}).Close())
+}
+
+// TestClient_Options 各选项的字段落位。
+func TestClient_Options(t *testing.T) {
+	c := &Client{}
+	for _, o := range []Option{
+		WithAddress("h:1"),
+		WithUsername("u"),
+		WithPassword("p"),
+		WithAPIKey("k"),
+		WithDBName("db"),
+	} {
+		o(c)
+	}
+	assert.Equal(t, "h:1", c.address)
+	assert.Equal(t, "u", c.username)
+	assert.Equal(t, "p", c.password)
+	assert.Equal(t, "k", c.apiKey)
+	assert.Equal(t, "db", c.dbName)
+}
+
+// TestClient_DropVectorCollectionAlias 别名透传到注入的客户端。
+func TestClient_DropVectorCollectionAlias(t *testing.T) {
+	fc := &fakeMilvusClient{}
+	c, err := NewClient(WithMilvusClient(fc))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.NoError(t, c.DropVectorCollection(context.Background(), "coll"))
+	assert.Equal(t, 1, fc.dropCalls)
 }
