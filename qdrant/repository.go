@@ -79,9 +79,12 @@ func (r *Repository[DTO, ENTITY]) Create(ctx context.Context, dto *DTO) (*DTO, e
 		return nil, err
 	}
 
+	// Wait=true 同步等待写入应用：DAL 的 Create 语义要求返回成功即已持久化，
+	// 默认的异步提交会使紧随其后的读取看到旧状态。
 	if _, err = r.client.cli.Upsert(ctx, &qdrant.UpsertPoints{
 		CollectionName: r.collection,
 		Points:         []*qdrant.PointStruct{pt},
+		Wait:           ptr(true),
 	}); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("qdrant upsert failed: %v", err))
 		return nil, fmt.Errorf("%w: %v", ErrInsertFailed, err)
@@ -118,9 +121,11 @@ func (r *Repository[DTO, ENTITY]) BatchCreate(ctx context.Context, dtos []*DTO) 
 		pts = append(pts, pt)
 	}
 
+	// Wait=true 同步等待写入应用（语义同 Create）。
 	if _, err := r.client.cli.Upsert(ctx, &qdrant.UpsertPoints{
 		CollectionName: r.collection,
 		Points:         pts,
+		Wait:           ptr(true),
 	}); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("qdrant upsert batch failed: %v", err))
 		return nil, fmt.Errorf("%w: %v", ErrInsertFailed, err)
@@ -233,9 +238,11 @@ func (r *Repository[DTO, ENTITY]) deleteByPointIDs(ctx context.Context, pids []*
 		}
 	}
 
+	// Wait=true 同步等待删除应用（否则删除计数与实际状态可能不一致）。
 	if _, err := r.client.cli.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: r.collection,
 		Points:         qdrant.NewPointsSelectorIDs(deletable),
+		Wait:           ptr(true),
 	}); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("qdrant delete failed: %v", err))
 		return 0, fmt.Errorf("%w: %v", ErrDeleteFailed, err)
@@ -293,6 +300,7 @@ func (r *Repository[DTO, ENTITY]) DeleteByFilter(ctx context.Context, filter *qd
 	if _, err = r.client.cli.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: r.collection,
 		Points:         qdrant.NewPointsSelectorFilter(filter),
+		Wait:           ptr(true),
 	}); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("qdrant delete by filter failed: %v", err))
 		return 0, fmt.Errorf("%w: %v", ErrDeleteFailed, err)

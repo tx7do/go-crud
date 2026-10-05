@@ -160,12 +160,20 @@ func (c *Client) CreatePayloadIndex(ctx context.Context, collection, field strin
 		return ErrInvalidRequest
 	}
 
-	var params qdrant.PayloadIndexParams
+	// 服务端要求 field_type 与 field_index_params 成对给出：
+	// 缺 field_type 时报 cannot convert field_type；内层参数结构也必须
+	// 实例化（经官方工厂构造）。
+	var (
+		params *qdrant.PayloadIndexParams
+		ft     qdrant.FieldType
+	)
 	switch kind {
 	case PayloadIndexKeyword:
-		params.IndexParams = &qdrant.PayloadIndexParams_KeywordIndexParams{}
+		params = qdrant.NewPayloadIndexParamsKeyword(&qdrant.KeywordIndexParams{})
+		ft = qdrant.FieldType_FieldTypeKeyword
 	case PayloadIndexInteger:
-		params.IndexParams = &qdrant.PayloadIndexParams_IntegerIndexParams{}
+		params = qdrant.NewPayloadIndexParamsInt(&qdrant.IntegerIndexParams{})
+		ft = qdrant.FieldType_FieldTypeInteger
 	default:
 		return fmt.Errorf("%w: unsupported payload index kind %d", ErrInvalidRequest, kind)
 	}
@@ -173,7 +181,8 @@ func (c *Client) CreatePayloadIndex(ctx context.Context, collection, field strin
 	if _, err := c.cli.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
 		CollectionName:   collection,
 		FieldName:        field,
-		FieldIndexParams: &params,
+		FieldType:        &ft,
+		FieldIndexParams: params,
 	}); err != nil {
 		return fmt.Errorf("%w: %v", ErrQueryFailed, err)
 	}

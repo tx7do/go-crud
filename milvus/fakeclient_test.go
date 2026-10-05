@@ -303,8 +303,10 @@ func TestFakeClient_Create_TenantForced(t *testing.T) {
 	tenantCol, ok := cols["tenant_id"].(*entity.ColumnInt64)
 	require.True(t, ok)
 	assert.Equal(t, []int64{7}, tenantCol.Data(), "租户列须为强制覆盖后的 7")
-	// VarChar 字段经 AnyToColumns 产出的是 ColumnString（SDK 内部同源类型）。
-	titleCol, ok := cols["Title"].(*entity.ColumnString)
+	// VarChar 字段经 coerceStringColumnsToVarChar 矫正为 ColumnVarChar：
+	// SDK AnyToColumns 对 VarChar 字段产出 ColumnString（entity/rows.go），
+	// 服务端要求 VarChar 字段收取 VarChar 列，写入路径统一矫正。
+	titleCol, ok := cols["Title"].(*entity.ColumnVarChar)
 	require.True(t, ok)
 	assert.Equal(t, []string{"a7"}, titleCol.Data())
 	vecCol, ok := cols["Emb"].(*entity.ColumnFloatVector)

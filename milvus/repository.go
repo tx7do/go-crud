@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 
 	"github.com/tx7do/go-utils/mapper"
@@ -178,7 +179,9 @@ func (r *Repository[DTO, ENTITY]) CreateCollection(
 		return err
 	}
 
-	if err = r.client.cli.CreateCollection(ctx, schema, entity.DefaultShardNumber); err != nil {
+	// 强一致建集合：DAL 的 Create 语义要求写后立读，默认的 Bounded
+	// 一致性（有界旧序）会让紧随写入的读取看到旧状态。
+	if err = r.client.cli.CreateCollection(ctx, schema, entity.DefaultShardNumber, client.WithConsistencyLevel(entity.ClStrong)); err != nil {
 		return fmt.Errorf("%w: %v", ErrInsertFailed, err)
 	}
 	for _, vf := range vectorFieldNames(schema) {
@@ -225,11 +228,26 @@ func (r *Repository[DTO, ENTITY]) insertEntities(ctx context.Context, ents []*EN
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrColumnConversion, err)
 	}
+	coerceStringColumnsToVarChar(cols)
 	if _, err = r.client.cli.Upsert(ctx, r.collection, "", cols...); err != nil {
 		log.Error(context.Background(), fmt.Sprintf("milvus upsert failed: %v", err))
 		return fmt.Errorf("%w: %v", ErrInsertFailed, err)
 	}
 	return nil
+}
+
+// coerceStringColumnsToVarChar 把 AnyToColumns 产出的 String 列原地替换为
+// 同名同数据的 VarChar 列：SDK v2.4.2 的 AnyToColumns 对 VarChar 字段也
+// 构造 NewColumnString（entity/rows.go 的 FieldTypeString/FieldTypeVarChar
+// 共用分支），而 2.4.x 服务端要求 VarChar 字段收取 VarChar 列，直插报
+// "param column ... has type type:String but collection field definition
+// is string"。
+func coerceStringColumnsToVarChar(cols []entity.Column) {
+	for i, col := range cols {
+		if cs, ok := col.(*entity.ColumnString); ok {
+			cols[i] = entity.NewColumnVarChar(cs.Name(), cs.Data())
+		}
+	}
 }
 
 // vectorDimsOf 取实体向量字段的最大长度（schema 的维度）。

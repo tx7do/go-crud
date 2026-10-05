@@ -162,8 +162,9 @@ func TestIntegration_TenantIsolation(t *testing.T) {
 
 	// SearchByVector：租户 7 视角检索，命中只含租户 7 的点；
 	// 查询向量取自 101 号点 → 首位命中即 101 号点，余弦自匹配分数接近 1，
-	// 其余正交点分数接近 0。
+	// 其余正交点分数接近 0。Field 按契约必填（Qdrant 单一无名向量，忽略）。
 	res, err := repo.SearchByVector(ctx7, &vector.Query{
+		Field:  "emb",
 		Vector: e101,
 		TopK:   10,
 	})
