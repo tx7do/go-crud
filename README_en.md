@@ -63,6 +63,9 @@ The following engines reuse existing modules via wire-protocol compatibility —
 | TiDB / OceanBase | GORM | MySQL wire protocol compatible |
 | CockroachDB / YugabyteDB / openGauss / KingbaseES | GORM | PostgreSQL wire protocol compatible |
 | Dameng DM8 | GORM | Community gorm driver (dm-go) |
+| Oracle | GORM | `gorm.io/driver/oracle` (official GORM driver) |
+| StarRocks | GORM | MySQL wire protocol compatible (Doris family) |
+| DuckDB | GORM | Community gorm driver; embedded analytical OLAP ("the SQLite of analytics") |
 | TimescaleDB | GORM | PostgreSQL extension; vectors via pgvector |
 | ScyllaDB | Cassandra | Same CQL binary protocol, direct connection (see cassandra/README compatibility note) |
 | AWS DocumentDB / Azure Cosmos DB (Mongo API) | MongoDB | Mongo wire protocol compatible |

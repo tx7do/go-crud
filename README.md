@@ -63,6 +63,9 @@
 | TiDB / OceanBase | GORM | MySQL 线协议兼容 |
 | CockroachDB / YugabyteDB / openGauss / 人大金仓 | GORM | PostgreSQL 线协议兼容 |
 | 达梦 DM8 | GORM | 社区 gorm driver（dm-go） |
+| Oracle | GORM | `gorm.io/driver/oracle`（GORM 官方驱动） |
+| StarRocks | GORM | MySQL 线协议兼容（Doris 系） |
+| DuckDB | GORM | 社区 gorm driver；嵌入式分析型 OLAP（"分析界的 SQLite"） |
 | TimescaleDB | GORM | PostgreSQL 扩展，向量侧叠加 pgvector |
 | ScyllaDB | Cassandra | 同一 CQL 二进制协议直连（见 cassandra/README 兼容性注记） |
 | AWS DocumentDB / Azure Cosmos DB (Mongo API) | MongoDB | Mongo 线协议兼容 |

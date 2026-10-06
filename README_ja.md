@@ -63,6 +63,9 @@
 | TiDB / OceanBase | GORM | MySQL ワイヤプロトコル互換 |
 | CockroachDB / YugabyteDB / openGauss / KingbaseES | GORM | PostgreSQL ワイヤプロトコル互換 |
 | 达夢 DM8 | GORM | コミュニティ gorm ドライバー（dm-go） |
+| Oracle | GORM | `gorm.io/driver/oracle`（GORM 公式ドライバー） |
+| StarRocks | GORM | MySQL ワイヤプロトコル互換（Doris 系） |
+| DuckDB | GORM | コミュニティ gorm ドライバー。組込み分析型 OLAP（「分析の SQLite」） |
 | TimescaleDB | GORM | PostgreSQL 拡張。ベクトルは pgvector を併用 |
 | ScyllaDB | Cassandra | 同一 CQL バイナリプロトコルで直接接続（cassandra/README の互換性注記を参照） |
 | AWS DocumentDB / Azure Cosmos DB (Mongo API) | MongoDB | Mongo ワイヤプロトコル互換 |
