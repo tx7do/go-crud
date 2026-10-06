@@ -52,7 +52,24 @@
 | [Weaviate](./weaviate) | ベクトル DB | ✅ | RAG 検索、意味検索、マルチテナントベクトル分離（GraphQL 検索） |
 | [Neo4j](./neo4j) | グラフ DB | ✅ | ノード CRUD、プロパティ単位マルチテナント（label=テーブル、element id=行識別子） |
 | [InfluxDB](./influxdb) | 時系列 DB | ✅ | IoT モニタリング、DevOps メトリクス、時系列データ分析 |
-| [Cassandra](./cassandra) | ワイドカラム DB | 🚧 | 高可用性書き込み、クロスデータセンターレプリケーション（開発中） |
+| [Cassandra](./cassandra) | ワイドカラム DB | ✅ | 高可用性書き込み、クロスデータセンターレプリケーション、行単位マルチテナント（ScyllaDB 直接接続互換） |
+
+### 互換エコシステム
+
+以下のエンジンはワイヤプロトコル互換により既存モジュールをそのまま再利用できます（新規依存なし）：
+
+| 互換エンジン | 再用モジュール | 備考 |
+|----------|----------|------|
+| TiDB / OceanBase | GORM | MySQL ワイヤプロトコル互換 |
+| CockroachDB / YugabyteDB / openGauss / KingbaseES | GORM | PostgreSQL ワイヤプロトコル互換 |
+| 达夢 DM8 | GORM | コミュニティ gorm ドライバー（dm-go） |
+| TimescaleDB | GORM | PostgreSQL 拡張。ベクトルは pgvector を併用 |
+| ScyllaDB | Cassandra | 同一 CQL バイナリプロトコルで直接接続（cassandra/README の互換性注記を参照） |
+| AWS DocumentDB / Azure Cosmos DB (Mongo API) | MongoDB | Mongo ワイヤプロトコル互換 |
+| Zilliz Cloud | Milvus | 公式 SDK 互換 |
+
+> 閉源 SaaS（Pinecone など）やマルチモデルの新興 DB はロードマップ外です。
+> Redis は本ライブラリでは [cache](./cache) 層として位置づけられ、主ストレージエンジンではありません。
 
 ---
 
@@ -85,6 +102,7 @@ graph TB
         Weaviate["Weaviate"]
         Neo4j["Neo4j"]
         Influx["InfluxDB"]
+        Cassandra["Cassandra"]
     end
 
     API --> Pagination
@@ -124,7 +142,7 @@ go-crud/
 ├── weaviate/                     # Weaviate データアクセスレイヤー (ベクトル検索 · テナント分離)
 ├── neo4j/                        # Neo4j データアクセスレイヤー (ノード CRUD · プロパティ単位テナント)
 ├── influxdb/                     # InfluxDB データアクセス層 (Flux クエリ)
-└── cassandra/                    # Cassandra データアクセス層 (開発中)
+├── cassandra/                    # Cassandra データアクセス層 (素の CQL エグゼキュータ · ジェネリックリポジトリ · テナント分離)
 ```
 
 ---

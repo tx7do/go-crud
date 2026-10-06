@@ -52,7 +52,24 @@
 | [Weaviate](./weaviate) | Vector Database | ✅ | RAG retrieval, semantic search, multi-tenant vector isolation (GraphQL search) |
 | [Neo4j](./neo4j) | Graph Database | ✅ | Node CRUD, property-level multi-tenancy (label as table, element id as row identity) |
 | [InfluxDB](./influxdb) | Time-Series DB | ✅ | IoT monitoring, DevOps metrics, time-series data analytics |
-| [Cassandra](./cassandra) | Wide-Column DB | 🚧 | High-availability writes, cross-datacenter replication (in development) |
+| [Cassandra](./cassandra) | Wide-Column DB | ✅ | High-availability writes, cross-datacenter replication, row-level multi-tenancy (direct ScyllaDB compatibility) |
+
+### Compatible Ecosystem
+
+The following engines reuse existing modules via wire-protocol compatibility — no new dependencies:
+
+| Compatible Engine | Reused Module | Notes |
+|----------|----------|------|
+| TiDB / OceanBase | GORM | MySQL wire protocol compatible |
+| CockroachDB / YugabyteDB / openGauss / KingbaseES | GORM | PostgreSQL wire protocol compatible |
+| Dameng DM8 | GORM | Community gorm driver (dm-go) |
+| TimescaleDB | GORM | PostgreSQL extension; vectors via pgvector |
+| ScyllaDB | Cassandra | Same CQL binary protocol, direct connection (see cassandra/README compatibility note) |
+| AWS DocumentDB / Azure Cosmos DB (Mongo API) | MongoDB | Mongo wire protocol compatible |
+| Zilliz Cloud | Milvus | Official SDK compatible |
+
+> Closed-source SaaS (Pinecone etc.) and multi-model newcomers are not on the roadmap;
+> Redis is positioned as the [cache](./cache) layer in this library, not a primary storage engine.
 
 ---
 
@@ -85,6 +102,7 @@ graph TB
         Weaviate["Weaviate"]
         Neo4j["Neo4j"]
         Influx["InfluxDB"]
+        Cassandra["Cassandra"]
     end
 
     API --> Pagination
@@ -124,7 +142,7 @@ go-crud/
 ├── weaviate/                     # Weaviate data access layer (vector search · tenant isolation)
 ├── neo4j/                        # Neo4j data access layer (node CRUD · property-level tenancy)
 ├── influxdb/                     # InfluxDB data access layer (Flux queries)
-└── cassandra/                    # Cassandra data access layer (in development)
+├── cassandra/                    # Cassandra data access layer (raw CQL executor · generic repository · tenant isolation)
 ```
 
 ---

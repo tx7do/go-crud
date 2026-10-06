@@ -52,7 +52,24 @@
 | [Weaviate](./weaviate) | 向量数据库 | ✅ | RAG 检索、语义搜索、多租户向量隔离（GraphQL 检索） |
 | [Neo4j](./neo4j) | 图数据库 | ✅ | 节点 CRUD、属性级多租户（label 即表、element id 即行身份） |
 | [InfluxDB](./influxdb) | 时序数据库 | ✅ | IoT 监控、DevOps 指标、时序数据分析 |
-| [Cassandra](./cassandra) | 宽列数据库 | 🚧 | 高可用写入、跨数据中心复制（开发中） |
+| [Cassandra](./cassandra) | 宽列数据库 | ✅ | 高可用写入、跨数据中心复制、行级多租户（ScyllaDB 直连兼容） |
+
+### 兼容生态
+
+以下引擎经兼容协议直接复用现有模块，无需新增依赖：
+
+| 兼容引擎 | 复用模块 | 说明 |
+|----------|----------|------|
+| TiDB / OceanBase | GORM | MySQL 线协议兼容 |
+| CockroachDB / YugabyteDB / openGauss / 人大金仓 | GORM | PostgreSQL 线协议兼容 |
+| 达梦 DM8 | GORM | 社区 gorm driver（dm-go） |
+| TimescaleDB | GORM | PostgreSQL 扩展，向量侧叠加 pgvector |
+| ScyllaDB | Cassandra | 同一 CQL 二进制协议直连（见 cassandra/README 兼容性注记） |
+| AWS DocumentDB / Azure Cosmos DB (Mongo API) | MongoDB | Mongo 线协议兼容 |
+| Zilliz Cloud | Milvus | 官方 SDK 兼容 |
+
+> 不在此列的云托管服务（Pinecone 等闭源 SaaS）与多模型新贵不在适配计划内；
+> Redis 在本库中定位为 [cache](./cache) 层而非主存储引擎。
 
 ---
 
@@ -85,6 +102,7 @@ graph TB
         Weaviate["Weaviate"]
         Neo4j["Neo4j"]
         Influx["InfluxDB"]
+        Cassandra["Cassandra"]
     end
 
     API --> Pagination
@@ -124,7 +142,7 @@ go-crud/
 ├── weaviate/                     # Weaviate 数据访问层 (向量检索 · 租户隔离)
 ├── neo4j/                        # Neo4j 数据访问层 (节点 CRUD · 属性级租户)
 ├── influxdb/                     # InfluxDB 数据访问层 (Flux 查询)
-└── cassandra/                    # Cassandra 数据访问层 (开发中)
+├── cassandra/                    # Cassandra 数据访问层 (裸 CQL 执行器 · 泛型仓库 · 租户隔离)
 ```
 
 ---
