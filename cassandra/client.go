@@ -42,7 +42,13 @@ func NewCassandraClient(opts ...Option) (*Client, error) {
 	clusterConfig.ConnectTimeout = o.ConnectTimeout
 	clusterConfig.Timeout = o.Timeout
 
-	clusterConfig.Consistency = gocql.Consistency(o.Consistency)
+	// 零值一致性（gocql.Any）仅对写合法——服务端以 "ANY ConsistencyLevel
+	// is only supported for writes" 拒绝全部读路径；缺省落 Quorum。
+	consistency := gocql.Consistency(o.Consistency)
+	if consistency == gocql.Any {
+		consistency = gocql.Quorum
+	}
+	clusterConfig.Consistency = consistency
 
 	clusterConfig.DisableInitialHostLookup = o.DisableInitialHostLookup
 	clusterConfig.IgnorePeerAddr = o.IgnorePeerAddr
