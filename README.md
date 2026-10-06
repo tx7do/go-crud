@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">go-crud · 通用数据访问层工具库</h1>
   <p align="center">
-    <strong>一套泛型 Repository 接口，统一驾驭 10 种数据存储引擎</strong>
+    <strong>一套泛型 Repository 接口，统一驾驭 13 种数据存储引擎</strong>
   </p>
   <p align="center">
     <em>让数据操作不再是重复劳动，让每一行代码都聚焦业务价值</em>
@@ -23,9 +23,9 @@
 
 ## 项目亮点
 
-- **统一数据访问层**：一套泛型 Repository 接口，覆盖 GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、Weaviate、Neo4j、InfluxDB 十二大数据引擎，告别重复 Boilerplate
+- **统一数据访问层**：一套泛型 Repository 接口，覆盖 GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、Weaviate、Neo4j、InfluxDB、Cassandra 十三大数据引擎，告别重复 Boilerplate
 - **三种分页策略**：Offset / Page / Token 三种分页模式，从传统 Web 分页到无限滚动，全场景覆盖
-- **结构化过滤引擎**：29+ 种操作符，支持 AND/OR 多层嵌套，同时兼容 JSON 与 Google AIP 两种过滤语法，参数化查询杜绝 SQL 注入
+- **结构化过滤引擎**：28 种操作符，支持 AND/OR 多层嵌套，同时兼容 JSON 与 Google AIP 两种过滤语法，参数化查询杜绝 SQL 注入
 - **Protocol Buffers 契约**：基于 Protobuf 定义标准化的分页、过滤、排序协议，天然适配 gRPC 微服务架构，接口即文档
 - **Redis 缓存层**：内置 Cache-Aside 模式与 SingleFlight 防击穿机制，一行代码开启缓存，保护后端数据库
 - **审计日志**：统一的 Auditor 接口，Context 注入、全链路操作追溯与数据变更记录
@@ -160,7 +160,7 @@ go-crud/
 |------|:----:|:---:|:-------:|:----------:|:-----:|:-------:|:--------:|
 | Create / Get / Update / Delete | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 分页查询 (Page / Offset / Token) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 结构化过滤 (29+ 操作符) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 结构化过滤 (28 操作符) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 多字段排序 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 字段选择 (FieldMask) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 批量写入 (BatchCreate) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -174,6 +174,8 @@ go-crud/
 | Stream Load | — | — | — | — | ✅ | — | — |
 | SQL 原生查询 | — | — | — | — | ✅ | ✅ | — |
 | 向量检索 (kNN / TopK) | ✅ pgvector | — | ✅ Atlas | ✅ | ✅ | ✅ kNN | — |
+
+> 上表覆盖 7 个全量 DAL 模块。向量数据库（Qdrant / Milvus / Weaviate）、图数据库（Neo4j）与宽列数据库（Cassandra）提供聚焦的方法集：Create / BatchCreate / Get / GetByUUID / Count / Exists / DeleteByIDs / DeleteByUUIDs，另有 Query、条件删除（DeleteByFilter / DeleteByExpr / DeleteByWhere）、Upsert（Milvus 显式提供；Qdrant / Cassandra 的 Create 天然 Upsert）与 SearchByVector 按引擎提供。泛型 Update 与统一分页契约暂不在这五个模块范围内，能力细节见各模块 README。
 
 ### 向量检索（RAG / 语义检索）
 
@@ -216,7 +218,7 @@ res, err := repo.SearchByVector(ctx, q)
 
 ### 过滤操作符
 
-基于 Protobuf 定义的结构化过滤引擎，支持 29+ 种操作符：
+基于 Protobuf 定义的结构化过滤引擎，支持 28 种操作符：
 
 | 分类 | 操作符 |
 |------|--------|
@@ -278,7 +280,10 @@ res, err := repo.SearchByVector(ctx, q)
 | 文档数据库 | MongoDB | NoSQL 文档存储 |
 | OLAP 引擎 | ClickHouse / Apache Doris | 列式存储，极致分析性能 |
 | 搜索引擎 | Elasticsearch / OpenSearch | 全文检索与数据分析 |
+| 向量数据库 | Qdrant / Milvus / Weaviate | 向量检索与多租户向量隔离 |
+| 图数据库 | Neo4j | 属性图存储与 Cypher 查询 |
 | 时序数据库 | InfluxDB | 时序数据采集与分析 |
+| 宽列数据库 | Cassandra | 高可用宽列存储，ScyllaDB 直连兼容 |
 | 缓存 | Redis | 内存数据库，防击穿保护 |
 | DTO 映射 | go-utils/mapper | 泛型 CopierMapper，双向自动映射 |
 | API 定义 | Protobuf + buf.build | 接口契约优先，跨语言支持 |
@@ -301,7 +306,12 @@ go get github.com/tx7do/go-crud/clickhouse    # ClickHouse
 go get github.com/tx7do/go-crud/doris         # Apache Doris
 go get github.com/tx7do/go-crud/elasticsearch # Elasticsearch
 go get github.com/tx7do/go-crud/opensearch    # OpenSearch
+go get github.com/tx7do/go-crud/qdrant        # Qdrant
+go get github.com/tx7do/go-crud/milvus        # Milvus
+go get github.com/tx7do/go-crud/weaviate      # Weaviate
+go get github.com/tx7do/go-crud/neo4j         # Neo4j
 go get github.com/tx7do/go-crud/influxdb      # InfluxDB
+go get github.com/tx7do/go-crud/cassandra     # Cassandra
 ```
 
 ### 示例：GORM Repository
@@ -320,9 +330,9 @@ import (
 
 // 1. 定义 Entity（数据库表映射）
 type UserEntity struct {
-    ID    uint64 `gorm:"primaryKey;autoIncrement"
-    Name  string `gorm:"column:name;type:varchar(100)"
-    Email string `gorm:"column:email;type:varchar(200)"
+    ID    uint64 `gorm:"primaryKey;autoIncrement"`
+    Name  string `gorm:"column:name;type:varchar(100)"`
+    Email string `gorm:"column:email;type:varchar(200)"`
 }
 
 func (UserEntity) TableName() string { return "users" }
@@ -404,10 +414,10 @@ result, _ := repo.ListWithPaging(ctx, db, &paginationV1.PagingRequest{
 
 | 特性 | go-crud | 纯手写 Repository | 其他 CRUD 库 |
 |------|---------|-------------------|-------------|
-| 多引擎统一 API | ✅ 8 种引擎 | ❌ 每种手写 | ❌ 通常只支持一种 |
+| 多引擎统一 API | ✅ 13 种引擎 | ❌ 每种手写 | ❌ 通常只支持一种 |
 | 泛型类型安全 | ✅ DTO ↔ Entity 双向映射 | ⚠️ 视实现而定 | ⚠️ 部分支持 |
 | Protocol Buffers 契约 | ✅ 标准化接口定义 | ❌ | ❌ |
-| 结构化过滤引擎 | ✅ 29+ 操作符 + AND/OR 嵌套 | ❌ | ⚠️ 基础过滤 |
+| 结构化过滤引擎 | ✅ 28 操作符 + AND/OR 嵌套 | ❌ | ⚠️ 基础过滤 |
 | 三种分页策略 | ✅ Page / Offset / Token | ❌ | ❌ |
 | 内置缓存 | ✅ Cache-Aside + 防击穿 | ❌ | ❌ |
 | 审计日志 | ✅ 全链路追踪 | ❌ | ❌ |
@@ -416,6 +426,9 @@ result, _ := repo.ListWithPaging(ctx, db, &paginationV1.PagingRequest{
 | OLAP 引擎支持 | ✅ ClickHouse + Doris | ❌ | ❌ |
 | 搜索引擎支持 | ✅ Elasticsearch + OpenSearch | ❌ | ❌ |
 | 时序数据库支持 | ✅ InfluxDB | ❌ | ❌ |
+| 向量数据库支持 | ✅ Qdrant + Milvus + Weaviate（另有 pgvector / Atlas / ES kNN） | ❌ | ❌ |
+| 图数据库支持 | ✅ Neo4j | ❌ | ❌ |
+| 宽列数据库支持 | ✅ Cassandra（ScyllaDB 直连兼容） | ❌ | ❌ |
 
 ---
 

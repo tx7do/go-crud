@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">go-crud · ユニバーサルデータアクセスレイヤーツールキット</h1>
   <p align="center">
-    <strong>単一のジェネリック Repository インターフェースで10つのデータストレージエンジンを統一</strong>
+    <strong>単一のジェネリック Repository インターフェースで13のデータストレージエンジンを統一</strong>
   </p>
   <p align="center">
     <em>ボイラープレートの繰り返しを終わりに — すべてのコード行をビジネス価値に集中</em>
@@ -23,9 +23,9 @@
 
 ## プロジェクトの特徴
 
-- **統一データアクセスレイヤー**：単一のジェネリック Repository インターフェースで GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、Weaviate、Neo4j、InfluxDB の12のデータエンジンをカバー — 反復的なボイラープレートに別れを
+- **統一データアクセスレイヤー**：単一のジェネリック Repository インターフェースで GORM、Ent、MongoDB、ClickHouse、Apache Doris、Elasticsearch、OpenSearch、Qdrant、Milvus、Weaviate、Neo4j、InfluxDB、Cassandra の13のデータエンジンをカバー — 反復的なボイラープレートに別れを
 - **3つのページネーション戦略**：Offset / Page / Token の3つのページネーションモードで、伝統的な Web ページングから無限スクロールまで全シナリオをカバー
-- **構造化フィルタエンジン**：29+ の演算子で AND/OR 多階層ネストをサポート、JSON と Google AIP の両方のフィルタ構文に対応、パラメータ化クエリで SQL インジェクションを防止
+- **構造化フィルタエンジン**：28 の演算子で AND/OR 多階層ネストをサポート、JSON と Google AIP の両方のフィルタ構文に対応、パラメータ化クエリで SQL インジェクションを防止
 - **Protocol Buffers 契約**：Protobuf で標準化されたページネーション、フィルタリング、ソート定義 — gRPC マイクロサービスに最適な適合、インターフェース即ドキュメント
 - **Redis キャッシュ層**：Cache-Aside パターンと SingleFlight スタンピード保護を内蔵、1行のコードでキャッシュを有効化
 - **監査ログ**：統一された Auditor インターフェース、Context インジェクション、フルチェーンの操作トレースとデータ変更記録
@@ -160,7 +160,7 @@ go-crud/
 |------|:----:|:---:|:-------:|:----------:|:-----:|:-------:|:--------:|
 | Create / Get / Update / Delete | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | ページネーションクエリ (Page / Offset / Token) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 構造化フィルタリング (29+ 演算子) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 構造化フィルタリング (28 演算子) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 複数フィールドソート | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | フィールド選択 (FieldMask) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | バッチ書き込み (BatchCreate) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -174,6 +174,8 @@ go-crud/
 | Stream Load | — | — | — | — | ✅ | — | — |
 | Raw SQL クエリ | — | — | — | — | ✅ | ✅ | — |
 | ベクトル検索 (kNN / TopK) | ✅ pgvector | — | ✅ Atlas | ✅ | ✅ | ✅ kNN | — |
+
+> 上表は 7 つのフル DAL モジュールを対象としています。ベクトル DB（Qdrant / Milvus / Weaviate）、グラフ DB（Neo4j）、ワイドカラム DB（Cassandra）は、Create / BatchCreate / Get / GetByUUID / Count / Exists / DeleteByIDs / DeleteByUUIDs を中核とする焦点の絞られたメソッドセットに、Query、エンジン固有の条件削除（DeleteByFilter / DeleteByExpr / DeleteByWhere）、Upsert（Milvus は明示的に提供、Qdrant / Cassandra の Create はネイティブ Upsert）、SearchByVector を組み合わせて提供します。汎用 Update と統一ページネーション契約は現時点でこの 5 モジュールの対象外です。詳細は各モジュールの README を参照してください。
 
 ### ベクトル検索（RAG / セマンティック検索）
 
@@ -216,7 +218,7 @@ res, err := repo.SearchByVector(ctx, q)
 
 ### フィルタ演算子
 
-Protobuf で定義された構造化フィルタエンジン、29+ の演算子をサポート：
+Protobuf で定義された構造化フィルタエンジン、28 の演算子をサポート：
 
 | カテゴリ | 演算子 |
 |----------|--------|
@@ -278,7 +280,10 @@ Protobuf で定義された構造化フィルタエンジン、29+ の演算子�
 | ドキュメント DB | MongoDB | NoSQL ドキュメントストレージ |
 | OLAP エンジン | ClickHouse / Apache Doris | カラムナストレージ、極致の分析パフォーマンス |
 | 検索エンジン | Elasticsearch / OpenSearch | フルテキスト検索とデータ分析 |
+| ベクトル DB | Qdrant / Milvus / Weaviate | ベクトル検索とマルチテナント分離 |
+| グラフ DB | Neo4j | プロパティグラフストレージと Cypher クエリ |
 | 時系列 DB | InfluxDB | 時系列データ収集と分析 |
+| ワイドカラム DB | Cassandra | 高可用ワイドカラムストレージ、ScyllaDB 直接接続互換 |
 | キャッシュ | Redis | スタンピード保護付きインメモリデータストア |
 | DTO マッピング | go-utils/mapper | ジェネリック CopierMapper、双方向自動マッピング |
 | API 定義 | Protobuf + buf.build | コントラクトファースト API 設計、クロス言語サポート |
@@ -301,7 +306,12 @@ go get github.com/tx7do/go-crud/clickhouse    # ClickHouse
 go get github.com/tx7do/go-crud/doris         # Apache Doris
 go get github.com/tx7do/go-crud/elasticsearch # Elasticsearch
 go get github.com/tx7do/go-crud/opensearch    # OpenSearch
+go get github.com/tx7do/go-crud/qdrant        # Qdrant
+go get github.com/tx7do/go-crud/milvus        # Milvus
+go get github.com/tx7do/go-crud/weaviate      # Weaviate
+go get github.com/tx7do/go-crud/neo4j         # Neo4j
 go get github.com/tx7do/go-crud/influxdb      # InfluxDB
+go get github.com/tx7do/go-crud/cassandra     # Cassandra
 ```
 
 ### 例：GORM Repository
@@ -404,10 +414,10 @@ result, _ := repo.ListWithPaging(ctx, db, &paginationV1.PagingRequest{
 
 | 機能 | go-crud | 手書き Repository | 他の CRUD ライブラリ |
 |------|---------|-------------------|---------------------|
-| マルチエンジン統一 API | ✅ 8エンジン | ❌ 各エンジンを手書き | ❌ 通常1エンジンのみ |
+| マルチエンジン統一 API | ✅ 13エンジン | ❌ 各エンジンを手書き | ❌ 通常1エンジンのみ |
 | ジェネリック型安全性 | ✅ DTO ↔ Entity 双方向マッピング | ⚠️ 実装次第 | ⚠️ 部分的 |
 | Protocol Buffers 契約 | ✅ 標準化されたインターフェース定義 | ❌ | ❌ |
-| 構造化フィルタエンジン | ✅ 29+ 演算子 + AND/OR ネスト | ❌ | ⚠️ 基本フィルタリング |
+| 構造化フィルタエンジン | ✅ 28 演算子 + AND/OR ネスト | ❌ | ⚠️ 基本フィルタリング |
 | 3つのページネーション戦略 | ✅ Page / Offset / Token | ❌ | ❌ |
 | 内蔵キャッシュ | ✅ Cache-Aside + スタンピード保護 | ❌ | ❌ |
 | 監査ログ | ✅ フルチェーントレース | ❌ | ❌ |
@@ -416,6 +426,9 @@ result, _ := repo.ListWithPaging(ctx, db, &paginationV1.PagingRequest{
 | OLAP エンジンサポート | ✅ ClickHouse + Doris | ❌ | ❌ |
 | 検索エンジンサポート | ✅ Elasticsearch + OpenSearch | ❌ | ❌ |
 | 時系列 DB サポート | ✅ InfluxDB | ❌ | ❌ |
+| ベクトル DB サポート | ✅ Qdrant + Milvus + Weaviate（pgvector / Atlas / ES kNN も対応） | ❌ | ❌ |
+| グラフ DB サポート | ✅ Neo4j | ❌ | ❌ |
+| ワイドカラム DB サポート | ✅ Cassandra（ScyllaDB 直接接続互換） | ❌ | ❌ |
 
 ---
 

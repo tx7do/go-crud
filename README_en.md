@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">go-crud · Universal Data Access Layer Toolkit</h1>
   <p align="center">
-    <strong>A single generic Repository interface to unify 10 data storage engines</strong>
+    <strong>A single generic Repository interface to unify 13 data storage engines</strong>
   </p>
   <p align="center">
     <em>Stop writing boilerplate — let every line of code focus on business value</em>
@@ -23,9 +23,9 @@
 
 ## Highlights
 
-- **Unified Data Access Layer**: A single generic Repository interface covering GORM, Ent, MongoDB, ClickHouse, Apache Doris, Elasticsearch, OpenSearch, Qdrant, Milvus, Weaviate, Neo4j, and InfluxDB — twelve data engines in total, say goodbye to repetitive boilerplate
+- **Unified Data Access Layer**: A single generic Repository interface covering GORM, Ent, MongoDB, ClickHouse, Apache Doris, Elasticsearch, OpenSearch, Qdrant, Milvus, Weaviate, Neo4j, InfluxDB, and Cassandra — thirteen data engines in total, say goodbye to repetitive boilerplate
 - **Three Pagination Strategies**: Offset / Page / Token pagination modes for traditional web paging, RESTful APIs, and infinite-scroll scenarios
-- **Structured Filter Engine**: 29+ operators with AND/OR multi-level nesting, supporting both JSON and Google AIP filter syntaxes with parameterized queries to prevent SQL injection
+- **Structured Filter Engine**: 28 operators with AND/OR multi-level nesting, supporting both JSON and Google AIP filter syntaxes with parameterized queries to prevent SQL injection
 - **Protocol Buffers Contract**: Standardized pagination, filtering, and sorting definitions via Protobuf — a natural fit for gRPC microservices; interfaces as documentation
 - **Redis Cache Layer**: Built-in Cache-Aside pattern with SingleFlight stampede protection; enable caching with a single line of code
 - **Audit Logging**: Unified Auditor interface with Context injection for full-chain operation tracing and data change recording
@@ -160,7 +160,7 @@ Every DAL module provides a unified generic Repository wrapper with bidirectiona
 |---------|:----:|:---:|:-------:|:----------:|:-----:|:-------:|:--------:|
 | Create / Get / Update / Delete | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Paginated Query (Page / Offset / Token) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Structured Filtering (29+ operators) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Structured Filtering (28 operators) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Multi-field Sorting | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Field Selection (FieldMask) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Batch Write (BatchCreate) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -174,6 +174,8 @@ Every DAL module provides a unified generic Repository wrapper with bidirectiona
 | Stream Load | — | — | — | — | ✅ | — | — |
 | Raw SQL Queries | — | — | — | — | ✅ | ✅ | — |
 | Vector Search (kNN / TopK) | ✅ pgvector | — | ✅ Atlas | ✅ | ✅ | ✅ kNN | — |
+
+> The table above covers the seven full DAL modules. The vector databases (Qdrant / Milvus / Weaviate), the graph database (Neo4j), and the wide-column database (Cassandra) provide a focused method set — Create / BatchCreate / Get / GetByUUID / Count / Exists / DeleteByIDs / DeleteByUUIDs — plus Query, engine-native conditional deletes (DeleteByFilter / DeleteByExpr / DeleteByWhere), Upsert (explicit on Milvus; Create is natively upsert on Qdrant / Cassandra), and SearchByVector per engine. Generic Update and the unified paging contract are not in scope for these five modules yet — see each module's README for details.
 
 ### Vector Search (RAG / Semantic Search)
 
@@ -216,7 +218,7 @@ Unified conventions:
 
 ### Filter Operators
 
-A structured filter engine defined via Protobuf, supporting 29+ operators:
+A structured filter engine defined via Protobuf, supporting 28 operators:
 
 | Category | Operators |
 |----------|-----------|
@@ -278,7 +280,10 @@ Supports `AND` / `OR` multi-level nested combinations via `FilterExpr` for arbit
 | Document DB | MongoDB | NoSQL document storage |
 | OLAP Engine | ClickHouse / Apache Doris | Columnar storage for extreme analytical performance |
 | Search Engine | Elasticsearch / OpenSearch | Full-text search and data analytics |
+| Vector DB | Qdrant / Milvus / Weaviate | Vector search with multi-tenant isolation |
+| Graph DB | Neo4j | Property graph storage with Cypher queries |
 | Time-Series DB | InfluxDB | Time-series data collection and analytics |
+| Wide-Column DB | Cassandra | Highly available wide-column storage, ScyllaDB compatible |
 | Cache | Redis | In-memory data store with stampede protection |
 | DTO Mapping | go-utils/mapper | Generic CopierMapper with bidirectional auto-mapping |
 | API Definition | Protobuf + buf.build | Contract-first API design, cross-language support |
@@ -301,7 +306,12 @@ go get github.com/tx7do/go-crud/clickhouse    # ClickHouse
 go get github.com/tx7do/go-crud/doris         # Apache Doris
 go get github.com/tx7do/go-crud/elasticsearch # Elasticsearch
 go get github.com/tx7do/go-crud/opensearch    # OpenSearch
+go get github.com/tx7do/go-crud/qdrant        # Qdrant
+go get github.com/tx7do/go-crud/milvus        # Milvus
+go get github.com/tx7do/go-crud/weaviate      # Weaviate
+go get github.com/tx7do/go-crud/neo4j         # Neo4j
 go get github.com/tx7do/go-crud/influxdb      # InfluxDB
+go get github.com/tx7do/go-crud/cassandra     # Cassandra
 ```
 
 ### Example: GORM Repository
@@ -404,10 +414,10 @@ result, _ := repo.ListWithPaging(ctx, db, &paginationV1.PagingRequest{
 
 | Feature | go-crud | Hand-written Repository | Other CRUD Libraries |
 |---------|---------|------------------------|---------------------|
-| Multi-engine unified API | ✅ 8 engines | ❌ Write each manually | ❌ Usually one engine |
+| Multi-engine unified API | ✅ 13 engines | ❌ Write each manually | ❌ Usually one engine |
 | Generic type safety | ✅ Bidirectional DTO ↔ Entity mapping | ⚠️ Varies | ⚠️ Partial |
 | Protocol Buffers contract | ✅ Standardized interface definitions | ❌ | ❌ |
-| Structured filter engine | ✅ 29+ operators + AND/OR nesting | ❌ | ⚠️ Basic filtering |
+| Structured filter engine | ✅ 28 operators + AND/OR nesting | ❌ | ⚠️ Basic filtering |
 | Three pagination strategies | ✅ Page / Offset / Token | ❌ | ❌ |
 | Built-in caching | ✅ Cache-Aside + stampede protection | ❌ | ❌ |
 | Audit logging | ✅ Full-chain tracing | ❌ | ❌ |
@@ -416,6 +426,9 @@ result, _ := repo.ListWithPaging(ctx, db, &paginationV1.PagingRequest{
 | OLAP engine support | ✅ ClickHouse + Doris | ❌ | ❌ |
 | Search engine support | ✅ Elasticsearch + OpenSearch | ❌ | ❌ |
 | Time-series DB support | ✅ InfluxDB | ❌ | ❌ |
+| Vector DB support | ✅ Qdrant + Milvus + Weaviate (plus pgvector / Atlas / ES kNN) | ❌ | ❌ |
+| Graph DB support | ✅ Neo4j | ❌ | ❌ |
+| Wide-column DB support | ✅ Cassandra (direct ScyllaDB compatibility) | ❌ | ❌ |
 
 ---
 
