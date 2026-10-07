@@ -127,8 +127,6 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
-github.com/tx7do/go-crud/vector v0.0.0-20261005140326-788b8910baf7 h1:YLuF4dgtx9kIiANRSbjS8pGMSun6mvjF9qHoqMXjLng=
-github.com/tx7do/go-crud/vector v0.0.0-20261005140326-788b8910baf7/go.mod h1:pk9lP45VVmMo7hYEzr3/dqFXCDA25zM3EMhnrqBIB0o=
 github.com/tx7do/go-utils/mapper v0.0.3 h1:Z7YoPVsa6I3lfWGSUoa9atujHWeF3kP+yKfS6Rkx5SM=
 github.com/tx7do/go-utils/mapper v0.0.3/go.mod h1:zziBbtoqCt8pRw+jmK9Ic9sRD7a2yCLWG40Hy2UCSCs=
 github.com/tx7do/go-wind v0.0.3 h1:w28QBX73mG8oGlPQ6kIsC84QL7AUy4xmR0IlVWZNfFI=

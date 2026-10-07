@@ -9,8 +9,8 @@ replace github.com/tx7do/go-crud/viewer => ../viewer
 require (
 	github.com/milvus-io/milvus-sdk-go/v2 v2.4.2
 	github.com/stretchr/testify v1.12.1
-	github.com/tx7do/go-crud/vector v0.0.0-00010101000000-000000000000
-	github.com/tx7do/go-crud/viewer v0.0.0-00010101000000-000000000000
+	github.com/tx7do/go-crud/vector v0.0.1
+	github.com/tx7do/go-crud/viewer v0.0.8
 	github.com/tx7do/go-utils/mapper v0.0.3
 	github.com/tx7do/go-wind v0.0.3
 	google.golang.org/grpc v1.48.0
