@@ -1,10 +1,11 @@
 REM 零伪版本门禁：模块目录内的 replace => ../xxx 会掩盖悬空版本，go mod tidy 会把
 REM 类内 require 记成 v0.0.0-00010101000000-000000000000；该版本号下游永远无法解析，
 REM replace 只对主模块生效，消费者 go get 必失败（milvus/weaviate v0.0.1 前车之鉴）。
-findstr /s /m /c:"v0.0.0-00010101000000-000000000000" *.go.mod >NUL 2>&1
+REM 注意文件规格必须是 go.mod 而非 *.go.mod——findstr 通配符要求后缀 .go.mod 前还有前缀。
+findstr /s /m /c:"v0.0.0-00010101000000-000000000000" go.mod >NUL 2>&1
 if %errorlevel%==0 (
     echo [ERROR] 检测到 go.mod 零伪版本 require，先落真实已发布版本号再打标。命中文件：
-    findstr /s /m /c:"v0.0.0-00010101000000-000000000000" *.go.mod
+    findstr /s /m /c:"v0.0.0-00010101000000-000000000000" go.mod
     exit /b 1
 )
 
