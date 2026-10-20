@@ -7,6 +7,7 @@ import (
 
 	"github.com/tx7do/go-utils/trans"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
@@ -869,5 +870,72 @@ func TestStructuredFilter_FieldAllowlist(t *testing.T) {
 	invalidSQL, _ := invalidS.Query()
 	if strings.Contains(invalidSQL, "WHERE") {
 		t.Fatalf("expected no WHERE for invalid column 'password' (allowlist should reject), got: %s", invalidSQL)
+	}
+}
+
+// TestJsonPathValueBinding 回归：JSONB 点路径条件的值填在 ValueOneof.JsonValue
+// （google.protobuf.Value）里，算子必须解析它而不是只读普通 Value——
+// 否则 CONTAINS 退化成 LIKE '%%'（恒真）、EQ 退化成 = ''（恒假），条件形同虚设。
+func TestJsonPathValueBinding(t *testing.T) {
+	sf := NewStructuredFilter()
+
+	buildSQL := func(cond *paginationV1.FilterCondition) (string, []any) {
+		expr := &paginationV1.FilterExpr{
+			Type:       paginationV1.ExprType_AND,
+			Conditions: []*paginationV1.FilterCondition{cond},
+		}
+		sels, err := sf.BuildSelectors(expr)
+		if err != nil {
+			t.Fatalf("BuildSelectors error: %v", err)
+		}
+		s := sql.Dialect(dialect.Postgres).Select("*").From(sql.Table("menus"))
+		sels[0](s)
+		q, args := s.Query()
+		return q, args
+	}
+
+	// CONTAINS：字符串 JsonValue → LIKE '%menu%'，参数必须绑定上
+	q, args := buildSQL(&paginationV1.FilterCondition{
+		Field:    "name",
+		JsonPath: trans.Ptr("title"),
+		Op:       paginationV1.Operator_CONTAINS,
+		ValueOneof: &paginationV1.FilterCondition_JsonValue{
+			JsonValue: structpb.NewStringValue("menu"),
+		},
+	})
+	if !strings.Contains(q, "->>") {
+		t.Fatalf("expected JSONB path expression, got: %s", q)
+	}
+	if len(args) != 1 || args[0] != "%menu%" {
+		t.Fatalf("expected arg [%%menu%%], got: %v (sql: %s)", args, q)
+	}
+
+	// EQ：数字 JsonValue（如 meta.order）→ = '3'
+	q, args = buildSQL(&paginationV1.FilterCondition{
+		Field:    "name",
+		JsonPath: trans.Ptr("order"),
+		Op:       paginationV1.Operator_EQ,
+		ValueOneof: &paginationV1.FilterCondition_JsonValue{
+			JsonValue: structpb.NewNumberValue(3),
+		},
+	})
+	if !strings.Contains(q, "->>") {
+		t.Fatalf("expected JSONB path expression, got: %s", q)
+	}
+	if len(args) != 1 || args[0] != "3" {
+		t.Fatalf("expected arg [3], got: %v (sql: %s)", args, q)
+	}
+
+	// 普通 Value 条件不受影响
+	q, args = buildSQL(&paginationV1.FilterCondition{
+		Field:      "name",
+		Op:         paginationV1.Operator_CONTAINS,
+		ValueOneof: &paginationV1.FilterCondition_Value{Value: "Menu"},
+	})
+	if !strings.Contains(q, `"name"`) {
+		t.Fatalf("expected plain column, got: %s", q)
+	}
+	if len(args) != 1 || args[0] != "%Menu%" {
+		t.Fatalf("expected arg [%%Menu%%], got: %v (sql: %s)", args, q)
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/tx7do/go-utils/stringcase"
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
+	"github.com/tx7do/go-crud/pagination"
 )
 
 // StructuredFilter 基于 FilterExpr 的 GORM 过滤器
@@ -155,11 +156,15 @@ func (sf StructuredFilter) condExpr(db *gorm.DB, cond *paginationV1.FilterCondit
 	if cond == nil {
 		return "", nil, nil
 	}
+	// 值解析：普通条件值在 Value；JSONB 点路径条件的值由 query_string_converter
+	// 填在 ValueOneof.JsonValue（google.protobuf.Value）里，不做解析的话算子拿到
+	// 的是空串——CONTAINS 退化成 LIKE '%%'（恒真）、EQ 退化成 = ''（恒假）。
 	val := ""
 	switch cond.ValueOneof.(type) {
-	case *paginationV1.FilterCondition_Value:
-		val = cond.GetValue()
+	case *paginationV1.FilterCondition_JsonValue:
+		val = pagination.StructValueToString(cond.GetJsonValue())
 	default:
+		val = cond.GetValue()
 	}
 
 	var field string

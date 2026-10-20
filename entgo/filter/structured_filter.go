@@ -14,6 +14,7 @@ import (
 
 	paginationV1 "github.com/tx7do/go-crud/api/gen/go/pagination/v1"
 	"github.com/tx7do/go-crud/entgo/ent"
+	"github.com/tx7do/go-crud/pagination"
 	"github.com/tx7do/go-crud/pagination/filter"
 )
 
@@ -26,6 +27,17 @@ func NewStructuredFilter() *StructuredFilter {
 	return &StructuredFilter{
 		codec: encoding.GetCodec("json"),
 	}
+}
+
+// strValue 解析条件的比较值字符串：优先普通 Value；JSONB 点路径条件的值由
+// query_string_converter 填在 ValueOneof.JsonValue（google.protobuf.Value）里，
+// 不做解析的话各算子拿到的是空串——CONTAINS 退化成 LIKE '%%'（恒真）、
+// EQ 退化成 = ''（恒假），条件形同虚设。
+func (sf StructuredFilter) strValue(cond *paginationV1.FilterCondition) string {
+	if v := cond.GetValue(); v != "" {
+		return v
+	}
+	return pagination.StructValueToString(cond.GetJsonValue())
 }
 
 // BuildSelectors 构建过滤选择器
@@ -223,7 +235,7 @@ func columnAllowed(table, col string) bool {
 // Equal = 相等操作
 // SQL: WHERE "name" = "tom"
 func (sf StructuredFilter) Equal(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.EQ(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.EQ(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // NotEqual NOT 不相等操作
@@ -231,15 +243,15 @@ func (sf StructuredFilter) Equal(s *sql.Selector, p *sql.Predicate, condition *p
 // 或者： WHERE "name" <> "tom"
 // 用NOT可以过滤出NULL，而用<>、!=则不能。
 func (sf StructuredFilter) NotEqual(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.Not().EQ(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.Not().EQ(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // In IN操作
 // SQL: WHERE name IN ("tom", "jimmy")
 func (sf StructuredFilter) In(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	if len(condition.GetValue()) > 0 {
+	if len(sf.strValue(condition)) > 0 {
 		var jsonValues []any
-		if err := sf.codec.Unmarshal([]byte(condition.GetValue()), &jsonValues); err == nil {
+		if err := sf.codec.Unmarshal([]byte(sf.strValue(condition)), &jsonValues); err == nil {
 			return p.In(s.C(sf.getField(s, condition)), jsonValues...)
 		}
 	} else if len(condition.GetValues()) > 0 {
@@ -256,9 +268,9 @@ func (sf StructuredFilter) In(s *sql.Selector, p *sql.Predicate, condition *pagi
 // NotIn NOT IN操作
 // SQL: WHERE name NOT IN ("tom", "jimmy")`
 func (sf StructuredFilter) NotIn(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	if len(condition.GetValue()) > 0 {
+	if len(sf.strValue(condition)) > 0 {
 		var jsonValues []any
-		if err := sf.codec.Unmarshal([]byte(condition.GetValue()), &jsonValues); err == nil {
+		if err := sf.codec.Unmarshal([]byte(sf.strValue(condition)), &jsonValues); err == nil {
 			return p.NotIn(s.C(sf.getField(s, condition)), jsonValues...)
 		}
 	} else if len(condition.GetValues()) > 0 {
@@ -275,34 +287,34 @@ func (sf StructuredFilter) NotIn(s *sql.Selector, p *sql.Predicate, condition *p
 // GTE (Greater Than or Equal) 大于等于 >= 操作
 // SQL: WHERE "create_time" >= "2023-10-25"
 func (sf StructuredFilter) GTE(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.GTE(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.GTE(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // GT (Greater than) 大于 > 操作
 // SQL: WHERE "create_time" > "2023-10-25"
 func (sf StructuredFilter) GT(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.GT(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.GT(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // LTE LTE (Less Than or Equal) 小于等于 <=操作
 // SQL: WHERE "create_time" <= "2023-10-25"
 func (sf StructuredFilter) LTE(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.LTE(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.LTE(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // LT (Less than) 小于 <操作
 // SQL: WHERE "create_time" < "2023-10-25"
 func (sf StructuredFilter) LT(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.LT(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.LT(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // Range 在值域之中 BETWEEN操作
 // SQL: WHERE "create_time" BETWEEN "2023-10-25" AND "2024-10-25"
 // 或者： WHERE "create_time" >= "2023-10-25" AND "create_time" <= "2024-10-25"
 func (sf StructuredFilter) Range(s *sql.Selector, _ *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	if len(condition.GetValue()) > 0 {
+	if len(sf.strValue(condition)) > 0 {
 		var jsonValues []any
-		if err := sf.codec.Unmarshal([]byte(condition.GetValue()), &jsonValues); err == nil {
+		if err := sf.codec.Unmarshal([]byte(sf.strValue(condition)), &jsonValues); err == nil {
 			if len(jsonValues) != 2 {
 				return nil
 			}
@@ -337,49 +349,49 @@ func (sf StructuredFilter) IsNotNull(s *sql.Selector, p *sql.Predicate, conditio
 // Contains LIKE 前后模糊查询
 // SQL: WHERE name LIKE '%L%';
 func (sf StructuredFilter) Contains(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.Contains(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.Contains(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // InsensitiveContains ILIKE 前后模糊查询
 // SQL: WHERE name ILIKE '%L%';
 func (sf StructuredFilter) InsensitiveContains(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.ContainsFold(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.ContainsFold(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // StartsWith LIKE 前缀+模糊查询
 // SQL: WHERE name LIKE 'La%';
 func (sf StructuredFilter) StartsWith(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.HasPrefix(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.HasPrefix(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // InsensitiveStartsWith ILIKE 前缀+模糊查询
 // SQL: WHERE name ILIKE 'La%';
 func (sf StructuredFilter) InsensitiveStartsWith(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.EqualFold(s.C(sf.getField(s, condition)), condition.GetValue()+"%")
+	return p.EqualFold(s.C(sf.getField(s, condition)), sf.strValue(condition)+"%")
 }
 
 // EndsWith LIKE 后缀+模糊查询
 // SQL: WHERE name LIKE '%a';
 func (sf StructuredFilter) EndsWith(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.HasSuffix(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.HasSuffix(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // InsensitiveEndsWith ILIKE 后缀+模糊查询
 // SQL: WHERE name ILIKE '%a';
 func (sf StructuredFilter) InsensitiveEndsWith(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.EqualFold(s.C(sf.getField(s, condition)), "%"+condition.GetValue())
+	return p.EqualFold(s.C(sf.getField(s, condition)), "%"+sf.strValue(condition))
 }
 
 // Exact LIKE 操作 精确比对
 // SQL: WHERE name LIKE 'a';
 func (sf StructuredFilter) Exact(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.Like(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.Like(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // InsensitiveExact ILIKE 操作 不区分大小写，精确比对
 // SQL: WHERE name ILIKE 'a';
 func (sf StructuredFilter) InsensitiveExact(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	return p.EqualFold(s.C(sf.getField(s, condition)), condition.GetValue())
+	return p.EqualFold(s.C(sf.getField(s, condition)), sf.strValue(condition))
 }
 
 // Regex 正则查找
@@ -392,17 +404,17 @@ func (sf StructuredFilter) Regex(s *sql.Selector, p *sql.Predicate, condition *p
 		switch s.Builder.Dialect() {
 		case dialect.Postgres:
 			b.Ident(s.C(sf.getField(s, condition))).WriteString(" ~ ")
-			b.Arg(condition.GetValue())
+			b.Arg(sf.strValue(condition))
 			break
 
 		case dialect.MySQL:
 			b.Ident(s.C(sf.getField(s, condition))).WriteString(" REGEXP BINARY ")
-			b.Arg(condition.GetValue())
+			b.Arg(sf.strValue(condition))
 			break
 
 		case dialect.SQLite:
 			b.Ident(s.C(sf.getField(s, condition))).WriteString(" REGEXP ")
-			b.Arg(condition.GetValue())
+			b.Arg(sf.strValue(condition))
 			break
 
 		case dialect.Gremlin:
@@ -422,19 +434,19 @@ func (sf StructuredFilter) InsensitiveRegex(s *sql.Selector, p *sql.Predicate, c
 		switch s.Builder.Dialect() {
 		case dialect.Postgres:
 			b.Ident(s.C(sf.getField(s, condition))).WriteString(" ~* ")
-			b.Arg(strings.ToLower(condition.GetValue()))
+			b.Arg(strings.ToLower(sf.strValue(condition)))
 			break
 
 		case dialect.MySQL:
 			b.Ident(s.C(sf.getField(s, condition))).WriteString(" REGEXP ")
-			b.Arg(strings.ToLower(condition.GetValue()))
+			b.Arg(strings.ToLower(sf.strValue(condition)))
 			break
 
 		case dialect.SQLite:
-			value := condition.GetValue()
+			value := sf.strValue(condition)
 			b.Ident(s.C(sf.getField(s, condition))).WriteString(" REGEXP ")
-			if !strings.HasPrefix(condition.GetValue(), "(?i)") {
-				value = "(?i)" + condition.GetValue()
+			if !strings.HasPrefix(sf.strValue(condition), "(?i)") {
+				value = "(?i)" + sf.strValue(condition)
 			}
 			b.Arg(strings.ToLower(value))
 			break
@@ -449,7 +461,7 @@ func (sf StructuredFilter) InsensitiveRegex(s *sql.Selector, p *sql.Predicate, c
 // Search 全文搜索
 // SQL:
 func (sf StructuredFilter) Search(s *sql.Selector, p *sql.Predicate, condition *paginationV1.FilterCondition) *sql.Predicate {
-	if strings.TrimSpace(condition.GetValue()) == "" {
+	if strings.TrimSpace(sf.strValue(condition)) == "" {
 		return p
 	}
 
@@ -460,7 +472,7 @@ func (sf StructuredFilter) Search(s *sql.Selector, p *sql.Predicate, condition *
 			b.WriteString("to_tsvector(")
 			b.Ident(s.C(sf.getField(s, condition)))
 			b.WriteString(") @@ plainto_tsquery(")
-			b.Arg(condition.GetValue())
+			b.Arg(sf.strValue(condition))
 			b.WriteString(")")
 
 		case dialect.MySQL:
@@ -468,20 +480,20 @@ func (sf StructuredFilter) Search(s *sql.Selector, p *sql.Predicate, condition *
 			b.WriteString("MATCH(")
 			b.Ident(s.C(sf.getField(s, condition)))
 			b.WriteString(") AGAINST(")
-			b.Arg(condition.GetValue())
+			b.Arg(sf.strValue(condition))
 			b.WriteString(" IN NATURAL LANGUAGE MODE)")
 
 		case dialect.SQLite:
 			// SQLite 没有统一全文函数时使用 LIKE
 			b.Ident(s.C(sf.getField(s, condition)))
 			b.WriteString(" LIKE ")
-			b.Arg("%" + condition.GetValue() + "%")
+			b.Arg("%" + sf.strValue(condition) + "%")
 
 		default:
 			// fallback 使用通用的 LIKE 匹配
 			b.Ident(s.C(sf.getField(s, condition)))
 			b.WriteString(" LIKE ")
-			b.Arg("%" + condition.GetValue() + "%")
+			b.Arg("%" + sf.strValue(condition) + "%")
 		}
 	})
 
