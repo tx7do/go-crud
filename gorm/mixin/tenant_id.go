@@ -26,3 +26,14 @@ func (m *TenantID) BeforeCreate(tx *gorm.DB) (err error) {
 	// 委托给 gorm 模块的强制 helper，语义同 entgo EvalMutation Create。
 	return gormcrud.SetTenantIDOnCreateBeforeHook(tx)
 }
+
+// TenantID64 是 TenantID 的 64 位 ID 变体，语义与 TenantID 一致。
+type TenantID64 struct {
+	TenantID *uint64 `gorm:"column:tenant_id;type:bigint unsigned;index" json:"tenant_id,omitempty"`
+}
+
+// BeforeCreate 在创建记录前执行租户强制：租户业务视图下覆盖 tenant_id。
+func (m *TenantID64) BeforeCreate(tx *gorm.DB) (err error) {
+	// 委托给 gorm 模块的强制 helper，语义同 entgo EvalMutation Create。
+	return gormcrud.SetTenantIDOnCreateBeforeHook(tx)
+}

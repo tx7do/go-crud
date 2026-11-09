@@ -266,6 +266,78 @@ func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *E
 	return childIDs, nil
 }
 
+// QueryAllChildrenIds64 是 QueryAllChildrenIds 的 64 位 ID 变体：parent_id/id 列为 uint64。
+func QueryAllChildrenIds64[T EntClientInterface](ctx context.Context, entClient *EntClient[T], tableName string, parentID uint64) ([]uint64, error) {
+	var query string
+	switch entClient.Driver().Dialect() {
+	case dialect.MySQL:
+		query = fmt.Sprintf(`
+			WITH RECURSIVE all_descendants AS (
+				SELECT
+					id,
+					parent_id,
+					name,
+					1 AS depth
+				FROM %s
+				WHERE parent_id = ?
+
+				UNION ALL
+
+				SELECT
+					p.id,
+					p.parent_id,
+					p.name,
+					ad.depth + 1 AS depth
+				FROM %s p
+					INNER JOIN all_descendants ad
+				ON p.parent_id = ad.id
+			)
+			SELECT id FROM all_descendants;
+		`, tableName, tableName)
+
+	case dialect.Postgres:
+		query = fmt.Sprintf(`
+        WITH RECURSIVE all_descendants AS (
+            SELECT *
+			FROM %s
+			WHERE parent_id = $1
+            UNION ALL
+            SELECT p.*
+			FROM %s p
+            	INNER JOIN all_descendants ad
+			ON p.parent_id = ad.id
+        )
+        SELECT id FROM all_descendants;
+    `, tableName, tableName)
+	}
+
+	rows := &entSql.Rows{}
+	if err := entClient.Query(ctx, query, []any{parentID}, rows); err != nil {
+		log.Error(context.Background(), fmt.Sprintf("query child nodes failed: %s", err.Error()))
+		return nil, errors.New("query child nodes failed: " + err.Error())
+	}
+	defer func(rows *entSql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			log.Error(context.Background(), fmt.Sprintf("close rows failed: %s", err.Error()))
+		}
+	}(rows)
+
+	childIDs := make([]uint64, 0)
+	for rows.Next() {
+		var id uint64
+
+		if err := rows.Scan(&id); err != nil {
+			log.Error(context.Background(), fmt.Sprintf("scan child node failed: %s", err.Error()))
+			return nil, errors.New("scan child node failed")
+		}
+
+		childIDs = append(childIDs, id)
+	}
+
+	return childIDs, nil
+}
+
 // SyncSequence 同步数据库序列
 func SyncSequence[T EntClientInterface](ctx context.Context, entClient *EntClient[T], schema, table, column string) error {
 	// 校验输入
@@ -368,4 +440,15 @@ func ComputeTreePath(parentPath string, nodeID uint32) string {
 		parentPath += "/"
 	}
 	return parentPath + strconv.FormatUint(uint64(nodeID), 10) + "/"
+}
+
+// ComputeTreePath64 是 ComputeTreePath 的 64 位 ID 变体。
+func ComputeTreePath64(parentPath string, nodeID uint64) string {
+	if parentPath == "" {
+		return "/"
+	}
+	if parentPath[len(parentPath)-1] != '/' {
+		parentPath += "/"
+	}
+	return parentPath + strconv.FormatUint(nodeID, 10) + "/"
 }

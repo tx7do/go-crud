@@ -101,7 +101,11 @@ func setTenantIDOnCreate(ctx context.Context, sch *schema.Schema, reflectValue r
 	if !dec.Enforce {
 		return nil
 	}
-	// 强制覆盖：普通用户无法为自己指定他租户
-	tid := uint32(dec.TenantID)
-	return tf.Set(ctx, reflectValue, tid)
+	// 强制覆盖：普通用户无法为自己指定他租户（按列类型决定宽度，兼容 32/64 位 ID 列）
+	switch tf.IndirectFieldType.Kind() {
+	case reflect.Uint64:
+		return tf.Set(ctx, reflectValue, dec.TenantID)
+	default:
+		return tf.Set(ctx, reflectValue, uint32(dec.TenantID))
+	}
 }

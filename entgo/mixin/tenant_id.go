@@ -10,7 +10,19 @@ import (
 
 type TenantID[IDT uint32 | uint64] struct{ mixin.Schema }
 
+// Fields 按泛型参数决定 tenant_id 列的宽度：uint32→field.Uint32，uint64→field.Uint64。
 func (TenantID[IDT]) Fields() []ent.Field {
+	var zero IDT
+	if _, is64 := any(zero).(uint64); is64 {
+		return []ent.Field{
+			field.Uint64("tenant_id").
+				Comment("租户ID").
+				Immutable().
+				Default(0).
+				Nillable().
+				Optional(),
+		}
+	}
 	return []ent.Field{
 		field.Uint32("tenant_id").
 			Comment("租户ID").

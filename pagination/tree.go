@@ -98,10 +98,10 @@ func BuildTreeConstraint[ID ~string | ~int32 | ~int64 | ~uint32 | ~uint64, T Nod
 //	    func(node *OrgUnit) *uint32 { return node.ParentId },
 //	    func(node *OrgUnit) *[]*OrgUnit { return &node.Children },
 //	)
-func BuildTree[T any](
+func BuildTree[ID ~string | ~int32 | ~int64 | ~uint32 | ~uint64, T any](
 	nodes []*T,
-	getId func(node *T) *uint32,
-	getParentId func(node *T) *uint32,
+	getId func(node *T) *ID,
+	getParentId func(node *T) *ID,
 	getChildren func(node *T) *[]*T,
 ) []*T {
 	if len(nodes) == 0 {
@@ -109,7 +109,7 @@ func BuildTree[T any](
 	}
 
 	// 构建映射表，用于快速查找
-	nodeMap := make(map[uint32]*T)
+	nodeMap := make(map[ID]*T)
 	rootNodes := make([]*T, 0)
 
 	// 第一次遍历：建立 ID -> Node 的映射
@@ -120,9 +120,10 @@ func BuildTree[T any](
 	}
 
 	// 第二次遍历：构建树结构
+	var zeroID ID
 	for _, node := range nodeMap {
 		parentId := getParentId(node)
-		if parentId == nil || *parentId == 0 {
+		if parentId == nil || *parentId == zeroID {
 			// 根节点
 			rootNodes = append(rootNodes, node)
 		} else {

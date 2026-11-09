@@ -89,7 +89,7 @@ func ensureComputedPath(m ent.Mutation) {
 	}
 
 	type ParentQuerier interface {
-		ParentID() (id uint32, exists bool)
+		ParentID() (id uint64, exists bool)
 	}
 	if m.Op().Is(ent.OpCreate) {
 		if pq, ok := m.(ParentQuerier); ok {
