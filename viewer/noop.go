@@ -3,9 +3,9 @@ package viewer
 // noopContext 实现 Context 接口，用于表示匿名或未授权用户
 type noopContext struct{}
 
-func (noopContext) UserID() uint64                 { return 0 }
-func (noopContext) TenantID() uint64               { return 0 }
-func (noopContext) OrgUnitID() uint64              { return 0 }
+func (noopContext) UserID() int64                 { return 0 }
+func (noopContext) TenantID() int64               { return 0 }
+func (noopContext) OrgUnitID() int64              { return 0 }
 func (noopContext) Permissions() []string          { return nil }
 func (noopContext) Roles() []string                { return nil }
 func (noopContext) DataScope() []DataScope         { return nil }

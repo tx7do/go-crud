@@ -23,15 +23,15 @@ func WithSystemContext(ctx context.Context) context.Context {
 	return WithContext(ctx, NewSystemContext())
 }
 
-func (v SystemContext) UserID() uint64 {
+func (v SystemContext) UserID() int64 {
 	return 0
 }
 
-func (v SystemContext) TenantID() uint64 {
+func (v SystemContext) TenantID() int64 {
 	return 0
 }
 
-func (v SystemContext) OrgUnitID() uint64 {
+func (v SystemContext) OrgUnitID() int64 {
 	return 0
 }
 

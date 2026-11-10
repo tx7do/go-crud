@@ -10,18 +10,18 @@ package viewer
 //   - 平台/租户视图随 tenant_id 是否为零翻转，这是租户隔离闸门的判定依据
 //     （见 EnforceTenant）。
 type UserContext struct {
-	uid        uint64
-	tid        uint64
-	ouid       uint64
+	uid        int64
+	tid        int64
+	ouid       int64
 	traceID    string
 	dataScopes []DataScope
 }
 
 // NewUserContext 构造标准用户上下文。
 func NewUserContext(
-	uid uint64,
-	tid uint64,
-	ouid uint64,
+	uid int64,
+	tid int64,
+	ouid int64,
 	traceID string,
 	dataScopes []DataScope,
 ) Context {
@@ -34,15 +34,15 @@ func NewUserContext(
 	}
 }
 
-func (v UserContext) UserID() uint64 {
+func (v UserContext) UserID() int64 {
 	return v.uid
 }
 
-func (v UserContext) TenantID() uint64 {
+func (v UserContext) TenantID() int64 {
 	return v.tid
 }
 
-func (v UserContext) OrgUnitID() uint64 {
+func (v UserContext) OrgUnitID() int64 {
 	return v.ouid
 }
 

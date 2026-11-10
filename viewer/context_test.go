@@ -77,9 +77,9 @@ func TestSystemContext_FixedGetterSemantics(t *testing.T) {
 		got  func() any
 		want any
 	}{
-		{"UserID 恒为 0", func() any { return vc.UserID() }, uint64(0)},
-		{"TenantID 恒为 0", func() any { return vc.TenantID() }, uint64(0)},
-		{"OrgUnitID 恒为 0", func() any { return vc.OrgUnitID() }, uint64(0)},
+		{"UserID 恒为 0", func() any { return vc.UserID() }, int64(0)},
+		{"TenantID 恒为 0", func() any { return vc.TenantID() }, int64(0)},
+		{"OrgUnitID 恒为 0", func() any { return vc.OrgUnitID() }, int64(0)},
 		{"Permissions 恒为空列表", func() any { return vc.Permissions() }, []string{}},
 		{"Roles 恒为空列表", func() any { return vc.Roles() }, []string{}},
 		{"DataScope 恒为空列表", func() any { return vc.DataScope() }, []DataScope{}},
@@ -125,9 +125,9 @@ func TestSystemContext_HasPermissionAlwaysGrants(t *testing.T) {
 func TestUserContext_GettersReturnInjectedIdentity(t *testing.T) {
 	tests := []struct {
 		name         string
-		uid          uint64
-		tid          uint64
-		ouid         uint64
+		uid          int64
+		tid          int64
+		ouid         int64
 		traceID      string
 		dataScopes   []DataScope
 		wantPlatform bool
@@ -161,7 +161,7 @@ func TestUserContext_GettersReturnInjectedIdentity(t *testing.T) {
 			traceID: "trace-multi",
 			dataScopes: []DataScope{
 				{ScopeType: ScopeTypeSelf},
-				{ScopeType: ScopeTypeUnit, TargetIDs: []uint64{31, 32}},
+				{ScopeType: ScopeTypeUnit, TargetIDs: []int64{31, 32}},
 			},
 			wantPlatform: false,
 			wantTenant:   true,
@@ -227,7 +227,7 @@ func TestUserContext_FixedSemantics(t *testing.T) {
 // FromContext 完整取回（身份无损耗）；未注入的裸 context 取不到 viewer。
 func TestUserContext_ContextRoundTrip(t *testing.T) {
 	scopes := []DataScope{
-		{ScopeType: ScopeTypeUnit, TargetIDs: []uint64{5, 6}},
+		{ScopeType: ScopeTypeUnit, TargetIDs: []int64{5, 6}},
 	}
 	ctx := WithContext(context.Background(), NewUserContext(101, 202, 303, "trace-xyz", scopes))
 

@@ -6,13 +6,13 @@ import "context"
 // 增加了权限相关方法，便于在 Hook/Policy 中判断是否允许更新/删除等操作。
 type Context interface {
 	// UserID 返回当前用户ID
-	UserID() uint64
+	UserID() int64
 
 	// TenantID 返回租户ID
-	TenantID() uint64
+	TenantID() int64
 
 	// OrgUnitID 返回当前身份挂载的组织单元 ID
-	OrgUnitID() uint64
+	OrgUnitID() int64
 
 	// Permissions 返回当前 Viewer 的权限列表（可用于细粒度判断）
 	Permissions() []string

@@ -18,7 +18,7 @@ type EnforcementDecision struct {
 	// 或在 Create 上强制 SetTenantID。
 	Enforce bool
 	// TenantID 仅在 Enforce==true 时有意义，为当前 Viewer 的租户 ID。
-	TenantID uint64
+	TenantID int64
 }
 
 // EnforceTenant 是所有租户隔离实体共享的强制决策入口，语义与 entgo
@@ -44,8 +44,8 @@ func EnforceTenant(ctx context.Context) (EnforcementDecision, error) {
 // TenantID mixin 时即实现该接口，repository 通过类型断言识别（无需反射）。
 // gorm/entgo 因有其各自的 schema/mixin 检测机制，不依赖此接口。
 type ScopedModel interface {
-	GetTenantID() *uint32
-	SetTenantID(uint32)
+	GetTenantID() *int64
+	SetTenantID(int64)
 }
 
 var scopedModelType = reflect.TypeOf((*ScopedModel)(nil)).Elem()
@@ -77,7 +77,7 @@ func EnforceOnScopedInstance[T any](ctx context.Context, instance *T) error {
 	if !dec.Enforce {
 		return nil
 	}
-	sm.SetTenantID(uint32(dec.TenantID))
+	sm.SetTenantID(int64(dec.TenantID))
 	return nil
 }
 
@@ -101,6 +101,6 @@ func EnforceOnScopedInstanceAny(ctx context.Context, instance any) error {
 	if !dec.Enforce {
 		return nil
 	}
-	sm.SetTenantID(uint32(dec.TenantID))
+	sm.SetTenantID(int64(dec.TenantID))
 	return nil
 }
