@@ -28,8 +28,8 @@ type Entry struct {
 	Timestamp time.Time `json:"timestamp"` // 发生时间（建议 UTC）
 
 	// --- 操作者信息 (Viewer Data) ---
-	UserID    uint64 `json:"user_id,omitempty"`    // 操作人 ID
-	TenantID  uint64 `json:"tenant_id,omitempty"`  // 租户 ID
+	UserID    int64  `json:"user_id,omitempty"`    // 操作人 ID
+	TenantID  int64  `json:"tenant_id,omitempty"`  // 租户 ID
 	Username  string `json:"username,omitempty"`   // 操作人账号名（冗余存储，防止用户删除后无法溯源）
 	UserIP    string `json:"user_ip,omitempty"`    // 客户端 IP
 	UserAgent string `json:"user_agent,omitempty"` // 客户端环境信息
