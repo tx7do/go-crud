@@ -28,7 +28,7 @@ func OwnerOnlyRule(ctx context.Context, f Filter) error {
 	// 注入归属者过滤谓词
 	f.Where(
 		entql.Or(
-			entql.Uint64EQ(uid).Field("created_by"),
+			entql.Uint64EQ(uint64(uid)).Field("created_by"),
 			entql.Uint32EQ(uint32(uid)).Field("created_by"),
 		),
 	)
@@ -69,7 +69,7 @@ func PermissionRule(ctx context.Context, f Filter) error {
 			uid := vc.UserID()
 			// 仅限本人：匹配 created_by 字段
 			predicates = append(predicates, entql.Or(
-				entql.Uint64EQ(uid).Field("created_by"),
+				entql.Uint64EQ(uint64(uid)).Field("created_by"),
 				entql.Uint32EQ(uint32(uid)).Field("created_by"),
 			))
 
@@ -77,7 +77,7 @@ func PermissionRule(ctx context.Context, f Filter) error {
 			// 匹配组织单元 ID
 			for _, id := range s.TargetIDs {
 				predicates = append(predicates, entql.Or(
-					entql.Uint64EQ(id).Field("org_unit_id"),
+					entql.Uint64EQ(uint64(id)).Field("org_unit_id"),
 					entql.Uint32EQ(uint32(id)).Field("org_unit_id"),
 				))
 			}
@@ -86,7 +86,7 @@ func PermissionRule(ctx context.Context, f Filter) error {
 			// 匹配指定用户 ID
 			for _, id := range s.TargetIDs {
 				predicates = append(predicates, entql.Or(
-					entql.Uint64EQ(id).Field("created_by"),
+					entql.Uint64EQ(uint64(id)).Field("created_by"),
 					entql.Uint32EQ(uint32(id)).Field("created_by"),
 				))
 			}
