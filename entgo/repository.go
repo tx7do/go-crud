@@ -222,7 +222,7 @@ func (r *Repository[
 
 	res := &PagingResult[DTO]{
 		Items: dtos,
-		Total: uint64(count),
+		Total: count,
 	}
 
 	return res, nil
@@ -309,7 +309,7 @@ func (r *Repository[
 
 	res := &PagingResult[DTO]{
 		Items: roots,
-		Total: uint64(count),
+		Total: count,
 	}
 
 	return res, nil
@@ -464,7 +464,7 @@ func (r *Repository[
 
 	res := &PagingResult[DTO]{
 		Items: dtos,
-		Total: uint64(count),
+		Total: count,
 	}
 
 	return res, nil
@@ -551,7 +551,7 @@ func (r *Repository[
 
 	res := &PagingResult[DTO]{
 		Items: roots,
-		Total: uint64(count),
+		Total: count,
 	}
 
 	return res, nil
