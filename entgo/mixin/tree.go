@@ -30,7 +30,7 @@ type ParentID64 struct {
 
 func (t ParentID64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("parent_id").
+		field.Int64("parent_id").
 			Comment("父节点ID").
 			Optional().
 			Nillable(),

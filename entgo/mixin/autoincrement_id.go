@@ -28,7 +28,7 @@ type AutoIncrementId64 struct{ mixin.Schema }
 
 func (AutoIncrementId64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("id").
+		field.Int64("id").
 			Comment("id").
 			Nillable().
 			Immutable().

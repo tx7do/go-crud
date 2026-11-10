@@ -22,7 +22,7 @@ type (
 	}
 )
 
-type TenantPrivacy[T uint32 | uint64] struct {
+type TenantPrivacy[T uint32 | int64 | uint64] struct {
 	decision error
 }
 

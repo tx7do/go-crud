@@ -8,14 +8,14 @@ import (
 	"github.com/tx7do/go-crud/entgo/rule"
 )
 
-type TenantID[IDT uint32 | uint64] struct{ mixin.Schema }
+type TenantID[IDT uint32 | int64 | uint64] struct{ mixin.Schema }
 
 // Fields 按泛型参数决定 tenant_id 列的宽度：uint32→field.Uint32，uint64→field.Uint64。
 func (TenantID[IDT]) Fields() []ent.Field {
 	var zero IDT
-	if _, is64 := any(zero).(uint64); is64 {
+	if _, isI64 := any(zero).(int64); isI64 {
 		return []ent.Field{
-			field.Uint64("tenant_id").
+			field.Int64("tenant_id").
 				Comment("租户ID").
 				Immutable().
 				Default(0).

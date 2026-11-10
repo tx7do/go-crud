@@ -267,7 +267,7 @@ func QueryAllChildrenIds[T EntClientInterface](ctx context.Context, entClient *E
 }
 
 // QueryAllChildrenIds64 是 QueryAllChildrenIds 的 64 位 ID 变体：parent_id/id 列为 uint64。
-func QueryAllChildrenIds64[T EntClientInterface](ctx context.Context, entClient *EntClient[T], tableName string, parentID uint64) ([]uint64, error) {
+func QueryAllChildrenIds64[T EntClientInterface](ctx context.Context, entClient *EntClient[T], tableName string, parentID int64) ([]int64, error) {
 	var query string
 	switch entClient.Driver().Dialect() {
 	case dialect.MySQL:
@@ -323,9 +323,9 @@ func QueryAllChildrenIds64[T EntClientInterface](ctx context.Context, entClient 
 		}
 	}(rows)
 
-	childIDs := make([]uint64, 0)
+	childIDs := make([]int64, 0)
 	for rows.Next() {
-		var id uint64
+		var id int64
 
 		if err := rows.Scan(&id); err != nil {
 			log.Error(context.Background(), fmt.Sprintf("scan child node failed: %s", err.Error()))
@@ -443,12 +443,12 @@ func ComputeTreePath(parentPath string, nodeID uint32) string {
 }
 
 // ComputeTreePath64 是 ComputeTreePath 的 64 位 ID 变体。
-func ComputeTreePath64(parentPath string, nodeID uint64) string {
+func ComputeTreePath64(parentPath string, nodeID int64) string {
 	if parentPath == "" {
 		return "/"
 	}
 	if parentPath[len(parentPath)-1] != '/' {
 		parentPath += "/"
 	}
-	return parentPath + strconv.FormatUint(nodeID, 10) + "/"
+	return parentPath + strconv.FormatInt(nodeID, 10) + "/"
 }

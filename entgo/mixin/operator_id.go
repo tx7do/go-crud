@@ -44,7 +44,7 @@ type CreateBy64 struct{ mixin.Schema }
 
 func (CreateBy64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("create_by").
+		field.Int64("create_by").
 			Comment("创建者ID").
 			Optional().
 			Nillable(),
@@ -72,7 +72,7 @@ type UpdateBy64 struct{ mixin.Schema }
 
 func (UpdateBy64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("update_by").
+		field.Int64("update_by").
 			Comment("更新者ID").
 			Optional().
 			Nillable(),
@@ -100,7 +100,7 @@ type DeleteBy64 struct{ mixin.Schema }
 
 func (DeleteBy64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("delete_by").
+		field.Int64("delete_by").
 			Comment("删除者ID").
 			Optional().
 			Nillable(),
@@ -128,7 +128,7 @@ type CreatedBy64 struct{ mixin.Schema }
 
 func (CreatedBy64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("created_by").
+		field.Int64("created_by").
 			Comment("创建者ID").
 			Optional().
 			Nillable(),
@@ -156,7 +156,7 @@ type UpdatedBy64 struct{ mixin.Schema }
 
 func (UpdatedBy64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("updated_by").
+		field.Int64("updated_by").
 			Comment("更新者ID").
 			Optional().
 			Nillable(),
@@ -184,7 +184,7 @@ type DeletedBy64 struct{ mixin.Schema }
 
 func (DeletedBy64) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("deleted_by").
+		field.Int64("deleted_by").
 			Comment("删除者ID").
 			Optional().
 			Nillable(),
