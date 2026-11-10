@@ -209,7 +209,7 @@ func InjectTenantWhereIntoBuilder[ENTITY any](ctx context.Context, builder any) 
 	if !dec.Enforce {
 		return nil
 	}
-	return injectTenantWhereReflect(builder, dec.TenantID)
+	return injectTenantWhereReflect(builder, uint64(dec.TenantID))
 }
 
 // injectTenantWhereReflect 是 InjectTenantWhereIntoBuilder 的反射核心，

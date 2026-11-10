@@ -27,7 +27,7 @@ func TenantInterceptor() ent.Interceptor {
 
 			tid := vc.TenantID()
 
-			if err := injectTenantWhere(query, tid); err != nil {
+			if err := injectTenantWhere(query, uint64(tid)); err != nil {
 				return nil, err
 			}
 
