@@ -109,7 +109,7 @@ func NewRepository[
 // PagingResult 是通用的分页返回结构，包含 items 和 total 字段
 type PagingResult[E any] struct {
 	Items []*E   `json:"items"`
-	Total uint64 `json:"total"`
+	Total int64 `json:"total"`
 }
 
 // Count 计算符合条件的记录数
